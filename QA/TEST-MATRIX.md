@@ -33,3 +33,6 @@ This matrix documents all test cases across Authentication, Accounts, Contacts, 
 | **QUOTE-001** | Quotes | Create, read, update quote | Deal & account exist | 201 Created, totals computed, status update to SENT | **PASS** | P2 |
 | **REP-001** | Reports | Execute pipeline health, owner performance, win-loss | Active data in CRM | 200 OK, aggregated metrics for all 4 reports | **PASS** | P2 |
 | **SEARCH-001**| Global Search | Search query across all entities | CRM records exist | 200 OK, matching accounts, contacts, opps, deals returned | **PASS** | P2 |
+| **E2E-SEC-001** | Security | E2E cross-tenant isolation (list & access) | 2 Tenants registered | Tenant B cannot see Tenant A's accounts in the accounts list | **PASS** | P0 |
+| **E2E-SEC-002** | Security & RBAC | E2E role-based Settings Page Invite visibility | Admin & Sales Rep users | Admin sees 'Invite' button, Sales Rep has it hidden | **PASS** | P0 |
+

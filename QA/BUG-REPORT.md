@@ -68,3 +68,20 @@ This document details all defects, architectural flaws, validation bugs, and bus
 - **Root Cause**: `deals.ts` used Prisma `{ annualRevenue: { increment: amount } }`, which in PostgreSQL evaluates to `NULL + amount = NULL`.
 - **Resolution**: Updated `backend/src/routes/deals.ts` to check account `annualRevenue` and compute `(currentRevenue || 0) + dealAmount` safely.
 - **Regression Test**: `DEAL-002` in `tests/api/run-all-tests.ts`. Status: **PASSED**.
+
+---
+
+## BUG-005: Registration Authentication Race Condition
+
+- **Severity**: **CRITICAL (P0)**
+- **Feature**: User Registration & Session Handling
+- **Affected Files**: `frontend/src/hooks/useAuth.tsx`, `frontend/src/pages/RegisterPage.tsx`
+- **Steps to Reproduce**:
+  1. Go to `/register` and fill out the registration form.
+  2. Click "Create workspace".
+  3. Observe that the registration API call succeeds, but the application gets stuck on `/register` or redirects back to `/login` instead of cleanly logging the user in and redirecting to the dashboard.
+- **Expected Result**: User session is immediately established upon registration, and the user is navigated to the dashboard (`/`).
+- **Actual Result**: A race condition in the `useAuth` context provider between state initialization, the synchronous registration response, and the asynchronous `fetchMe` hook caused the authenticated user state to be cleared, preventing auto-redirection.
+- **Resolution**: Guarded all async auth state updates using an action reference counter `authActionIdRef` in `useAuth.tsx` to block stale async callbacks from overriding the active user session. Registration error messages were also correctly parsed and displayed in `RegisterPage.tsx`.
+- **Regression Test**: `tests/e2e/auth-regression.spec.ts` (8 tests) and `tests/e2e/auth.spec.ts`. Status: **PASSED**.
+
