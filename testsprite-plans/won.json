@@ -1,0 +1,53 @@
+{
+  "projectId": "dd5ce4d3-37bb-4fbf-8cc9-a8dbe533ca32",
+  "type": "frontend",
+  "name": "Opportunity to Closed Won Deal Workflow",
+  "description": "Verify Account -> Contact -> Opp -> Deal -> Closed Won -> Dashboard Revenue update",
+  "priority": "p0",
+  "planSteps": [
+    {
+      "type": "action",
+      "description": "Register user 'sprite_won@example.com' for company 'Won Deals Corp'"
+    },
+    {
+      "type": "action",
+      "description": "Navigate to /accounts and create account 'Won Account Enterprise'"
+    },
+    {
+      "type": "action",
+      "description": "Navigate to /pipeline and create opportunity 'Enterprise License Opp' for account 'Won Account Enterprise' with amount 500000"
+    },
+    {
+      "type": "action",
+      "description": "Open Enterprise License Opp detail page and click Convert to Deal button"
+    },
+    {
+      "type": "assertion",
+      "description": "Verify redirection to Deal Detail page with deal name Enterprise License Opp"
+    },
+    {
+      "type": "action",
+      "description": "Click Mark Won button"
+    },
+    {
+      "type": "assertion",
+      "description": "Verify Closed Won badge appears"
+    },
+    {
+      "type": "action",
+      "description": "Navigate to /deals?won=true"
+    },
+    {
+      "type": "assertion",
+      "description": "Verify Enterprise License Opp appears in Won Deals list with amount 500,000"
+    },
+    {
+      "type": "action",
+      "description": "Navigate to / Dashboard"
+    },
+    {
+      "type": "assertion",
+      "description": "Verify Closed Won Revenue metric displays 500,000"
+    }
+  ]
+}
