@@ -22,7 +22,7 @@ export default function RegisterPage() {
       await register(form);
       navigate("/");
     } catch (err: any) {
-      setError(err?.response?.data?.error || "Could not create your workspace");
+      setError(err?.response?.data?.error || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }

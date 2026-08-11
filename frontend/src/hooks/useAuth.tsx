@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../lib/api";
 
 export interface AuthUser {
@@ -28,17 +28,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
+  const authActionIdRef = useRef(0);
 
   async function fetchMe() {
+    const currentActionId = ++authActionIdRef.current;
     try {
       const res = await api.get("/auth/me");
-      setUser(res.data.user);
-      setTenant(res.data.tenant);
+      if (currentActionId === authActionIdRef.current) {
+        setUser(res.data.user);
+        setTenant(res.data.tenant);
+      }
     } catch {
-      setUser(null);
-      setTenant(null);
+      if (currentActionId === authActionIdRef.current) {
+        setUser(null);
+        setTenant(null);
+      }
     } finally {
-      setLoading(false);
+      if (currentActionId === authActionIdRef.current) {
+        setLoading(false);
+      }
     }
   }
 
@@ -60,6 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("crm_token", res.data.token);
     setUser(res.data.user);
     setTenant(res.data.tenant);
+    authActionIdRef.current++;
+    setLoading(false);
   }
 
   function logout() {

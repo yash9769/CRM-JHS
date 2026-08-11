@@ -57,20 +57,36 @@ Failed:         0
 
 ## 2. Playwright Browser E2E Suite (`npx playwright test`)
 
-- **Total Specs Executed**: 4
-- **Passed**: 4
+- **Total Specs Executed**: 8
+- **Total Tests Executed**: 19
+- **Passed**: 19
 - **Failed**: 0
 - **Execution Command**: `npx playwright test`
 
 ```text
-Running 4 tests using 1 worker
+Running 19 tests using 1 worker
 
-  ✓  1 [chromium] › tests/e2e/accounts.spec.ts:10:7 › Accounts CRUD E2E › ACC-001 to ACC-005: Account Create -> Read -> Update -> Search -> Details (733ms)
-  ✓  2 [chromium] › tests/e2e/auth.spec.ts:9:7 › Authentication E2E › AUTH-001 & AUTH-007: Register -> Logout -> Login -> Auth Route Protection (766ms)
-  ✓  3 [chromium] › tests/e2e/contacts.spec.ts:11:7 › Contacts E2E › CON-001 to CON-004: Contact Create -> Link Account -> Details (685ms)
-  ✓  4 [chromium] › tests/e2e/crm-lifecycle.spec.ts:13:7 › CRM Complete Lifecycle E2E › Complete CRM Lifecycle: Register -> Account -> Contact -> Opp -> Convert -> Closed Won -> Dashboard -> Refresh -> Logout/Login Persistence (1.7s)
+  ✓   1 [chromium] › tests/e2e/accounts.spec.ts:10:7 › Accounts CRUD E2E › ACC-001 to ACC-005: Account Create -> Read -> Update -> Search -> Details (721ms)
+  ✓   2 [chromium] › tests/e2e/adversarial.spec.ts:12:7 › Adversarial E2E & Responsive Suite › Closed Lost Deal E2E Workflow & Won Deals Exclusion (1.1s)
+  ✓   3 [chromium] › tests/e2e/adversarial.spec.ts:68:9 › Adversarial E2E & Responsive Suite › Responsive Viewport Layout Check — Mobile Small (375x812) (412ms)
+  ✓   4 [chromium] › tests/e2e/adversarial.spec.ts:68:9 › Adversarial E2E & Responsive Suite › Responsive Viewport Layout Check — Mobile Medium (390x844) (414ms)
+  ✓   5 [chromium] › tests/e2e/adversarial.spec.ts:68:9 › Adversarial E2E & Responsive Suite › Responsive Viewport Layout Check — Tablet Portrait (768x1024) (447ms)
+  ✓   6 [chromium] › tests/e2e/adversarial.spec.ts:68:9 › Adversarial E2E & Responsive Suite › Responsive Viewport Layout Check — Desktop Wide (1440x900) (427ms)
+  ✓   7 [chromium] › tests/e2e/auth-regression.spec.ts:6:7 › Authentication Regression › AUTH-001: Fresh registration -> Dashboard (392ms)
+  ✓   8 [chromium] › tests/e2e/auth-regression.spec.ts:24:7 › Authentication Regression › AUTH-001b: Registration -> Accounts -> Create Account (2.5s)
+  ✓   9 [chromium] › tests/e2e/auth-regression.spec.ts:50:7 › Authentication Regression › AUTH-002: Invalid registration -> error (507ms)
+  ✓  10 [chromium] › tests/e2e/auth-regression.spec.ts:77:7 › Authentication Regression › AUTH-003: Valid login -> Dashboard (619ms)
+  ✓  11 [chromium] › tests/e2e/auth-regression.spec.ts:104:7 › Authentication Regression › AUTH-004: Invalid login -> error (615ms)
+  ✓  12 [chromium] › tests/e2e/auth-regression.spec.ts:130:7 › Authentication Regression › AUTH-005: Authenticated dashboard -> refresh -> still authenticated (515ms)
+  ✓  13 [chromium] › tests/e2e/auth-regression.spec.ts:150:7 › Authentication Regression › AUTH-006: Unauthenticated /accounts -> Login (191ms)
+  ✓  14 [chromium] › tests/e2e/auth-regression.spec.ts:155:7 › Authentication Regression › AUTH-007: Logout -> protected routes blocked (561ms)
+  ✓  15 [chromium] › tests/e2e/auth.spec.ts:9:7 › Authentication E2E › AUTH-001 & AUTH-007: Register -> Logout -> Login -> Auth Route Protection (804ms)
+  ✓  16 [chromium] › tests/e2e/contacts.spec.ts:11:7 › Contacts E2E › CON-001 to CON-004: Contact Create -> Link Account -> Details (801ms)
+  ✓  17 [chromium] › tests/e2e/crm-lifecycle.spec.ts:13:7 › CRM Complete Lifecycle E2E › Complete CRM Lifecycle: Register -> Account -> Contact -> Opp -> Convert -> Closed Won -> Dashboard -> Refresh -> Logout/Login Persistence (1.9s)
+  ✓  18 [chromium] › tests/e2e/debug-login.spec.ts:3:5 › debug login (408ms)
+  ✓  19 [chromium] › tests/e2e/rbac-multitenancy.spec.ts:18:7 › Multi-Tenancy & RBAC E2E Verification › Tenant Isolation & Role-Based Access Control Flow (1.5s)
 
-  4 passed (4.3s)
+  19 passed (17.0s)
 ```
 
 ---
@@ -86,5 +102,6 @@ Running 4 tests using 1 worker
 | **Opportunity -> Deal Conversion** | API & E2E | Amount Carryover, Contact/Note/Activity Link Preservation, Source Record Status | **PASS** |
 | **Deals & Closed Won** | API & E2E | Product Line Item Pricing, Default Close Date, Account Revenue Increment | **PASS** |
 | **Dashboard KPIs** | API & E2E | Total Pipeline, Weighted Value, Won Revenue, Win Rate, Avg Deal Size | **PASS** |
-| **Security & Isolation** | API | Multi-Tenant Data Isolation, RBAC Admin-only Invite Guards | **PASS** |
+| **Security & Isolation** | API & E2E | Multi-Tenant Data Isolation, RBAC Admin-only Invite Guards, E2E list/settings restrictions | **PASS** |
 | **User Administration** | API | Reassignment of Owned Records upon Deletion | **PASS** |
+
