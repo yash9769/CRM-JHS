@@ -146,11 +146,11 @@ export default function AppShell() {
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-13 shrink-0 flex items-center justify-between px-5 border-b" style={{ borderColor: "var(--ink-100)", background: "white", height: "52px" }}>
-          <form onSubmit={handleSearch} className="relative w-80">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--ink-400)" }} />
+          <form onSubmit={handleSearch} className="relative w-full max-w-lg">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "var(--ink-400)" }} />
             <input value={search} onChange={(e) => setSearch(e.target.value)}
               placeholder="Search accounts, contacts, deals…"
-              className="w-full pl-8 pr-3 py-1.5 rounded-md text-sm border outline-none focus:ring-2"
+              className="w-full pl-10 pr-4 py-2 rounded-lg text-sm border outline-none focus:ring-2 focus:ring-[var(--ledger-600)] focus:border-transparent transition-all"
               style={{ borderColor: "var(--ink-200)", background: "var(--ink-50)" }} />
           </form>
 
