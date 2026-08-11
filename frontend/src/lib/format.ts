@@ -1,8 +1,8 @@
-export function formatCurrency(value: number | string, currency = "USD"): string {
+export function formatCurrency(value: number | string, _currency?: string): string {
   const n = typeof value === "string" ? Number(value) : value;
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency,
+    currency: "INR",
     maximumFractionDigits: 0,
   }).format(n || 0);
 }
