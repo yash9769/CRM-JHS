@@ -31,9 +31,8 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center py-10" style={{ background: "var(--ink-950)" }}>
       <div className="w-full max-w-sm">
-        <div className="flex items-center gap-2 justify-center mb-8">
-          <div className="w-8 h-8 rounded-md flex items-center justify-center font-mono-num font-bold" style={{ background: "var(--ledger-600)", color: "white" }}>L</div>
-          <span className="text-white font-semibold text-lg tracking-tight">Ledger CRM</span>
+        <div className="flex justify-center mb-8">
+          <img src="/jhs_logo_full_light.png" alt="JHS Logo" className="h-10 object-contain" />
         </div>
 
         <div className="bg-white rounded-xl p-7 shadow-2xl">

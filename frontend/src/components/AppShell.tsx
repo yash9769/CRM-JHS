@@ -121,9 +121,10 @@ export default function AppShell() {
   return (
     <div className="flex h-screen" style={{ background: "var(--paper)" }}>
       <aside className="w-56 shrink-0 flex flex-col py-4 px-2 overflow-y-auto" style={{ background: "var(--ink-950)" }}>
-        <div className="flex items-center gap-2 px-3 mb-6">
-          <div className="w-6 h-6 rounded-md flex items-center justify-center font-mono-num font-bold text-xs" style={{ background: "var(--ledger-600)", color: "white" }}>L</div>
-          <span className="text-white font-semibold text-[14px] tracking-tight">Ledger CRM</span>
+        <div className="px-3 mb-6 flex items-center">
+          <Link to="/" className="block">
+            <img src="/jhs_logo_full_light.png" alt="JHS Logo" className="h-7 object-contain" />
+          </Link>
         </div>
 
         <NavLink to="/" end className="flex items-center gap-2.5 px-3 py-1.5 mb-4 rounded-md text-sm font-medium"
