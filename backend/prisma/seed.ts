@@ -55,13 +55,14 @@ async function main() {
         isDefault: true,
         stages: {
           create: [
-            { name: "Qualified", order: 1, probability: 10 },
-            { name: "Discovery", order: 2, probability: 25 },
-            { name: "Demo / Presentation", order: 3, probability: 40 },
-            { name: "Proposal / Quote", order: 4, probability: 60 },
-            { name: "Negotiation", order: 5, probability: 80 },
-            { name: "Converted to Deal", order: 6, probability: 100, isClosed: true, isWon: true },
-            { name: "Closed Lost", order: 7, probability: 0, isClosed: true, isWon: false },
+            { name: "Lead Qualified", order: 1, probability: 10, isClosed: false, isWon: false },
+            { name: "Scope Discussion", order: 2, probability: 25, isClosed: false, isWon: false },
+            { name: "Demo", order: 3, probability: 40, isClosed: false, isWon: false },
+            { name: "Proposal", order: 4, probability: 60, isClosed: false, isWon: false },
+            { name: "Quote", order: 5, probability: 75, isClosed: false, isWon: false },
+            { name: "Negotiation", order: 6, probability: 90, isClosed: false, isWon: false },
+            { name: "Closed Won", order: 7, probability: 100, isClosed: true, isWon: true },
+            { name: "Closed Lost", order: 8, probability: 0, isClosed: true, isWon: false },
           ],
         },
       },
@@ -83,11 +84,14 @@ async function main() {
         isDefault: true,
         stages: {
           create: [
-            { name: "Proposal", order: 1, probability: 50 },
-            { name: "Negotiation", order: 2, probability: 70 },
-            { name: "Contract Review", order: 3, probability: 90 },
-            { name: "Closed Won", order: 4, probability: 100, isClosed: true, isWon: true },
-            { name: "Closed Lost", order: 5, probability: 0, isClosed: true, isWon: false },
+            { name: "Lead Qualified", order: 1, probability: 10, isClosed: false, isWon: false },
+            { name: "Scope Discussion", order: 2, probability: 25, isClosed: false, isWon: false },
+            { name: "Demo", order: 3, probability: 40, isClosed: false, isWon: false },
+            { name: "Proposal", order: 4, probability: 60, isClosed: false, isWon: false },
+            { name: "Quote", order: 5, probability: 75, isClosed: false, isWon: false },
+            { name: "Negotiation", order: 6, probability: 90, isClosed: false, isWon: false },
+            { name: "Closed Won", order: 7, probability: 100, isClosed: true, isWon: true },
+            { name: "Closed Lost", order: 8, probability: 0, isClosed: true, isWon: false },
           ],
         },
       },
@@ -198,8 +202,8 @@ async function main() {
 
   // 7. Opportunities
   const oppsData = [
-    { name: "Acme Enterprise License Opportunity", accountId: acmeAccount.id, amount: 25000, stageId: oppStages["Discovery"], probability: 25, type: "NEW_BUSINESS" as const },
-    { name: "Global Industries Training Opportunity", accountId: globalAccount.id, amount: 15000, stageId: oppStages["Proposal / Quote"], probability: 60, type: "EXPANSION" as const },
+    { name: "Acme Enterprise License Opportunity", accountId: acmeAccount.id, amount: 25000, stageId: oppStages["Scope Discussion"] || oppStages["Proposal"], probability: 25, type: "NEW_BUSINESS" as const },
+    { name: "Global Industries Training Opportunity", accountId: globalAccount.id, amount: 15000, stageId: oppStages["Proposal"] || oppStages["Scope Discussion"], probability: 60, type: "EXPANSION" as const },
   ];
 
   const opportunities: any[] = [];

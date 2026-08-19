@@ -26,22 +26,24 @@ model Tenant {
   name      String
   createdAt DateTime @default(now())
 
-  users             User[]
-  accounts          Account[]
-  contacts          Contact[]
-  opportunities     Opportunity[]
-  deals             Deal[]
-  quotes            Quote[]
-  products          Product[]
-  activities        Activity[]
-  notes             Note[]
-  sequences         Sequence[]
-  pipelines         Pipeline[]
-  associations      Association[]
-  propertyDefs      PropertyDefinition[]
-  forecastTargets   ForecastTarget[]
-  auditLogs         AuditLog[]
-  notifications     Notification[]
+  users           User[]
+  accounts        Account[]
+  contacts        Contact[]
+  opportunities   Opportunity[]
+  deals           Deal[]
+  quotes          Quote[]
+  products        Product[]
+  activities      Activity[]
+  notes           Note[]
+  sequences       Sequence[]
+  pipelines       Pipeline[]
+  associations    Association[]
+  propertyDefs    PropertyDefinition[]
+  forecastTargets ForecastTarget[]
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+  leads           Lead[]
+  savedViews      SavedView[]
 
   @@map("tenants")
 }
@@ -66,17 +68,19 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  ownedAccounts       Account[]      @relation("AccountOwner")
-  ownedContacts       Contact[]      @relation("ContactOwner")
-  ownedOpportunities  Opportunity[]  @relation("OpportunityOwner")
-  ownedDeals          Deal[]         @relation("DealOwner")
-  ownedQuotes         Quote[]        @relation("QuoteOwner")
-  ownedProducts       Product[]      @relation("ProductOwner")
-  activities          Activity[]     @relation("ActivityOwner")
-  notes               Note[]         @relation("NoteAuthor")
-  sequences           Sequence[]     @relation("SequenceOwner")
-  auditLogs           AuditLog[]
-  notifications       Notification[]
+  ownedAccounts      Account[]      @relation("AccountOwner")
+  ownedContacts      Contact[]      @relation("ContactOwner")
+  ownedOpportunities Opportunity[]  @relation("OpportunityOwner")
+  ownedDeals         Deal[]         @relation("DealOwner")
+  ownedQuotes        Quote[]        @relation("QuoteOwner")
+  ownedProducts      Product[]      @relation("ProductOwner")
+  activities         Activity[]     @relation("ActivityOwner")
+  notes              Note[]         @relation("NoteAuthor")
+  sequences          Sequence[]     @relation("SequenceOwner")
+  auditLogs          AuditLog[]
+  notifications      Notification[]
+  ownedLeads         Lead[]         @relation("LeadOwner")
+  savedViews         SavedView[]
 
   @@unique([tenantId, email])
   @@map("users")
@@ -94,24 +98,25 @@ enum AccountType {
 }
 
 model Account {
-  id            String      @id @default(uuid())
-  tenantId      String
-  tenant        Tenant      @relation(fields: [tenantId], references: [id])
-  name          String
-  domain        String?
-  industry      String?
-  employeeCount Int?
-  annualRevenue Decimal?    @db.Decimal(16, 2)
-  ownerId       String?
-  owner         User?       @relation("AccountOwner", fields: [ownerId], references: [id])
-  accountType   AccountType @default(PROSPECT)
+  id             String      @id @default(uuid())
+  tenantId       String
+  tenant         Tenant      @relation(fields: [tenantId], references: [id])
+  name           String
+  domain         String?
+  industry       String?
+  employeeCount  Int?
+  annualRevenue  Decimal?    @db.Decimal(16, 2)
+  ownerId        String?
+  owner          User?       @relation("AccountOwner", fields: [ownerId], references: [id])
+  accountType    AccountType @default(PROSPECT)
   billingAddress String?
-  phone         String?
-  website       String?
-  description   String?
-  properties    Json        @default("{}")
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  phone          String?
+  website        String?
+  description    String?
+  properties     Json        @default("{}")
+  archived       Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   contacts      Contact[]
   opportunities Opportunity[]
@@ -137,28 +142,31 @@ enum LifecycleStage {
 }
 
 model Contact {
-  id             String          @id @default(uuid())
+  id             String         @id @default(uuid())
   tenantId       String
-  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  tenant         Tenant         @relation(fields: [tenantId], references: [id])
   accountId      String?
-  account        Account?        @relation(fields: [accountId], references: [id])
+  account        Account?       @relation(fields: [accountId], references: [id])
   firstName      String
   lastName       String
   email          String?
   phone          String?
   jobTitle       String?
-  lifecycleStage LifecycleStage  @default(LEAD)
+  lifecycleStage LifecycleStage @default(LEAD)
   leadSource     String?
   ownerId        String?
-  owner          User?           @relation("ContactOwner", fields: [ownerId], references: [id])
+  owner          User?          @relation("ContactOwner", fields: [ownerId], references: [id])
   linkedinUrl    String?
   address        String?
-  properties     Json            @default("{}")
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  properties     Json           @default("{}")
+  archived       Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   opportunityContacts OpportunityContact[]
   dealContacts        DealContact[]
+  primaryOpportunities Opportunity[]      @relation("OpportunityPrimaryContact")
+  primaryDeals        Deal[]             @relation("DealPrimaryContact")
   activities          Activity[]
   notes               Note[]
   sequenceEnrollments SequenceEnrollment[]
@@ -167,6 +175,79 @@ model Contact {
   @@index([tenantId, email])
   @@index([tenantId, accountId])
   @@map("contacts")
+}
+
+// ---------------------------------------------------------------------------
+// Leads (unqualified, pre-Account/Contact prospects)
+// ---------------------------------------------------------------------------
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  NURTURING
+  UNQUALIFIED
+  CONVERTED
+}
+
+model Lead {
+  id          String     @id @default(uuid())
+  tenantId    String
+  tenant      Tenant     @relation(fields: [tenantId], references: [id])
+  firstName   String
+  lastName    String
+  email       String?
+  phone       String?
+  companyName String?
+  jobTitle    String?
+  source      String?
+  status      LeadStatus @default(NEW)
+  score       Int        @default(0)
+  notes       String?
+  archived    Boolean    @default(false)
+  ownerId     String?
+  owner       User?      @relation("LeadOwner", fields: [ownerId], references: [id])
+
+  // Populated once the lead is converted — preserves the trail without
+  // forcing a hard FK (a lead can be converted into any subset of these).
+  convertedAt            DateTime?
+  convertedAccountId     String?
+  convertedContactId     String?
+  convertedOpportunityId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activities Activity[]
+  notesList  Note[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, email])
+  @@index([tenantId, ownerId])
+  @@map("leads")
+}
+
+// ---------------------------------------------------------------------------
+// Saved Views
+// ---------------------------------------------------------------------------
+
+model SavedView {
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  ownerId    String
+  owner      User     @relation(fields: [ownerId], references: [id])
+  objectType String
+  name       String
+  filters    Json     @default("{}")
+  sortBy     String?
+  sortDir    String?
+  columns    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, objectType, ownerId])
+  @@map("saved_views")
 }
 
 // ---------------------------------------------------------------------------
@@ -179,13 +260,13 @@ enum PipelineType {
 }
 
 model Pipeline {
-  id        String         @id @default(uuid())
+  id        String       @id @default(uuid())
   tenantId  String
-  tenant    Tenant         @relation(fields: [tenantId], references: [id])
+  tenant    Tenant       @relation(fields: [tenantId], references: [id])
   name      String
   type      PipelineType
-  isDefault Boolean        @default(false)
-  createdAt DateTime       @default(now())
+  isDefault Boolean      @default(false)
+  createdAt DateTime     @default(now())
 
   stages        PipelineStage[]
   opportunities Opportunity[]
@@ -205,8 +286,9 @@ model PipelineStage {
   isClosed    Boolean  @default(false)
   isWon       Boolean  @default(false)
 
-  opportunities Opportunity[]
-  deals         Deal[]
+  opportunities            Opportunity[]
+  opportunitiesAsDealStage Opportunity[] @relation("OpportunityDealStage")
+  deals                    Deal[]
 
   @@index([pipelineId])
   @@map("pipeline_stages")
@@ -229,11 +311,15 @@ model Opportunity {
   name              String
   accountId         String
   account           Account         @relation(fields: [accountId], references: [id])
+  contactId         String?
+  contact           Contact?        @relation("OpportunityPrimaryContact", fields: [contactId], references: [id])
   amount            Decimal         @db.Decimal(16, 2)
   pipelineId        String
   pipeline          Pipeline        @relation(fields: [pipelineId], references: [id])
   stageId           String
   stage             PipelineStage   @relation(fields: [stageId], references: [id])
+  dealStageId       String?
+  dealStage         PipelineStage?  @relation("OpportunityDealStage", fields: [dealStageId], references: [id])
   probability       Int             @default(0)
   expectedCloseDate DateTime?
   ownerId           String
@@ -245,6 +331,7 @@ model Opportunity {
   convertedDealId   String?         @unique
   convertedDeal     Deal?           @relation("OpportunityToDeal", fields: [convertedDealId], references: [id])
   isConverted       Boolean         @default(false)
+  archived          Boolean         @default(false)
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
@@ -256,6 +343,7 @@ model Opportunity {
 
   @@index([tenantId])
   @@index([tenantId, accountId])
+  @@index([tenantId, contactId])
   @@index([tenantId, stageId])
   @@index([tenantId, ownerId])
   @@map("opportunities")
@@ -298,32 +386,35 @@ enum ForecastCategory {
 }
 
 model Deal {
-  id                String            @id @default(uuid())
-  tenantId          String
-  tenant            Tenant            @relation(fields: [tenantId], references: [id])
-  name              String
-  accountId         String
-  account           Account           @relation(fields: [accountId], references: [id])
-  opportunityId     String?           @unique
-  opportunity       Opportunity?      @relation("DealFromOpportunity", fields: [opportunityId], references: [id])
-  originatingOpportunity Opportunity? @relation("OpportunityToDeal")
-  amount            Decimal           @db.Decimal(16, 2)
-  pipelineId        String
-  pipeline          Pipeline          @relation(fields: [pipelineId], references: [id])
-  stageId           String
-  stage             PipelineStage     @relation(fields: [stageId], references: [id])
-  closeDate         DateTime?
-  ownerId           String
-  owner             User              @relation("DealOwner", fields: [ownerId], references: [id])
-  probability       Int               @default(0)
-  dealType          String?
-  forecastCategory  ForecastCategory  @default(PIPELINE)
-  description       String?
-  properties        Json              @default("{}")
-  wonDate           DateTime?
-  lostReason        String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  id                     String           @id @default(uuid())
+  tenantId               String
+  tenant                 Tenant           @relation(fields: [tenantId], references: [id])
+  name                   String
+  accountId              String
+  account                Account          @relation(fields: [accountId], references: [id])
+  contactId              String?
+  contact                Contact?         @relation("DealPrimaryContact", fields: [contactId], references: [id])
+  opportunityId          String?          @unique
+  opportunity            Opportunity?     @relation("DealFromOpportunity", fields: [opportunityId], references: [id])
+  originatingOpportunity Opportunity?     @relation("OpportunityToDeal")
+  amount                 Decimal          @db.Decimal(16, 2)
+  pipelineId             String
+  pipeline               Pipeline         @relation(fields: [pipelineId], references: [id])
+  stageId                String
+  stage                  PipelineStage    @relation(fields: [stageId], references: [id])
+  closeDate              DateTime?
+  ownerId                String
+  owner                  User             @relation("DealOwner", fields: [ownerId], references: [id])
+  probability            Int              @default(0)
+  dealType               String?
+  forecastCategory       ForecastCategory @default(PIPELINE)
+  description            String?
+  properties             Json             @default("{}")
+  wonDate                DateTime?
+  lostReason             String?
+  archived               Boolean          @default(false)
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
 
   contacts     DealContact[]
   stageHistory DealStageHistory[]
@@ -334,6 +425,7 @@ model Deal {
 
   @@index([tenantId])
   @@index([tenantId, accountId])
+  @@index([tenantId, contactId])
   @@index([tenantId, stageId])
   @@index([tenantId, ownerId])
   @@index([tenantId, closeDate])
@@ -369,21 +461,21 @@ model DealStageHistory {
 // ---------------------------------------------------------------------------
 
 model Product {
-  id         String   @id @default(uuid())
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id])
-  name       String
-  sku        String?
-  category   String?
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String
+  sku         String?
+  category    String?
   description String?
-  unitPrice  Decimal  @db.Decimal(16, 2)
-  currency   String   @default("USD")
-  active     Boolean  @default(true)
-  ownerId    String?
-  owner      User?    @relation("ProductOwner", fields: [ownerId], references: [id])
-  properties Json     @default("{}")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  unitPrice   Decimal  @db.Decimal(16, 2)
+  currency    String   @default("USD")
+  active      Boolean  @default(true)
+  ownerId     String?
+  owner       User?    @relation("ProductOwner", fields: [ownerId], references: [id])
+  properties  Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   lineItems LineItem[]
 
@@ -393,18 +485,18 @@ model Product {
 }
 
 model LineItem {
-  id         String   @id @default(uuid())
-  productId  String
-  product    Product  @relation(fields: [productId], references: [id])
-  dealId     String?
-  deal       Deal?    @relation(fields: [dealId], references: [id])
-  quoteId    String?
-  quote      Quote?   @relation(fields: [quoteId], references: [id])
-  quantity   Decimal  @db.Decimal(12, 2)
-  unitPrice  Decimal  @db.Decimal(16, 2)
-  discountPct Decimal @default(0) @db.Decimal(5, 2)
-  taxPct      Decimal @default(0) @db.Decimal(5, 2)
-  total       Decimal @db.Decimal(16, 2)
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  dealId      String?
+  deal        Deal?    @relation(fields: [dealId], references: [id])
+  quoteId     String?
+  quote       Quote?   @relation(fields: [quoteId], references: [id])
+  quantity    Decimal  @db.Decimal(12, 2)
+  unitPrice   Decimal  @db.Decimal(16, 2)
+  discountPct Decimal  @default(0) @db.Decimal(5, 2)
+  taxPct      Decimal  @default(0) @db.Decimal(5, 2)
+  total       Decimal  @db.Decimal(16, 2)
   createdAt   DateTime @default(now())
 
   @@index([dealId])
@@ -483,57 +575,63 @@ enum AssociatedObjectType {
   OPPORTUNITY
   DEAL
   QUOTE
+  LEAD
 }
 
 model Activity {
-  id             String               @id @default(uuid())
-  tenantId       String
-  tenant         Tenant               @relation(fields: [tenantId], references: [id])
-  type           ActivityType
-  subject        String
-  body           String?
-  ownerId        String
-  owner          User                 @relation("ActivityOwner", fields: [ownerId], references: [id])
-  dueDate        DateTime?
-  completedDate  DateTime?
-  status         ActivityStatus       @default(PENDING)
-  objectType     AssociatedObjectType
-  accountId      String?
-  account        Account?             @relation(fields: [accountId], references: [id])
-  contactId      String?
-  contact        Contact?             @relation(fields: [contactId], references: [id])
-  opportunityId  String?
-  opportunity    Opportunity?         @relation(fields: [opportunityId], references: [id])
-  dealId         String?
-  deal           Deal?                @relation(fields: [dealId], references: [id])
-  metadata       Json                 @default("{}")
-  createdAt      DateTime             @default(now())
+  id            String               @id @default(uuid())
+  tenantId      String
+  tenant        Tenant               @relation(fields: [tenantId], references: [id])
+  type          ActivityType
+  subject       String
+  body          String?
+  ownerId       String
+  owner         User                 @relation("ActivityOwner", fields: [ownerId], references: [id])
+  dueDate       DateTime?
+  completedDate DateTime?
+  status        ActivityStatus       @default(PENDING)
+  objectType    AssociatedObjectType
+  accountId     String?
+  account       Account?             @relation(fields: [accountId], references: [id])
+  contactId     String?
+  contact       Contact?             @relation(fields: [contactId], references: [id])
+  opportunityId String?
+  opportunity   Opportunity?         @relation(fields: [opportunityId], references: [id])
+  dealId        String?
+  deal          Deal?                @relation(fields: [dealId], references: [id])
+  leadId        String?
+  lead          Lead?                @relation(fields: [leadId], references: [id])
+  metadata      Json                 @default("{}")
+  createdAt     DateTime             @default(now())
 
   @@index([tenantId])
   @@index([tenantId, accountId])
   @@index([tenantId, contactId])
   @@index([tenantId, opportunityId])
   @@index([tenantId, dealId])
+  @@index([tenantId, leadId])
   @@map("activities")
 }
 
 model Note {
-  id            String   @id @default(uuid())
+  id            String       @id @default(uuid())
   tenantId      String
-  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  tenant        Tenant       @relation(fields: [tenantId], references: [id])
   body          String
   authorId      String
-  author        User     @relation("NoteAuthor", fields: [authorId], references: [id])
+  author        User         @relation("NoteAuthor", fields: [authorId], references: [id])
   accountId     String?
-  account       Account? @relation(fields: [accountId], references: [id])
+  account       Account?     @relation(fields: [accountId], references: [id])
   contactId     String?
-  contact       Contact? @relation(fields: [contactId], references: [id])
+  contact       Contact?     @relation(fields: [contactId], references: [id])
   opportunityId String?
   opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
   dealId        String?
-  deal          Deal?    @relation(fields: [dealId], references: [id])
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  deal          Deal?        @relation(fields: [dealId], references: [id])
+  leadId        String?
+  lead          Lead?        @relation(fields: [leadId], references: [id])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   @@index([tenantId])
   @@map("notes")
@@ -650,17 +748,17 @@ enum PropertyType {
 }
 
 model PropertyDefinition {
-  id          String       @id @default(uuid())
-  tenantId    String
-  tenant      Tenant       @relation(fields: [tenantId], references: [id])
-  objectType  String
-  name        String
-  label       String
-  type        PropertyType
-  required    Boolean      @default(false)
+  id           String       @id @default(uuid())
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  objectType   String
+  name         String
+  label        String
+  type         PropertyType
+  required     Boolean      @default(false)
   defaultValue String?
-  enumOptions Json?
-  createdAt   DateTime     @default(now())
+  enumOptions  Json?
+  createdAt    DateTime     @default(now())
 
   @@unique([tenantId, objectType, name])
   @@map("property_definitions")
@@ -671,13 +769,13 @@ model PropertyDefinition {
 // ---------------------------------------------------------------------------
 
 model ForecastTarget {
-  id        String   @id @default(uuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  ownerId   String?
-  period    String   // e.g. "2026-08"
-  targetAmount Decimal @db.Decimal(16, 2)
-  createdAt DateTime @default(now())
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  ownerId      String?
+  period       String // e.g. "2026-08"
+  targetAmount Decimal  @db.Decimal(16, 2)
+  createdAt    DateTime @default(now())
 
   @@unique([tenantId, ownerId, period])
   @@map("forecast_targets")
