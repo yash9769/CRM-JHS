@@ -11,7 +11,7 @@ const activityIcons: Record<string, any> = {
   FOLLOW_UP: Repeat, DEMO: Monitor, PROPOSAL: FileText, OTHER: MoreHorizontal,
 };
 
-type Assoc = { objectType: "ACCOUNT" | "CONTACT" | "OPPORTUNITY" | "DEAL"; accountId?: string; contactId?: string; opportunityId?: string; dealId?: string };
+type Assoc = { objectType: "ACCOUNT" | "CONTACT" | "OPPORTUNITY" | "DEAL" | "LEAD"; accountId?: string; contactId?: string; opportunityId?: string; dealId?: string; leadId?: string };
 
 interface TimelineEvent {
   id: string;

@@ -2,26 +2,27 @@ import { NavLink, Outlet, useNavigate, Link } from "react-router-dom";
 import {
   LayoutDashboard, KanbanSquare, Target, Handshake, Trophy,
   Package, Building2, Users, Search, ChevronDown, LogOut,
-  FileText, Zap, TrendingUp, BarChart2, Settings, Bell,
+  FileText, Zap, TrendingUp, BarChart2, Settings, Bell, UserPlus,
+  CheckSquare,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { initials } from "../lib/format";
 import { useState, useEffect } from "react";
 import { api } from "../lib/api";
+import { QuickCreateButton } from "./QuickCreate";
 
-const salesNav = [
-  { to: "/pipeline",      label: "Pipeline",      icon: KanbanSquare },
-  { to: "/opportunities", label: "Opportunities", icon: Target },
-  { to: "/deals",         label: "Deals",         icon: Handshake },
-  { to: "/deals?won=true",label: "Won Deals",      icon: Trophy },
-  { to: "/quotes",        label: "Quotes",        icon: FileText },
-  { to: "/products",      label: "Products",      icon: Package },
-  { to: "/sequences",     label: "Sequences",     icon: Zap },
-];
-
-const crmNav = [
-  { to: "/accounts", label: "Accounts", icon: Building2 },
-  { to: "/contacts", label: "Contacts", icon: Users },
+const salesCrmNav = [
+  { to: "/accounts",       label: "Accounts",       icon: Building2 },
+  { to: "/contacts",       label: "Contacts",       icon: Users },
+  { to: "/opportunities",  label: "Opportunities",  icon: Target },
+  { to: "/deals",          label: "Deals",          icon: Handshake },
+  { to: "/leads",          label: "Leads",          icon: UserPlus },
+  { to: "/pipeline",       label: "Pipeline",       icon: KanbanSquare },
+  { to: "/deals?won=true", label: "Won Deals",      icon: Trophy },
+  { to: "/quotes",         label: "Quotes",         icon: FileText },
+  { to: "/products",       label: "Products",       icon: Package },
+  { to: "/sequences",      label: "Sequences",      icon: Zap },
+  { to: "/tasks",          label: "Tasks",          icon: CheckSquare },
 ];
 
 const analyticsNav = [
@@ -35,7 +36,7 @@ function NavSection({ title, items }: { title: string; items: { to: string; labe
       <div className="px-3 mb-1.5 text-[10px] font-semibold tracking-wider uppercase" style={{ color: "var(--ink-500)" }}>{title}</div>
       <div className="space-y-0.5">
         {items.map((item) => (
-          <NavLink key={item.to} to={item.to} end
+          <NavLink key={item.to} to={item.to} end={item.to !== "/deals?won=true"}
             className="flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
             style={({ isActive }) => ({
               backgroundColor: isActive ? "var(--ledger-700)" : "transparent",
@@ -132,8 +133,7 @@ export default function AppShell() {
           <LayoutDashboard size={15} /> Dashboard
         </NavLink>
 
-        <NavSection title="Sales" items={salesNav} />
-        <NavSection title="CRM" items={crmNav} />
+        <NavSection title="Sales / CRM" items={salesCrmNav} />
         <NavSection title="Analytics" items={analyticsNav} />
 
         <div className="mt-auto pt-3 border-t" style={{ borderColor: "var(--ink-800)" }}>
@@ -156,6 +156,7 @@ export default function AppShell() {
           </form>
 
           <div className="flex items-center gap-2">
+            <QuickCreateButton />
             <NotificationBell />
             <div className="relative">
               <button onClick={() => setMenuOpen((v) => !v)} className="flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full hover:bg-[var(--ink-50)]">

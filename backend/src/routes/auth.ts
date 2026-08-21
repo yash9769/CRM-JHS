@@ -42,24 +42,25 @@ export default async function authRoutes(app: FastifyInstance) {
         },
       });
 
-      // Seed default Opportunity + Deal pipelines so the app is usable immediately.
+      // Seed default Opportunity + Deal pipelines with canonical 8 stages.
+      const canonicalStages = [
+        { name: "Lead Qualified", order: 1, probability: 10, isClosed: false, isWon: false },
+        { name: "Scope Discussion", order: 2, probability: 25, isClosed: false, isWon: false },
+        { name: "Demo", order: 3, probability: 40, isClosed: false, isWon: false },
+        { name: "Proposal", order: 4, probability: 60, isClosed: false, isWon: false },
+        { name: "Quote", order: 5, probability: 75, isClosed: false, isWon: false },
+        { name: "Negotiation", order: 6, probability: 90, isClosed: false, isWon: false },
+        { name: "Closed Won", order: 7, probability: 100, isClosed: true, isWon: true },
+        { name: "Closed Lost", order: 8, probability: 0, isClosed: true, isWon: false },
+      ];
+
       const oppPipeline = await tx.pipeline.create({
         data: {
           tenantId: tenant.id,
           name: "Standard Opportunity Pipeline",
           type: "OPPORTUNITY",
           isDefault: true,
-          stages: {
-            create: [
-              { name: "Qualified", order: 1, probability: 10 },
-              { name: "Discovery", order: 2, probability: 25 },
-              { name: "Demo / Presentation", order: 3, probability: 40 },
-              { name: "Proposal / Quote", order: 4, probability: 60 },
-              { name: "Negotiation", order: 5, probability: 80 },
-              { name: "Converted to Deal", order: 6, probability: 100, isClosed: true, isWon: true },
-              { name: "Closed Lost", order: 7, probability: 0, isClosed: true, isWon: false },
-            ],
-          },
+          stages: { create: canonicalStages },
         },
       });
 
@@ -69,15 +70,7 @@ export default async function authRoutes(app: FastifyInstance) {
           name: "Standard Deal Pipeline",
           type: "DEAL",
           isDefault: true,
-          stages: {
-            create: [
-              { name: "Proposal", order: 1, probability: 50 },
-              { name: "Negotiation", order: 2, probability: 70 },
-              { name: "Contract Review", order: 3, probability: 90 },
-              { name: "Closed Won", order: 4, probability: 100, isClosed: true, isWon: true },
-              { name: "Closed Lost", order: 5, probability: 0, isClosed: true, isWon: false },
-            ],
-          },
+          stages: { create: canonicalStages },
         },
       });
 

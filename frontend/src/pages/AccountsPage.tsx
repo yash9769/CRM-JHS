@@ -1,76 +1,92 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { PageHeader, Card, Button, Badge, Modal, Field, inputClass, inputStyle, EmptyState } from "../components/ui";
+import { PageHeader, Card, Button, Badge, inputClass, inputStyle, EmptyState } from "../components/ui";
+import { NewAccountModal } from "../components/CreateModals";
+import { CsvImportModal } from "../components/CsvImportModal";
+import { downloadCsvExport } from "../lib/exportCsv";
+import { RelationshipSelector } from "../components/RelationshipSelector";
+import { fetchOwnerOptions } from "../lib/pickers";
 import { formatDate } from "../lib/format";
 import type { Account, Paginated } from "../lib/types";
-import { Plus, Search, Building2 } from "lucide-react";
+import { Plus, Search, Building2, Download, UploadCloud } from "lucide-react";
 
 const typeTone: Record<string, "neutral" | "green" | "amber"> = {
   PROSPECT: "amber", CUSTOMER: "green", PARTNER: "neutral", FORMER_CUSTOMER: "neutral",
 };
 
-function NewAccountModal({ onClose }: { onClose: () => void }) {
-  const qc = useQueryClient();
-  const [form, setForm] = useState({ name: "", domain: "", industry: "", accountType: "PROSPECT" });
-  const mutation = useMutation({
-    mutationFn: () => api.post("/accounts", form),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["accounts"] });
-      onClose();
-    },
-  });
-
-  return (
-    <Modal title="New Account" onClose={onClose}>
-      <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
-        <Field label="Company name" required>
-          <input name="name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClass} style={inputStyle} placeholder="Acme Technologies" />
-        </Field>
-        <Field label="Domain">
-          <input name="domain" value={form.domain} onChange={(e) => setForm({ ...form, domain: e.target.value })} className={inputClass} style={inputStyle} placeholder="acme.com" />
-        </Field>
-        <Field label="Industry">
-          <input name="industry" value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })} className={inputClass} style={inputStyle} placeholder="Technology" />
-        </Field>
-        <Field label="Type">
-          <select name="accountType" value={form.accountType} onChange={(e) => setForm({ ...form, accountType: e.target.value })} className={inputClass} style={inputStyle}>
-            <option value="PROSPECT">Prospect</option>
-            <option value="CUSTOMER">Customer</option>
-            <option value="PARTNER">Partner</option>
-            <option value="FORMER_CUSTOMER">Former Customer</option>
-          </select>
-        </Field>
-        {mutation.isError && <div className="text-sm mb-3" style={{ color: "var(--rose-600)" }}>Could not create account.</div>}
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Creating…" : "Create Account"}</Button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
+const TYPES = ["ALL", "PROSPECT", "CUSTOMER", "PARTNER", "FORMER_CUSTOMER"] as const;
 
 export default function AccountsPage() {
   const [search, setSearch] = useState("");
   const [showNew, setShowNew] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [accountType, setAccountType] = useState<(typeof TYPES)[number]>("ALL");
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [ownerLabel, setOwnerLabel] = useState<string | null>(null);
+
   const { data, isLoading } = useQuery<Paginated<Account>>({
-    queryKey: ["accounts", search],
-    queryFn: async () => (await api.get("/accounts", { params: { search, pageSize: 50 } })).data,
+    queryKey: ["accounts", search, accountType, ownerId],
+    queryFn: async () => (await api.get("/accounts", {
+      params: { search, pageSize: 50, ...(accountType !== "ALL" ? { accountType } : {}), ...(ownerId ? { ownerId } : {}) },
+    })).data,
   });
+
+  async function exportCsv() {
+    await downloadCsvExport(
+      "/accounts/export",
+      { search, ...(accountType !== "ALL" ? { accountType } : {}), ...(ownerId ? { ownerId } : {}) },
+      "accounts.csv"
+    );
+  }
 
   return (
     <div>
       <PageHeader
         title="Accounts"
         subtitle="Companies and organizations you sell to."
-        action={<Button onClick={() => setShowNew(true)}><Plus size={15} /> New Account</Button>}
+        action={
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={() => setShowImport(true)}>
+              <UploadCloud size={14} /> Import CSV
+            </Button>
+            <Button variant="secondary" onClick={exportCsv}>
+              <Download size={14} /> Export CSV
+            </Button>
+            <Button onClick={() => setShowNew(true)}>
+              <Plus size={15} /> New Account
+            </Button>
+          </div>
+        }
       />
+      {showImport && <CsvImportModal entity="accounts" onClose={() => setShowImport(false)} />}
       <div className="px-8">
-        <div className="relative w-72 mb-4">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--ink-400)" }} />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search accounts…" className={`${inputClass} pl-8`} style={inputStyle} />
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <div className="relative w-72">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--ink-400)" }} />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search accounts…" className={`${inputClass} pl-8`} style={inputStyle} />
+          </div>
+          <div className="flex gap-1">
+            {TYPES.map((t) => (
+              <button
+                key={t}
+                onClick={() => setAccountType(t)}
+                className="px-2.5 py-1.5 rounded-md text-xs font-medium whitespace-nowrap"
+                style={{ background: accountType === t ? "var(--ledger-700)" : "var(--ink-50)", color: accountType === t ? "white" : "var(--ink-600)" }}
+              >
+                {t === "ALL" ? "All types" : t.replace("_", " ")}
+              </button>
+            ))}
+          </div>
+          <div className="w-52">
+            <RelationshipSelector
+              value={ownerId} valueLabel={ownerLabel}
+              onChange={(id, opt) => { setOwnerId(id); setOwnerLabel(opt?.label || null); }}
+              fetchOptions={fetchOwnerOptions}
+              placeholder="Filter by owner…"
+            />
+          </div>
         </div>
 
         <Card>

@@ -2,17 +2,30 @@ import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { Card, Badge, StageBadge, EmptyState } from "../components/ui";
+import { Card, Badge, StageBadge, EmptyState, Button } from "../components/ui";
 import { Timeline } from "../components/Timeline";
+import { NewContactModal, NewOpportunityModal, NewDealModal, NewLeadModal, NewTaskModal, LogActivityModal } from "../components/CreateModals";
+import { EditAccountModal, ArchiveConfirmModal } from "../components/EditModals";
+import { HistoryPanel } from "../components/HistoryPanel";
+import { useMutation, useQueryClient as useQC2 } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { formatCurrency, formatDate, initials } from "../lib/format";
 import type { Account } from "../lib/types";
-import { Building2, Globe, Phone, MapPin, Users, Target, Handshake } from "lucide-react";
+import { Building2, Globe, Phone, MapPin, Users, Target, Handshake, Plus, CheckSquare, PhoneCall, Pencil, Archive, UserPlus } from "lucide-react";
 
-const tabs = ["Overview", "Contacts", "Opportunities", "Deals", "Activity"] as const;
+const tabs = ["Overview", "Contacts", "Opportunities", "Deals", "Activity", "History"] as const;
 
 export default function AccountDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const qcArchive = useQC2();
   const [tab, setTab] = useState<(typeof tabs)[number]>("Overview");
+  const [modal, setModal] = useState<"contact" | "opportunity" | "deal" | "lead" | "task" | "log" | "edit" | "archive" | null>(null);
+  const archiveMutation = useMutation({
+    mutationFn: () => api.post(`/accounts/${id}/archive`),
+    onSuccess: () => { qcArchive.invalidateQueries({ queryKey: ["accounts"] }); navigate("/accounts"); },
+  });
+
   const { data: account, isLoading } = useQuery<Account>({
     queryKey: ["account", id],
     queryFn: async () => (await api.get(`/accounts/${id}`)).data,
@@ -36,6 +49,16 @@ export default function AccountDetailPage() {
               {account.owner && <span>Owner: {account.owner.firstName} {account.owner.lastName}</span>}
             </div>
           </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={() => setModal("edit")}><Pencil size={14} /> Edit</Button>
+          <Button variant="secondary" onClick={() => setModal("opportunity")}><Target size={14} /> Create Opportunity</Button>
+          <Button variant="secondary" onClick={() => setModal("contact")}><Users size={14} /> Create Contact</Button>
+          <Button variant="secondary" onClick={() => setModal("deal")}><Handshake size={14} /> Create Deal</Button>
+          <Button variant="secondary" onClick={() => setModal("lead")}><UserPlus size={14} /> Create Lead</Button>
+          <Button variant="secondary" onClick={() => setModal("task")}><CheckSquare size={14} /> Task</Button>
+          <Button variant="secondary" onClick={() => setModal("log")}><PhoneCall size={14} /> Log Activity</Button>
+          <Button variant="secondary" onClick={() => setModal("archive")}><Archive size={14} /> Archive</Button>
         </div>
       </div>
 
@@ -92,7 +115,13 @@ export default function AccountDetailPage() {
 
       {tab === "Contacts" && (
         <Card>
-          {!account.contacts?.length ? <EmptyState title="No contacts yet" /> : (
+          <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--ink-100)" }}>
+            <span className="text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>Contacts</span>
+            <Button size="sm" onClick={() => setModal("contact")}><Plus size={13} /> Add Contact</Button>
+          </div>
+          {!account.contacts?.length ? (
+            <EmptyState title="No contacts yet" action={<Button onClick={() => setModal("contact")}><Plus size={15} /> Add Contact</Button>} />
+          ) : (
             <table className="w-full text-sm">
               <thead><tr className="text-left border-b" style={{ borderColor: "var(--ink-100)" }}>
                 {["Name", "Title", "Email", "Phone"].map((h) => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>{h}</th>)}
@@ -119,7 +148,13 @@ export default function AccountDetailPage() {
 
       {tab === "Opportunities" && (
         <Card>
-          {!account.opportunities?.length ? <EmptyState title="No opportunities yet" /> : (
+          <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--ink-100)" }}>
+            <span className="text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>Opportunities</span>
+            <Button size="sm" onClick={() => setModal("opportunity")}><Plus size={13} /> Add Opportunity</Button>
+          </div>
+          {!account.opportunities?.length ? (
+            <EmptyState title="No opportunities yet" subtitle="Start tracking potential business." action={<Button onClick={() => setModal("opportunity")}><Plus size={15} /> Create Opportunity</Button>} />
+          ) : (
             <table className="w-full text-sm">
               <thead><tr className="text-left border-b" style={{ borderColor: "var(--ink-100)" }}>
                 {["Name", "Amount", "Stage", "Close Date"].map((h) => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>{h}</th>)}
@@ -141,7 +176,13 @@ export default function AccountDetailPage() {
 
       {tab === "Deals" && (
         <Card>
-          {!account.deals?.length ? <EmptyState title="No deals yet" /> : (
+          <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--ink-100)" }}>
+            <span className="text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>Deals</span>
+            <Button size="sm" onClick={() => setModal("deal")}><Plus size={13} /> Add Deal</Button>
+          </div>
+          {!account.deals?.length ? (
+            <EmptyState title="No deals yet" subtitle="Start tracking a deal for this account." action={<Button onClick={() => setModal("deal")}><Plus size={15} /> Create Deal</Button>} />
+          ) : (
             <table className="w-full text-sm">
               <thead><tr className="text-left border-b" style={{ borderColor: "var(--ink-100)" }}>
                 {["Name", "Amount", "Stage", "Close Date"].map((h) => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>{h}</th>)}
@@ -171,6 +212,30 @@ export default function AccountDetailPage() {
           />
         </Card>
       )}
+
+      {tab === "History" && (
+        <Card className="p-5">
+          <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--ink-800)" }}>History</h3>
+          <HistoryPanel objectType="ACCOUNT" recordId={account.id} />
+        </Card>
+      )}
+
+      {modal === "edit" && <EditAccountModal account={account} onClose={() => setModal(null)} />}
+      {modal === "archive" && (
+        <ArchiveConfirmModal
+          title={account.name}
+          impactUrl={`/accounts/${account.id}/impact`}
+          isPending={archiveMutation.isPending}
+          onConfirm={() => archiveMutation.mutate()}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal === "contact" && <NewContactModal accountId={account.id} accountName={account.name} onClose={() => setModal(null)} />}
+      {modal === "opportunity" && <NewOpportunityModal accountId={account.id} accountName={account.name} onClose={() => setModal(null)} />}
+      {modal === "deal" && <NewDealModal accountId={account.id} accountName={account.name} onClose={() => setModal(null)} />}
+      {modal === "lead" && <NewLeadModal initialCompanyName={account.name} onClose={() => setModal(null)} />}
+      {modal === "task" && <NewTaskModal context={{ objectType: "ACCOUNT", accountId: account.id, label: account.name }} onClose={() => setModal(null)} />}
+      {modal === "log" && <LogActivityModal context={{ objectType: "ACCOUNT", accountId: account.id, label: account.name }} onClose={() => setModal(null)} />}
     </div>
   );
 }

@@ -10,7 +10,7 @@ export default async function searchRoutes(app: FastifyInstance) {
     const search = String(q).trim();
     const take = Math.min(Number(limit), 20);
 
-    const [accounts, contacts, opportunities, deals] = await Promise.all([
+    const [accounts, contacts, opportunities, deals, leads] = await Promise.all([
       prisma.account.findMany({
         where: {
           tenantId,
@@ -67,11 +67,26 @@ export default async function searchRoutes(app: FastifyInstance) {
         },
         take,
       }),
+      prisma.lead.findMany({
+        where: {
+          tenantId,
+          archived: false,
+          OR: [
+            { firstName: { contains: search, mode: "insensitive" } },
+            { lastName: { contains: search, mode: "insensitive" } },
+            { email: { contains: search, mode: "insensitive" } },
+            { companyName: { contains: search, mode: "insensitive" } },
+          ],
+        },
+        select: { id: true, firstName: true, lastName: true, companyName: true, status: true },
+        take,
+      }),
     ]);
 
     const results = [
       ...accounts.map(a => ({ type: "account" as const, id: a.id, title: a.name, subtitle: a.industry || a.accountType, url: `/accounts/${a.id}` })),
       ...contacts.map(c => ({ type: "contact" as const, id: c.id, title: `${c.firstName} ${c.lastName}`, subtitle: [c.jobTitle, c.account?.name].filter(Boolean).join(" · "), url: `/contacts/${c.id}` })),
+      ...leads.map(l => ({ type: "lead" as const, id: l.id, title: `${l.firstName} ${l.lastName}`, subtitle: [l.companyName, l.status].filter(Boolean).join(" · "), url: `/leads/${l.id}` })),
       ...opportunities.map(o => ({ type: "opportunity" as const, id: o.id, title: o.name, subtitle: [o.stage?.name, o.account?.name].filter(Boolean).join(" · "), url: `/opportunities/${o.id}` })),
       ...deals.map(d => ({ type: "deal" as const, id: d.id, title: d.name, subtitle: [d.stage?.name, d.account?.name].filter(Boolean).join(" · "), url: `/deals/${d.id}` })),
     ];

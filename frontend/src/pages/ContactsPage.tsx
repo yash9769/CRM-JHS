@@ -1,72 +1,79 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { PageHeader, Card, Button, Modal, Field, inputClass, inputStyle, EmptyState, Badge } from "../components/ui";
+import { PageHeader, Card, Button, inputClass, inputStyle, EmptyState, Badge } from "../components/ui";
+import { NewContactModal } from "../components/CreateModals";
+import { CsvImportModal } from "../components/CsvImportModal";
+import { downloadCsvExport } from "../lib/exportCsv";
+import { RelationshipSelector } from "../components/RelationshipSelector";
+import { fetchOwnerOptions } from "../lib/pickers";
 import { initials } from "../lib/format";
-import type { Contact, Paginated, Account } from "../lib/types";
-import { Plus, Search } from "lucide-react";
+import type { Contact, Paginated } from "../lib/types";
+import { Plus, Search, Download, UploadCloud } from "lucide-react";
 
-function NewContactModal({ onClose }: { onClose: () => void }) {
-  const qc = useQueryClient();
-  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", jobTitle: "", accountId: "" });
-  const { data: accounts } = useQuery<Paginated<Account>>({
-    queryKey: ["accounts", "picker"],
-    queryFn: async () => (await api.get("/accounts", { params: { pageSize: 100 } })).data,
-  });
-  const mutation = useMutation({
-    mutationFn: () => api.post("/contacts", { ...form, accountId: form.accountId || null }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["contacts"] }); onClose(); },
-  });
-
-  return (
-    <Modal title="New Contact" onClose={onClose}>
-      <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="First name" required>
-            <input name="firstName" required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} className={inputClass} style={inputStyle} />
-          </Field>
-          <Field label="Last name" required>
-            <input name="lastName" required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} className={inputClass} style={inputStyle} />
-          </Field>
-        </div>
-        <Field label="Email">
-          <input name="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputClass} style={inputStyle} />
-        </Field>
-        <Field label="Job title">
-          <input name="jobTitle" value={form.jobTitle} onChange={(e) => setForm({ ...form, jobTitle: e.target.value })} className={inputClass} style={inputStyle} />
-        </Field>
-        <Field label="Account">
-          <select name="accountId" value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })} className={inputClass} style={inputStyle}>
-            <option value="">No account</option>
-            {accounts?.data.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-        </Field>
-        {mutation.isError && <div className="text-sm mb-3" style={{ color: "var(--rose-600)" }}>Could not create contact.</div>}
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Creating…" : "Create Contact"}</Button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
+const LIFECYCLE_STAGES = ["ALL", "SUBSCRIBER", "LEAD", "MARKETING_QUALIFIED", "SALES_QUALIFIED", "OPPORTUNITY", "CUSTOMER", "EVANGELIST"] as const;
 
 export default function ContactsPage() {
   const [search, setSearch] = useState("");
   const [showNew, setShowNew] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [lifecycleStage, setLifecycleStage] = useState<(typeof LIFECYCLE_STAGES)[number]>("ALL");
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [ownerLabel, setOwnerLabel] = useState<string | null>(null);
+
   const { data, isLoading } = useQuery<Paginated<Contact>>({
-    queryKey: ["contacts", search],
-    queryFn: async () => (await api.get("/contacts", { params: { search, pageSize: 50 } })).data,
+    queryKey: ["contacts", search, lifecycleStage, ownerId],
+    queryFn: async () => (await api.get("/contacts", {
+      params: { search, pageSize: 50, ...(lifecycleStage !== "ALL" ? { lifecycleStage } : {}), ...(ownerId ? { ownerId } : {}) },
+    })).data,
   });
+
+  async function exportCsv() {
+    await downloadCsvExport(
+      "/contacts/export",
+      { search, ...(lifecycleStage !== "ALL" ? { lifecycleStage } : {}), ...(ownerId ? { ownerId } : {}) },
+      "contacts.csv"
+    );
+  }
 
   return (
     <div>
-      <PageHeader title="Contacts" subtitle="People at the accounts you work with." action={<Button onClick={() => setShowNew(true)}><Plus size={15} /> New Contact</Button>} />
+      <PageHeader
+        title="Contacts"
+        subtitle="People at the accounts you work with."
+        action={
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={() => setShowImport(true)}>
+              <UploadCloud size={14} /> Import CSV
+            </Button>
+            <Button variant="secondary" onClick={exportCsv}>
+              <Download size={14} /> Export CSV
+            </Button>
+            <Button onClick={() => setShowNew(true)}>
+              <Plus size={15} /> New Contact
+            </Button>
+          </div>
+        }
+      />
+      {showImport && <CsvImportModal entity="contacts" onClose={() => setShowImport(false)} />}
       <div className="px-8">
-        <div className="relative w-72 mb-4">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--ink-400)" }} />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search contacts…" className={`${inputClass} pl-8`} style={inputStyle} />
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <div className="relative w-72">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--ink-400)" }} />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search contacts…" className={`${inputClass} pl-8`} style={inputStyle} />
+          </div>
+          <select value={lifecycleStage} onChange={(e) => setLifecycleStage(e.target.value as any)} className={inputClass} style={{ ...inputStyle, width: 200 }}>
+            {LIFECYCLE_STAGES.map((s) => <option key={s} value={s}>{s === "ALL" ? "All stages" : s.replace("_", " ")}</option>)}
+          </select>
+          <div className="w-52">
+            <RelationshipSelector
+              value={ownerId} valueLabel={ownerLabel}
+              onChange={(id, opt) => { setOwnerId(id); setOwnerLabel(opt?.label || null); }}
+              fetchOptions={fetchOwnerOptions}
+              placeholder="Filter by owner…"
+            />
+          </div>
         </div>
         <Card>
           {isLoading ? (
