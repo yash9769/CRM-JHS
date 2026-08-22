@@ -2,6 +2,8 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
+import { generateQuotePdf } from "../lib/quotePdf.js";
+import { toCsv } from "../lib/csv.js";
 
 const CreateQuoteSchema = z.object({
   dealId: z.string(),
@@ -51,6 +53,54 @@ export default async function quoteRoutes(app: FastifyInstance) {
     ]);
 
     return { data, pagination: { page: Number(page), pageSize: Number(pageSize), total, totalPages: Math.ceil(total / Number(pageSize)) } };
+  });
+
+  // Export quotes CSV
+  app.get("/api/v1/quotes/export", { preHandler: [app.authenticate] }, async (req: any, reply) => {
+    const { status, dealId, accountId, search } = req.query as any;
+    const where: any = { tenantId: req.authUser.tenantId };
+    if (status) where.status = status;
+    if (dealId) where.dealId = dealId;
+    if (accountId) where.accountId = accountId;
+    if (search) {
+      where.OR = [
+        { quoteNumber: { contains: search, mode: "insensitive" } },
+      ];
+    }
+    const quotes = await prisma.quote.findMany({
+      where,
+      include: {
+        deal: { select: { name: true } },
+        account: { select: { name: true } },
+        owner: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    const rows = quotes.map((q) => ({
+      quoteNumber: q.quoteNumber,
+      deal: q.deal?.name || "",
+      account: q.account?.name || "",
+      status: q.status,
+      amount: Number(q.amount),
+      currency: q.currency,
+      owner: q.owner ? `${q.owner.firstName} ${q.owner.lastName}` : "",
+      expirationDate: q.expirationDate ? q.expirationDate.toISOString().slice(0, 10) : "",
+      createdAt: q.createdAt ? q.createdAt.toISOString().slice(0, 10) : "",
+    }));
+    const csv = toCsv(rows, [
+      { key: "quoteNumber", label: "Quote Number" },
+      { key: "deal", label: "Deal" },
+      { key: "account", label: "Account" },
+      { key: "status", label: "Status" },
+      { key: "amount", label: "Amount" },
+      { key: "currency", label: "Currency" },
+      { key: "owner", label: "Owner" },
+      { key: "expirationDate", label: "Expiration Date" },
+      { key: "createdAt", label: "Created Date" },
+    ]);
+    reply.header("Content-Type", "text/csv");
+    reply.header("Content-Disposition", 'attachment; filename="quotes.csv"');
+    return reply.send(csv);
   });
 
   // Get single quote
@@ -198,5 +248,92 @@ export default async function quoteRoutes(app: FastifyInstance) {
     await prisma.lineItem.deleteMany({ where: { quoteId: req.params.id } });
     await prisma.quote.delete({ where: { id: req.params.id } });
     return reply.code(204).send();
+  });
+
+  // Generate & download PDF
+  app.get("/api/v1/quotes/:id/pdf", { preHandler: [app.authenticate] }, async (req: any, reply) => {
+    const quote = await prisma.quote.findFirst({
+      where: { id: req.params.id, tenantId: req.authUser.tenantId },
+      include: {
+        deal: { select: { name: true } },
+        account: { select: { name: true } },
+        owner: { select: { firstName: true, lastName: true, email: true } },
+        lineItems: { include: { product: { select: { name: true, sku: true } } }, orderBy: { createdAt: "asc" } },
+        tenant: { select: { name: true } },
+      },
+    });
+    if (!quote) return reply.code(404).send({ error: "Quote not found" });
+
+    const pdfBuffer = await generateQuotePdf({
+      quoteNumber: quote.quoteNumber,
+      quoteDate: quote.quoteDate,
+      expirationDate: quote.expirationDate,
+      status: quote.status,
+      currency: quote.currency,
+      discountPct: Number(quote.discountPct),
+      taxPct: Number(quote.taxPct),
+      amount: Number(quote.amount),
+      account: quote.account,
+      deal: quote.deal,
+      owner: quote.owner,
+      lineItems: quote.lineItems.map((li) => ({
+        product: li.product,
+        quantity: Number(li.quantity),
+        unitPrice: Number(li.unitPrice),
+        discountPct: Number(li.discountPct),
+        total: Number(li.total),
+      })),
+      tenantName: quote.tenant.name,
+    });
+
+    reply.header("Content-Type", "application/pdf");
+    reply.header("Content-Disposition", `attachment; filename="${quote.quoteNumber}.pdf"`);
+    return reply.send(pdfBuffer);
+  });
+
+  // Duplicate a quote (e.g. to re-propose after a rejection)
+  app.post("/api/v1/quotes/:id/duplicate", { preHandler: [app.authenticate] }, async (req: any, reply) => {
+    const existing = await prisma.quote.findFirst({
+      where: { id: req.params.id, tenantId: req.authUser.tenantId },
+      include: { lineItems: true },
+    });
+    if (!existing) return reply.code(404).send({ error: "Quote not found" });
+
+    const count = await prisma.quote.count({ where: { tenantId: req.authUser.tenantId } });
+    const quoteNumber = `Q-${String(count + 1).padStart(5, "0")}`;
+
+    const duplicate = await prisma.quote.create({
+      data: {
+        tenantId: req.authUser.tenantId,
+        quoteNumber,
+        dealId: existing.dealId,
+        accountId: existing.accountId,
+        ownerId: req.authUser.id,
+        amount: existing.amount,
+        discountPct: existing.discountPct,
+        taxPct: existing.taxPct,
+        currency: existing.currency,
+        status: "DRAFT",
+        lineItems: {
+          create: existing.lineItems.map((li) => ({
+            productId: li.productId,
+            quantity: li.quantity,
+            unitPrice: li.unitPrice,
+            discountPct: li.discountPct,
+            taxPct: li.taxPct,
+            total: li.total,
+          })),
+        },
+      },
+      include: {
+        lineItems: { include: { product: true } },
+        account: { select: { id: true, name: true } },
+        deal: { select: { id: true, name: true } },
+        owner: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, action: "DUPLICATED", objectType: "QUOTE", recordId: duplicate.id, newValues: { duplicatedFrom: existing.id } });
+    return reply.code(201).send(duplicate);
   });
 }
