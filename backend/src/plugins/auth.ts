@@ -24,6 +24,8 @@ declare module "@fastify/jwt" {
   }
 }
 
+import { prisma } from "../lib/prisma.js";
+
 export async function registerAuth(app: FastifyInstance) {
   await app.register(jwt, {
     secret: process.env.JWT_SECRET || "dev-secret-change-in-production",
@@ -34,7 +36,16 @@ export async function registerAuth(app: FastifyInstance) {
     async function (req: FastifyRequest, reply: FastifyReply) {
       try {
         await req.jwtVerify();
-        req.authUser = req.user as unknown as AuthUser;
+        const decoded = req.user as unknown as AuthUser;
+        const dbUser = await prisma.user.findUnique({
+          where: { id: decoded.id },
+          select: { tenantId: true, role: true },
+        });
+        req.authUser = {
+          ...decoded,
+          tenantId: dbUser?.tenantId || decoded.tenantId,
+          role: dbUser?.role || decoded.role,
+        };
       } catch {
         reply.code(401).send({ error: "Unauthorized" });
       }

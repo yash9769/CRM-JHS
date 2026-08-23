@@ -5,6 +5,9 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
 import AccountsPage from "./pages/AccountsPage";
+import LeadsPage from "./pages/LeadsPage";
+import LeadDetailPage from "./pages/LeadDetailPage";
+import TasksPage from "./pages/TasksPage";
 import AccountDetailPage from "./pages/AccountDetailPage";
 import ContactsPage from "./pages/ContactsPage";
 import ContactDetailPage from "./pages/ContactDetailPage";
@@ -45,6 +48,9 @@ export default function App() {
         <Route path="/sequences" element={<SequencesPage />} />
         <Route path="/forecasting" element={<ForecastingPage />} />
         <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/leads" element={<LeadsPage />} />
+        <Route path="/leads/:id" element={<LeadDetailPage />} />
+        <Route path="/tasks" element={<TasksPage />} />
         <Route path="/accounts" element={<AccountsPage />} />
         <Route path="/accounts/:id" element={<AccountDetailPage />} />
         <Route path="/contacts" element={<ContactsPage />} />

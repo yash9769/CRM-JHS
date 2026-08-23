@@ -78,4 +78,58 @@ export default async function dashboardRoutes(app: FastifyInstance) {
       },
     };
   });
+
+  // Phase 20/21 — "Today's Work" action center + light sales-intelligence signals
+  app.get("/api/v1/dashboard/action-center", { preHandler: app.authenticate }, async (req) => {
+    const tenantId = req.authUser.tenantId;
+    const userId = req.authUser.id;
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const weekEnd = new Date(todayStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const staleThreshold = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+    const [
+      overdueTasks, tasksDueToday, newLeads, uncontactedLeads, dealsClosingThisWeek, quotesAwaiting,
+      recentLeads, upcomingTasks, recentActivity, openDealsForRisk,
+    ] = await Promise.all([
+      prisma.activity.count({ where: { tenantId, ownerId: userId, type: "TASK", status: "PENDING", dueDate: { lt: todayStart } } }),
+      prisma.activity.count({ where: { tenantId, ownerId: userId, type: "TASK", status: "PENDING", dueDate: { gte: todayStart, lte: todayEnd } } }),
+      prisma.lead.count({ where: { tenantId, archived: false, createdAt: { gte: sevenDaysAgo } } }),
+      prisma.lead.count({ where: { tenantId, archived: false, status: "NEW" } }),
+      prisma.deal.count({ where: { tenantId, archived: false, stage: { isClosed: false }, closeDate: { gte: todayStart, lte: weekEnd } } }),
+      prisma.quote.count({ where: { tenantId, status: { in: ["SENT", "VIEWED"] } } }),
+      prisma.lead.findMany({ where: { tenantId, archived: false }, orderBy: { createdAt: "desc" }, take: 5, select: { id: true, firstName: true, lastName: true, companyName: true, status: true, createdAt: true } }),
+      prisma.activity.findMany({ where: { tenantId, ownerId: userId, type: "TASK", status: "PENDING", dueDate: { gte: todayStart } }, orderBy: { dueDate: "asc" }, take: 5, select: { id: true, subject: true, dueDate: true, accountId: true, contactId: true, opportunityId: true, dealId: true, leadId: true } }),
+      prisma.activity.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" }, take: 8, include: { owner: { select: { firstName: true, lastName: true } }, account: { select: { id: true, name: true } }, deal: { select: { id: true, name: true } }, opportunity: { select: { id: true, name: true } }, lead: { select: { id: true, firstName: true, lastName: true } } } }),
+      prisma.deal.findMany({
+        where: { tenantId, archived: false, stage: { isClosed: false } },
+        include: { account: { select: { id: true, name: true } }, activities: { orderBy: { createdAt: "desc" }, take: 1 } },
+      }),
+    ]);
+
+    const dealsAtRisk = openDealsForRisk
+      .map((d) => {
+        const lastActivity = d.activities[0]?.createdAt;
+        const noRecentActivity = !lastActivity || lastActivity < staleThreshold;
+        const closeDatePassed = d.closeDate && d.closeDate < todayStart;
+        if (!noRecentActivity && !closeDatePassed) return null;
+        const daysSinceActivity = lastActivity ? Math.floor((now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24)) : null;
+        return {
+          id: d.id, name: d.name, amount: d.amount, account: d.account,
+          reason: closeDatePassed ? "Expected close date passed" : `No activity for ${daysSinceActivity} days`,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => !!x)
+      .slice(0, 8);
+
+    return {
+      todaysWork: { overdueTasks, tasksDueToday, newLeads, uncontactedLeads, dealsClosingThisWeek, quotesAwaiting },
+      recentLeads,
+      upcomingTasks,
+      recentActivity,
+      dealsAtRisk,
+    };
+  });
 }
