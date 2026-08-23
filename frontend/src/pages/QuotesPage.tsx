@@ -4,7 +4,8 @@ import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { PageHeader, Card, Button, Badge, Modal, Field, inputClass, inputStyle, EmptyState } from "../components/ui";
 import { formatCurrency, formatDate } from "../lib/format";
-import { Plus, FileText, Send, CheckCircle, XCircle } from "lucide-react";
+import { downloadCsvExport } from "../lib/exportCsv";
+import { Plus, FileText, Send, CheckCircle, XCircle, Download, Copy } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; tone: "neutral" | "green" | "amber" | "rose"; icon: any }> = {
   DRAFT:    { label: "Draft",    tone: "neutral", icon: FileText },
@@ -86,12 +87,42 @@ export default function QuotesPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["quotes"] }),
   });
 
+  const duplicateMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/quotes/${id}/duplicate`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["quotes"] }),
+  });
+
+  async function exportCsv() {
+    await downloadCsvExport("/quotes/export", {}, "quotes.csv");
+  }
+
+  async function downloadPdf(id: string, quoteNumber: string) {
+    const res = await api.get(`/quotes/${id}/pdf`, { responseType: "blob" });
+    const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${quoteNumber}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div>
       <PageHeader
         title="Quotes"
         subtitle="Formal price proposals linked to deals."
-        action={<Button onClick={() => setShowNew(true)}><Plus size={15} /> New Quote</Button>}
+        action={
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={exportCsv}>
+              <Download size={14} /> Export CSV
+            </Button>
+            <Button onClick={() => setShowNew(true)}>
+              <Plus size={15} /> New Quote
+            </Button>
+          </div>
+        }
       />
       <div className="px-8 pb-8">
         <Card>
@@ -128,7 +159,10 @@ export default function QuotesPage() {
                       <td className="px-4 py-3"><Badge tone={sc.tone}>{sc.label}</Badge></td>
                       <td className="px-4 py-3" style={{ color: "var(--ink-500)" }}>{formatDate(q.expirationDate)}</td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 flex-wrap">
+                          <Button size="sm" variant="secondary" onClick={() => downloadPdf(q.id, q.quoteNumber)}>
+                            <Download size={12} /> PDF
+                          </Button>
                           {q.status === "DRAFT" && (
                             <Button size="sm" variant="secondary" onClick={() => updateStatus.mutate({ id: q.id, status: "SENT" })}>
                               <Send size={12} /> Send
@@ -144,6 +178,9 @@ export default function QuotesPage() {
                               </Button>
                             </>
                           )}
+                          <Button size="sm" variant="secondary" onClick={() => duplicateMutation.mutate(q.id)} disabled={duplicateMutation.isPending}>
+                            <Copy size={12} /> Duplicate
+                          </Button>
                         </div>
                       </td>
                     </tr>
