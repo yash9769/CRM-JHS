@@ -3,8 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";
 import { PageHeader, Card, Button, Badge, Modal, Field, inputClass, inputStyle } from "../components/ui";
+import { CsvImportModal, type ImportEntityType } from "../components/CsvImportModal";
+import { downloadCsvExport } from "../lib/exportCsv";
 import { initials, formatCurrency } from "../lib/format";
-import { UserPlus, Shield } from "lucide-react";
+import { UserPlus, Shield, UploadCloud, Download } from "lucide-react";
 
 const roleTone: Record<string, "green" | "amber" | "neutral"> = {
   ADMIN: "green", SALES_MANAGER: "amber", SALES_REP: "neutral", VIEWER: "neutral",
@@ -47,6 +49,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
 export default function SettingsPage() {
   const { user: me, tenant } = useAuth();
   const [showInvite, setShowInvite] = useState(false);
+  const [importEntity, setImportEntity] = useState<ImportEntityType | null>(null);
   const qc = useQueryClient();
 
   const { data: users } = useQuery<any>({ queryKey: ["users"], queryFn: async () => (await api.get("/users")).data });
@@ -148,6 +151,86 @@ export default function SettingsPage() {
           </Card>
         </div>
 
+        {/* Data Management — CSV Import & Export Center */}
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-4 pb-2 border-b" style={{ borderColor: "var(--ink-100)" }}>
+            <div>
+              <h3 className="text-sm font-semibold text-ink-900">Data Management & CSV Center</h3>
+              <p className="text-xs text-ink-500">Export your CRM records, import new batch datasets, or download clean CSV templates.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              { id: "opportunities" as const, name: "Opportunities", exportPath: "/opportunities/export", file: "opportunities.csv", desc: "11 fields: Account, Stage, Value, Close Date, etc." },
+              { id: "deals" as const, name: "Deals", exportPath: "/deals/export", file: "deals.csv", desc: "Deals with pipeline stages, probability, and owners." },
+              { id: "accounts" as const, name: "Accounts", exportPath: "/accounts/export", file: "accounts.csv", desc: "Company profiles, domains, ARR, and owner assignments." },
+              { id: "contacts" as const, name: "Contacts", exportPath: "/contacts/export", file: "contacts.csv", desc: "People, email, phone, job titles, and account links." },
+              { id: "leads" as const, name: "Leads", exportPath: "/leads/export", file: "leads.csv", desc: "Prospects, lead sources, scores, and qualification." },
+            ].map((item) => (
+              <div key={item.id} className="p-3.5 rounded-lg border border-ink-100 bg-ink-50/50 flex flex-col justify-between">
+                <div>
+                  <div className="font-semibold text-sm text-ink-900">{item.name}</div>
+                  <p className="text-xs text-ink-500 mt-0.5">{item.desc}</p>
+                </div>
+                <div className="flex items-center gap-2 mt-3 pt-2 border-t border-ink-100/60">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setImportEntity(item.id)}
+                    className="text-xs"
+                  >
+                    <UploadCloud size={13} className="mr-1" /> Import
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => downloadCsvExport(item.exportPath, {}, item.file)}
+                    className="text-xs"
+                  >
+                    <Download size={13} className="mr-1" /> Export
+                  </Button>
+                </div>
+              </div>
+            ))}
+
+            {/* Additional exports for Quotes and Tasks */}
+            <div className="p-3.5 rounded-lg border border-ink-100 bg-ink-50/50 flex flex-col justify-between">
+              <div>
+                <div className="font-semibold text-sm text-ink-900">Quotes & Price Proposals</div>
+                <p className="text-xs text-ink-500 mt-0.5">Export all formal quotes with line totals and expiration dates.</p>
+              </div>
+              <div className="flex items-center gap-2 mt-3 pt-2 border-t border-ink-100/60">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => downloadCsvExport("/quotes/export", {}, "quotes.csv")}
+                  className="text-xs"
+                >
+                  <Download size={13} className="mr-1" /> Export Quotes CSV
+                </Button>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-lg border border-ink-100 bg-ink-50/50 flex flex-col justify-between">
+              <div>
+                <div className="font-semibold text-sm text-ink-900">Tasks & Activity Log</div>
+                <p className="text-xs text-ink-500 mt-0.5">Export all tasks, calls, meetings, and follow-ups across the team.</p>
+              </div>
+              <div className="flex items-center gap-2 mt-3 pt-2 border-t border-ink-100/60">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => downloadCsvExport("/activities/export", {}, "tasks.csv")}
+                  className="text-xs"
+                >
+                  <Download size={13} className="mr-1" /> Export Tasks CSV
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+
         {/* RBAC info */}
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-3"><Shield size={15} style={{ color: "var(--ledger-600)" }} /><h3 className="text-sm font-semibold" style={{ color: "var(--ink-800)" }}>Role permissions</h3></div>
@@ -176,6 +259,7 @@ export default function SettingsPage() {
         </Card>
       </div>
       {showInvite && <InviteModal onClose={() => setShowInvite(false)} />}
+      {importEntity && <CsvImportModal entity={importEntity} onClose={() => setImportEntity(null)} />}
     </div>
   );
 }
