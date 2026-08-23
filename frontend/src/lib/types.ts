@@ -30,6 +30,46 @@ export interface Account {
   notes?: Note[];
 }
 
+export type LeadStatus = "NEW" | "CONTACTED" | "QUALIFIED" | "NURTURING" | "UNQUALIFIED" | "CONVERTED";
+
+export interface Lead {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string | null;
+  phone?: string | null;
+  companyName?: string | null;
+  jobTitle?: string | null;
+  source?: string | null;
+  status: LeadStatus;
+  score: number;
+  notes?: string | null;
+  archived: boolean;
+  ownerId?: string | null;
+  owner?: Owner | null;
+  convertedAt?: string | null;
+  convertedAccountId?: string | null;
+  convertedContactId?: string | null;
+  convertedOpportunityId?: string | null;
+  convertedAccount?: { id: string; name: string } | null;
+  convertedContact?: { id: string; firstName: string; lastName: string } | null;
+  convertedOpportunity?: { id: string; name: string } | null;
+  createdAt: string;
+  updatedAt: string;
+  activities?: Activity[];
+  notesList?: Note[];
+}
+
+export interface DuplicateLeadCandidate {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string | null;
+  phone?: string | null;
+  companyName?: string | null;
+  status: string;
+}
+
 export interface Contact {
   id: string;
   firstName: string;
@@ -49,9 +89,24 @@ export interface Contact {
   updatedAt: string;
   opportunityContacts?: { opportunity: Opportunity }[];
   dealContacts?: { deal: Deal }[];
+  primaryOpportunities?: Opportunity[];
+  primaryDeals?: Deal[];
   activities?: Activity[];
   notes?: Note[];
 }
+
+export const CANONICAL_STAGES = [
+  "Lead Qualified",
+  "Scope Discussion",
+  "Demo",
+  "Proposal",
+  "Quote",
+  "Negotiation",
+  "Closed Won",
+  "Closed Lost",
+] as const;
+
+export type CanonicalStageName = (typeof CANONICAL_STAGES)[number];
 
 export interface PipelineStage {
   id: string;
@@ -76,11 +131,15 @@ export interface Opportunity {
   name: string;
   accountId: string;
   account?: Account;
+  contactId?: string | null;
+  contact?: Contact | null;
   amount: string;
   pipelineId: string;
   pipeline?: Pipeline;
   stageId: string;
-  stage?: PipelineStage;
+  stage: PipelineStage;
+  dealStageId?: string | null;
+  dealStage?: PipelineStage | null;
   probability: number;
   expectedCloseDate?: string | null;
   ownerId: string;
@@ -103,13 +162,15 @@ export interface Deal {
   name: string;
   accountId: string;
   account?: Account;
+  contactId?: string | null;
+  contact?: Contact | null;
   opportunityId?: string | null;
   opportunity?: Opportunity | null;
   amount: string;
   pipelineId: string;
   pipeline?: Pipeline;
   stageId: string;
-  stage?: PipelineStage;
+  stage: PipelineStage;
   closeDate?: string | null;
   ownerId: string;
   owner?: Owner;
