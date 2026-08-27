@@ -2,7 +2,7 @@ import { NavLink, Outlet, useNavigate, Link } from "react-router-dom";
 import {
   LayoutDashboard, KanbanSquare, Target, Package, Building2, Users,
   Search, ChevronDown, LogOut, FileText, TrendingUp, BarChart2,
-  Settings, Bell, GitBranch, Menu, X
+  Settings, Bell, GitBranch, Menu, X, Layers
 } from "lucide-react";
 import { useAuth, canViewOrgChart, roleLabel } from "../hooks/useAuth";
 import { initials } from "../lib/format";
@@ -16,6 +16,7 @@ const salesCrmNav = [
   { to: "/opportunities",  label: "Opportunities",  icon: Target },
   { to: "/pipeline",       label: "Pipeline",       icon: KanbanSquare },
   { to: "/quotes",         label: "Quotes",         icon: FileText },
+  { to: "/services",       label: "Services",       icon: Layers },
   { to: "/products",       label: "Products",       icon: Package },
 ];
 

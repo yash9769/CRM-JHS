@@ -159,8 +159,21 @@ export interface Opportunity {
   stageHistory?: any[];
 }
 
+export interface Service {
+  id: string;
+  tenantId?: string;
+  name: string;
+  description?: string | null;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  _count?: { products: number };
+}
+
 export interface Product {
   id: string;
+  serviceId: string;
+  service?: Service | null;
   name: string;
   sku?: string | null;
   category?: string | null;

@@ -18,6 +18,7 @@ import ReportsPage from "./pages/ReportsPage";
 import SearchPage from "./pages/SearchPage";
 import SettingsPage from "./pages/SettingsPage";
 import OrgChartPage from "./pages/OrgChartPage";
+import ServicesPage from "./pages/ServicesPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/opportunities/:id" element={<OpportunityDetailPage />} />
         <Route path="/pipeline" element={<PipelinePage />} />
         <Route path="/quotes" element={<QuotesPage />} />
+        <Route path="/services" element={<ServicesPage />} />
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/forecasting" element={<ForecastingPage />} />
         <Route path="/reports" element={<ReportsPage />} />

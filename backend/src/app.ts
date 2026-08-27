@@ -21,6 +21,7 @@ import forecastingRoutes from "./routes/forecasting.js";
 import notificationRoutes from "./routes/notifications.js";
 import searchRoutes from "./routes/search.js";
 import reportRoutes from "./routes/reports.js";
+import serviceRoutes from "./routes/services.js";
 import userRoutes from "./routes/users.js";
 
 export async function buildApp(opts = {}) {
@@ -68,6 +69,7 @@ export async function buildApp(opts = {}) {
   await app.register(notificationRoutes);
   await app.register(searchRoutes);
   await app.register(reportRoutes);
+  await app.register(serviceRoutes);
   await app.register(userRoutes);
 
   return app;

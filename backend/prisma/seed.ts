@@ -77,11 +77,35 @@ async function main() {
     return acc;
   }, {});
 
+  // 3.5 Services
+  const servicesData = [
+    { name: "Professional Services", description: "Implementation, customization, and integration services" },
+    { name: "Software Licenses", description: "SaaS and enterprise software subscription licenses" },
+    { name: "Training & Enablement", description: "Admin and user training workshops" },
+  ];
+
+  const services: Record<string, any> = {};
+  for (const s of servicesData) {
+    let service = await prisma.service.findFirst({
+      where: { tenantId: tenant.id, name: s.name },
+    });
+    if (!service) {
+      service = await prisma.service.create({
+        data: {
+          tenantId: tenant.id,
+          name: s.name,
+          description: s.description,
+        },
+      });
+    }
+    services[s.name] = service;
+  }
+
   // 4. Products
   const productsData = [
-    { name: "Custom Integration Support", sku: "SRV-INT-002", category: "Services", unitPrice: 5000 },
-    { name: "Enterprise Software License", sku: "LIC-ENT-001", category: "Software", unitPrice: 12000 },
-    { name: "Premium Admin Training", sku: "SRV-TRN-003", category: "Services", unitPrice: 1500 },
+    { name: "Custom Integration Support", sku: "SRV-INT-002", category: "Services", serviceName: "Professional Services", unitPrice: 5000 },
+    { name: "Enterprise Software License", sku: "LIC-ENT-001", category: "Software", serviceName: "Software Licenses", unitPrice: 12000 },
+    { name: "Premium Admin Training", sku: "SRV-TRN-003", category: "Services", serviceName: "Training & Enablement", unitPrice: 1500 },
   ];
 
   const products: any[] = [];
@@ -93,6 +117,7 @@ async function main() {
       p = await prisma.product.create({
         data: {
           tenantId: tenant.id,
+          serviceId: services[prod.serviceName].id,
           name: prod.name,
           sku: prod.sku,
           category: prod.category,
