@@ -125,6 +125,29 @@ export interface Pipeline {
   stages: PipelineStage[];
 }
 
+export interface StageApproval {
+  id: string;
+  tenantId: string;
+  opportunityId: string;
+  requestedById: string;
+  requestedBy?: { id: string; firstName: string; lastName: string; email?: string };
+  approverId?: string | null;
+  approver?: { id: string; firstName: string; lastName: string };
+  fromStageId: string;
+  fromStage?: PipelineStage;
+  toStageId: string;
+  toStage?: PipelineStage;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  comments?: string | null;
+  createdAt: string;
+  opportunity?: {
+    id: string;
+    name: string;
+    account?: { id: string; name: string };
+    owner?: { id: string; firstName: string; lastName: string };
+  };
+}
+
 export interface Opportunity {
   id: string;
   name: string;
@@ -157,6 +180,7 @@ export interface Opportunity {
   activities?: Activity[];
   notes?: Note[];
   stageHistory?: any[];
+  stageApprovals?: StageApproval[];
 }
 
 export interface Service {

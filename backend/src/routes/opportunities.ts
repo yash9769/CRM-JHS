@@ -115,10 +115,17 @@ export default async function opportunityRoutes(app: FastifyInstance) {
               jobTitle: true,
             },
           },
-          contacts: { include: { contact: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } } } },
           stage: true,
           pipeline: true,
           owner: { select: { id: true, firstName: true, lastName: true } },
+          stageApprovals: {
+            where: { status: "PENDING" },
+            include: {
+              requestedBy: { select: { id: true, firstName: true, lastName: true } },
+              toStage: true,
+              fromStage: true,
+            },
+          },
         },
         orderBy: { updatedAt: "desc" },
         skip: (page - 1) * pageSize,
@@ -612,6 +619,15 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         activities: { orderBy: { createdAt: "desc" } },
         notes: { include: { author: { select: { id: true, firstName: true, lastName: true } } }, orderBy: { createdAt: "desc" } },
         stageHistory: { orderBy: { changedAt: "desc" } },
+        stageApprovals: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            requestedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+            approver: { select: { id: true, firstName: true, lastName: true } },
+            fromStage: true,
+            toStage: true,
+          },
+        },
       },
     });
     if (!opp) return reply.code(404).send({ error: "Opportunity not found" });
@@ -648,10 +664,74 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       }
     }
 
+    let isApprovalRequired = false;
+    let pendingApprovalRecord: any = null;
+
+    if (stageChanged) {
+      if (req.authUser.orgRole === "MANAGER") {
+        isApprovalRequired = true;
+
+        let partnerId = req.authUser.partnerId;
+        if (!partnerId) {
+          const partnerUser = await prisma.user.findFirst({
+            where: { tenantId: req.authUser.tenantId, orgRole: { in: ["PARTNER", "SENIOR_PARTNER"] }, active: true },
+          });
+          partnerId = partnerUser?.id || null;
+        }
+
+        const existingApproval = await prisma.stageApproval.findFirst({
+          where: { tenantId: req.authUser.tenantId, opportunityId: id, status: "PENDING" },
+        });
+
+        if (existingApproval) {
+          pendingApprovalRecord = await prisma.stageApproval.update({
+            where: { id: existingApproval.id },
+            data: {
+              fromStageId: existing.stageId,
+              toStageId: body.stageId!,
+              approverId: partnerId,
+            },
+            include: { toStage: true, fromStage: true },
+          });
+        } else {
+          pendingApprovalRecord = await prisma.stageApproval.create({
+            data: {
+              tenantId: req.authUser.tenantId,
+              opportunityId: id,
+              requestedById: req.authUser.id,
+              approverId: partnerId,
+              fromStageId: existing.stageId,
+              toStageId: body.stageId!,
+              status: "PENDING",
+            },
+            include: { toStage: true, fromStage: true },
+          });
+        }
+
+        if (partnerId) {
+          await notify({
+            tenantId: req.authUser.tenantId,
+            userId: partnerId,
+            message: `Stage Change Requested: Manager ${req.authUser.firstName} ${req.authUser.lastName} requested moving "${existing.name}" to "${targetStage.name}"`,
+            link: `/opportunities/${id}`,
+          });
+        }
+      } else {
+        await prisma.stageApproval.updateMany({
+          where: { tenantId: req.authUser.tenantId, opportunityId: id, status: "PENDING" },
+          data: { status: "APPROVED", approverId: req.authUser.id },
+        });
+      }
+    }
+
     const { contactIds, remarks, newAccount, newContact, ...rest } = body;
+    if (isApprovalRequired) {
+      delete rest.stageId;
+    }
+
     const opportunity = await prisma.$transaction(async (tx) => {
-      const isClosingWon = !!targetStage?.isClosed && targetStage.isWon;
-      const isClosingLost = !!targetStage?.isClosed && !targetStage.isWon;
+      const isClosingWon = !isApprovalRequired && !!targetStage?.isClosed && targetStage.isWon;
+      const isClosingLost = !isApprovalRequired && !!targetStage?.isClosed && !targetStage.isWon;
 
       const finalActualCloseDate = rest.actualCloseDate
         ? new Date(rest.actualCloseDate)
@@ -661,7 +741,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         where: { id },
         data: {
           ...rest,
-          probability: stageChanged && targetStage ? targetStage.probability : rest.probability,
+          probability: (!isApprovalRequired && stageChanged && targetStage) ? targetStage.probability : rest.probability,
           forecastCategory: isClosingWon ? "CLOSED_WON" : isClosingLost ? "CLOSED_LOST" : rest.forecastCategory,
           wonDate: isClosingWon ? (existing.wonDate ?? new Date()) : undefined,
           actualCloseDate: finalActualCloseDate,
@@ -673,7 +753,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         },
       });
 
-      if (stageChanged) {
+      if (stageChanged && !isApprovalRequired) {
         await tx.opportunityStageHistory.create({
           data: {
             opportunityId: id,
@@ -713,10 +793,11 @@ export default async function opportunityRoutes(app: FastifyInstance) {
 
     await logAudit({
       tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "OPPORTUNITY",
-      recordId: id, action: stageChanged ? "STAGE_CHANGED" : "UPDATED", oldValues: existing, newValues: opportunity,
+      recordId: id, action: isApprovalRequired ? "STAGE_APPROVAL_REQUESTED" : (stageChanged ? "STAGE_CHANGED" : "UPDATED"),
+      oldValues: existing, newValues: opportunity,
     });
 
-    if (targetStage?.isClosed) {
+    if (!isApprovalRequired && targetStage?.isClosed) {
       await notify({
         tenantId: req.authUser.tenantId, userId: opportunity.ownerId,
         message: `Opportunity "${opportunity.name}" was marked ${targetStage.isWon ? "Closed Won 🎉" : "Closed Lost"}`,
@@ -732,8 +813,26 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         stage: true,
         pipeline: { include: { stages: { orderBy: { order: "asc" } } } },
         owner: { select: { id: true, firstName: true, lastName: true } },
+        stageApprovals: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            requestedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+            approver: { select: { id: true, firstName: true, lastName: true } },
+            fromStage: true,
+            toStage: true,
+          },
+        },
       },
     });
+
+    if (isApprovalRequired) {
+      return {
+        ...fullOpp,
+        pendingApproval: true,
+        message: `Stage change to "${targetStage?.name}" submitted for Partner approval.`,
+        approval: pendingApprovalRecord,
+      };
+    }
 
     return fullOpp;
   });
@@ -826,6 +925,55 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       if (!body.stageId) return reply.code(400).send({ error: "stageId is required" });
       const stage = await prisma.pipelineStage.findFirst({ where: { id: body.stageId, pipeline: { tenantId } } });
       if (!stage) return reply.code(400).send({ error: "Invalid stage" });
+
+      if (req.authUser.orgRole === "MANAGER") {
+        let partnerId = req.authUser.partnerId;
+        if (!partnerId) {
+          const partnerUser = await prisma.user.findFirst({
+            where: { tenantId, orgRole: { in: ["PARTNER", "SENIOR_PARTNER"] }, active: true },
+          });
+          partnerId = partnerUser?.id || null;
+        }
+
+        for (const oppId of ids) {
+          const opp = await prisma.opportunity.findUnique({ where: { id: oppId } });
+          if (!opp || opp.stageId === body.stageId) continue;
+
+          const existingApproval = await prisma.stageApproval.findFirst({
+            where: { tenantId, opportunityId: oppId, status: "PENDING" },
+          });
+          if (existingApproval) {
+            await prisma.stageApproval.update({
+              where: { id: existingApproval.id },
+              data: { toStageId: body.stageId, fromStageId: opp.stageId, approverId: partnerId },
+            });
+          } else {
+            await prisma.stageApproval.create({
+              data: {
+                tenantId,
+                opportunityId: oppId,
+                requestedById: req.authUser.id,
+                approverId: partnerId,
+                fromStageId: opp.stageId,
+                toStageId: body.stageId,
+                status: "PENDING",
+              },
+            });
+          }
+        }
+
+        if (partnerId) {
+          await notify({
+            tenantId,
+            userId: partnerId,
+            message: `Bulk Stage Change Requested: Manager ${req.authUser.firstName} ${req.authUser.lastName} requested stage change for ${ids.length} opportunities to "${stage.name}"`,
+            link: "/opportunities",
+          });
+        }
+
+        return { updated: ids.length, pendingApproval: true, message: `Stage change submitted to Partner for approval` };
+      }
+
       data = { stageId: body.stageId, probability: stage.probability };
     } else if (body.action === "archive") {
       data = { archived: true };

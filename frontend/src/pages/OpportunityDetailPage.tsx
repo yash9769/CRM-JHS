@@ -8,9 +8,10 @@ import { NewContactModal, LogActivityModal, NewQuoteModal, AddLineItemModal } fr
 import { EditOpportunityModal, ArchiveConfirmModal } from "../components/EditModals";
 import { formatCurrency, formatDate } from "../lib/format";
 import type { Opportunity, Pipeline } from "../lib/types";
+import { useAuth } from "../hooks/useAuth";
 import {
   ArrowRight, CheckCircle2, Building2, User, Pencil, UserPlus,
-  PhoneCall, Archive, FileText, Plus, Trash2, Download
+  PhoneCall, Archive, FileText, Plus, Trash2, Download, Clock, XCircle
 } from "lucide-react";
 
 function Stepper({ stages, currentStageId }: { stages: Pipeline["stages"]; currentStageId: string }) {
@@ -78,6 +79,28 @@ export default function OpportunityDetailPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["opportunity", id] }),
   });
 
+  const { user } = useAuth();
+  const isPartner = user?.orgRole === "PARTNER" || user?.orgRole === "SENIOR_PARTNER";
+  const pendingApproval = opp?.stageApprovals?.find((a) => a.status === "PENDING");
+
+  const approveMutation = useMutation({
+    mutationFn: (approvalId: string) => api.post(`/opportunities/approvals/${approvalId}/approve`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["opportunity", id] });
+      qc.invalidateQueries({ queryKey: ["opportunities"] });
+      qc.invalidateQueries({ queryKey: ["stage-approvals"] });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (approvalId: string) => api.post(`/opportunities/approvals/${approvalId}/reject`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["opportunity", id] });
+      qc.invalidateQueries({ queryKey: ["opportunities"] });
+      qc.invalidateQueries({ queryKey: ["stage-approvals"] });
+    },
+  });
+
   if (isLoading || !opp) return <div className="p-8 text-sm text-[var(--ink-400)]">Loading…</div>;
 
   const contactPerson = opp.contact || (opp.contacts && opp.contacts[0]?.contact) || null;
@@ -85,6 +108,50 @@ export default function OpportunityDetailPage() {
 
   return (
     <div className="px-4 md:px-8 py-5 md:py-7 max-w-6xl mx-auto space-y-5 pb-24 md:pb-8">
+      {pendingApproval && (
+        <div className="p-4 rounded-xl bg-[var(--gold-50)] border border-[var(--gold-300)] flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-[var(--gold-100)] flex items-center justify-center shrink-0">
+              <Clock size={20} className="text-[var(--gold-700)]" />
+            </div>
+            <div>
+              <div className="font-bold text-sm text-[var(--gold-950)]">
+                Stage Change Pending Partner Approval
+              </div>
+              <div className="text-xs text-[var(--gold-800)]">
+                <span className="font-medium">
+                  {pendingApproval.requestedBy ? `${pendingApproval.requestedBy.firstName} ${pendingApproval.requestedBy.lastName}` : "Manager"}
+                </span>{" "}
+                requested stage move from{" "}
+                <span className="line-through">{pendingApproval.fromStage?.name || "Current Stage"}</span> to{" "}
+                <span className="font-bold">{pendingApproval.toStage?.name || "Target Stage"}</span>.
+              </div>
+            </div>
+          </div>
+          {isPartner ? (
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={rejectMutation.isPending}
+                onClick={() => rejectMutation.mutate(pendingApproval.id)}
+              >
+                <XCircle size={14} className="text-rose-600" /> Reject Request
+              </Button>
+              <Button
+                size="sm"
+                disabled={approveMutation.isPending}
+                onClick={() => approveMutation.mutate(pendingApproval.id)}
+              >
+                <CheckCircle2 size={14} /> Approve Stage Change
+              </Button>
+            </div>
+          ) : (
+            <Badge tone="amber">Awaiting Partner Approval</Badge>
+          )}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>

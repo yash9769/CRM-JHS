@@ -16,6 +16,7 @@ interface KanbanItem {
   contact?: { firstName: string; lastName: string } | null;
   contacts?: { contact: { firstName: string; lastName: string } }[] | null;
   owner?: { firstName: string; lastName: string } | null;
+  stageApprovals?: any[];
 }
 
 export function KanbanBoard<T extends KanbanItem>({
@@ -134,11 +135,15 @@ export function KanbanBoard<T extends KanbanItem>({
                         <span className="text-sm font-mono-num font-bold" style={{ color: "var(--ink-900)" }}>
                           {formatCurrency(item.amount)}
                         </span>
-                        {item.probability !== undefined && (
+                        {item.stageApprovals?.some((a: any) => a.status === "PENDING") ? (
+                          <Badge tone="amber">
+                            ⏳ Pending Approval
+                          </Badge>
+                        ) : item.probability !== undefined ? (
                           <Badge tone={stage.isWon ? "green" : stage.isClosed ? "neutral" : undefined}>
                             {item.probability}%
                           </Badge>
-                        )}
+                        ) : null}
                       </div>
 
                       {/* Contact Person & Close Date & Assigned To */}

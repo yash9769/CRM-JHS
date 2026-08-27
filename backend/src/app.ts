@@ -23,6 +23,7 @@ import searchRoutes from "./routes/search.js";
 import reportRoutes from "./routes/reports.js";
 import serviceRoutes from "./routes/services.js";
 import userRoutes from "./routes/users.js";
+import approvalRoutes from "./routes/approvals.js";
 
 export async function buildApp(opts = {}) {
   const app = Fastify({ logger: false, ...opts });
@@ -71,6 +72,7 @@ export async function buildApp(opts = {}) {
   await app.register(reportRoutes);
   await app.register(serviceRoutes);
   await app.register(userRoutes);
+  await app.register(approvalRoutes);
 
   return app;
 }

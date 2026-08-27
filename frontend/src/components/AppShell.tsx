@@ -9,6 +9,7 @@ import { initials } from "../lib/format";
 import { useState, useEffect } from "react";
 import { api } from "../lib/api";
 import { QuickCreateButton } from "./QuickCreate";
+import { StageApprovalsWidget } from "./StageApprovalsWidget";
 
 const salesCrmNav = [
   { to: "/accounts",       label: "Accounts",       icon: Building2 },
@@ -226,6 +227,7 @@ export default function AppShell() {
           </div>
 
           <div className="flex items-center gap-1 md:gap-2 ml-2">
+            <StageApprovalsWidget />
             <QuickCreateButton />
             <NotificationBell />
             <div className="relative">

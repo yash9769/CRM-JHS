@@ -38,6 +38,7 @@ model Tenant {
   notifications   Notification[]
   leads           Lead[]
   savedViews      SavedView[]
+  stageApprovals  StageApproval[]
 
   @@map("tenants")
 }
@@ -93,6 +94,9 @@ model User {
   createdQuotes        Quote[]        @relation("QuoteCreator")
   createdSequences     Sequence[]     @relation("SequenceCreator")
   createdActivities    Activity[]     @relation("ActivityCreator")
+
+  requestedApprovals StageApproval[] @relation("ApprovalRequestedBy")
+  receivedApprovals  StageApproval[] @relation("ApprovalApprover")
 
   @@unique([tenantId, email])
   @@map("users")
@@ -301,6 +305,8 @@ model PipelineStage {
   isWon       Boolean  @default(false)
 
   opportunities Opportunity[]
+  approvalsFrom StageApproval[] @relation("ApprovalFromStage")
+  approvalsTo   StageApproval[] @relation("ApprovalToStage")
 
   @@index([pipelineId])
   @@map("pipeline_stages")
@@ -363,6 +369,7 @@ model Opportunity {
   notes        Note[]
   lineItems    LineItem[]
   quotes       Quote[]
+  stageApprovals StageApproval[]
 
   @@index([tenantId])
   @@index([tenantId, accountId])
@@ -785,3 +792,40 @@ model Notification {
   @@index([tenantId, userId, read])
   @@map("notifications")
 }
+
+// ---------------------------------------------------------------------------
+// Manager Stage Change Approvals
+// ---------------------------------------------------------------------------
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model StageApproval {
+  id            String         @id @default(uuid())
+  tenantId      String
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  opportunityId String
+  opportunity   Opportunity    @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  requestedById String
+  requestedBy   User           @relation("ApprovalRequestedBy", fields: [requestedById], references: [id])
+  approverId    String?
+  approver      User?          @relation("ApprovalApprover", fields: [approverId], references: [id])
+  fromStageId   String
+  fromStage     PipelineStage  @relation("ApprovalFromStage", fields: [fromStageId], references: [id])
+  toStageId     String
+  toStage       PipelineStage  @relation("ApprovalToStage", fields: [toStageId], references: [id])
+  status        ApprovalStatus @default(PENDING)
+  comments      String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([tenantId, opportunityId])
+  @@index([tenantId, requestedById])
+  @@index([tenantId, approverId])
+  @@index([tenantId, status])
+  @@map("stage_approvals")
+}
+

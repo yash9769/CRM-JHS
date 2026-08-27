@@ -6,6 +6,8 @@ export interface AuthUser {
   tenantId: string;
   orgRole: "SENIOR_PARTNER" | "PARTNER" | "MANAGER";
   email: string;
+  firstName?: string;
+  lastName?: string;
   partnerId?: string | null;
 }
 
@@ -40,13 +42,16 @@ export async function registerAuth(app: FastifyInstance) {
         const decoded = req.user as unknown as AuthUser;
         const dbUser = await prisma.user.findUnique({
           where: { id: decoded.id },
-          select: { tenantId: true, orgRole: true, partnerId: true },
+          select: { tenantId: true, orgRole: true, partnerId: true, firstName: true, lastName: true, email: true },
         });
         req.authUser = {
           ...decoded,
           tenantId: dbUser?.tenantId || decoded.tenantId,
           orgRole: dbUser?.orgRole || decoded.orgRole,
           partnerId: dbUser?.partnerId ?? null,
+          firstName: dbUser?.firstName || decoded.firstName || "Manager",
+          lastName: dbUser?.lastName || decoded.lastName || "",
+          email: dbUser?.email || decoded.email,
         };
       } catch {
         reply.code(401).send({ error: "Unauthorized" });
