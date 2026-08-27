@@ -30,14 +30,13 @@ function linkFor(task: any): string | null {
   if (task.accountId) return `/accounts/${task.accountId}`;
   if (task.contactId) return `/contacts/${task.contactId}`;
   if (task.opportunityId) return `/opportunities/${task.opportunityId}`;
-  if (task.dealId) return `/deals/${task.dealId}`;
   return null;
 }
 
 function relatedLabel(task: any): string | null {
   return task.lead ? `${task.lead.firstName} ${task.lead.lastName}` :
     task.account?.name || (task.contact ? `${task.contact.firstName} ${task.contact.lastName}` : null) ||
-    task.opportunity?.name || task.deal?.name || null;
+    task.opportunity?.name || null;
 }
 
 export default function TasksPage() {
@@ -71,12 +70,12 @@ export default function TasksPage() {
   }, [data]);
 
   return (
-    <div>
+    <div className="pb-24 md:pb-8">
       <PageHeader
         title="Tasks"
         subtitle="Everything you and your team need to follow up on."
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" onClick={exportCsv}>
               <Download size={14} /> Export CSV
             </Button>
@@ -86,38 +85,38 @@ export default function TasksPage() {
           </div>
         }
       />
-      <div className="px-8 pb-8">
-        <div className="flex gap-1 mb-5 rounded-md p-0.5 w-fit" style={{ background: "var(--ink-100)" }}>
+      <div className="px-4 md:px-8 pb-8">
+        <div className="flex gap-1 mb-5 rounded-md p-0.5 w-fit bg-[var(--ink-100)]">
           {(["mine", "team"] as const).map((s) => (
-            <button key={s} onClick={() => setScope(s)} className="px-3 py-1.5 rounded text-xs font-medium" style={{ background: scope === s ? "white" : "transparent" }}>
+            <button key={s} onClick={() => setScope(s)} className={`px-3 py-1.5 rounded text-xs font-medium ${scope === s ? "bg-white text-[var(--ink-900)] shadow-xs" : "text-[var(--ink-600)]"}`}>
               {s === "mine" ? "My Tasks" : "Team Tasks"}
             </button>
           ))}
         </div>
 
         {isLoading ? (
-          <div className="text-sm" style={{ color: "var(--ink-400)" }}>Loading…</div>
+          <div className="text-sm text-[var(--ink-400)]">Loading…</div>
         ) : !data?.data.length ? (
-          <Card><EmptyState title="No tasks yet" subtitle="Create a task from here or from any lead, account, or deal." action={<Button onClick={() => setShowNew(true)}><Plus size={15} /> New Task</Button>} /></Card>
+          <Card><EmptyState title="No tasks yet" subtitle="Create a task from here or from any lead, account, or opportunity." action={<Button onClick={() => setShowNew(true)}><Plus size={15} /> New Task</Button>} /></Card>
         ) : (
           <div className="space-y-6">
             {BUCKETS.map((b) => grouped[b].length > 0 && (
               <div key={b}>
-                <div className="text-xs uppercase font-semibold mb-2" style={{ color: b === "Overdue" ? "var(--rose-600)" : "var(--ink-400)" }}>{b} ({grouped[b].length})</div>
+                <div className={`text-xs uppercase font-semibold mb-2 ${b === "Overdue" ? "text-[var(--rose-600)]" : "text-[var(--ink-400)]"}`}>{b} ({grouped[b].length})</div>
                 <Card>
                   {grouped[b].map((t) => {
                     const url = linkFor(t);
                     const related = relatedLabel(t);
                     return (
-                      <div key={t.id} className="flex items-center gap-3 px-4 py-3 border-b last:border-0" style={{ borderColor: "var(--ink-100)" }}>
+                      <div key={t.id} className="flex items-center gap-3 px-4 py-3 border-b last:border-0 border-[var(--ink-100)]">
                         <button onClick={() => t.status !== "COMPLETED" && complete.mutate(t.id)} disabled={t.status === "COMPLETED"}>
-                          {t.status === "COMPLETED" ? <CheckSquare size={16} style={{ color: "var(--ledger-600)" }} /> : <Square size={16} style={{ color: "var(--ink-300)" }} />}
+                          {t.status === "COMPLETED" ? <CheckSquare size={16} className="text-[var(--ledger-600)]" /> : <Square size={16} className="text-[var(--ink-300)]" />}
                         </button>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium" style={{ textDecoration: t.status === "COMPLETED" ? "line-through" : "none" }}>{t.subject}</div>
-                          <div className="text-xs mt-0.5 flex items-center gap-2" style={{ color: "var(--ink-400)" }}>
+                          <div className={`text-sm font-medium ${t.status === "COMPLETED" ? "line-through text-[var(--ink-400)]" : "text-[var(--ink-900)]"}`}>{t.subject}</div>
+                          <div className="text-xs mt-0.5 flex items-center gap-2 text-[var(--ink-400)]">
                             {t.dueDate && <span>{formatDate(t.dueDate)}</span>}
-                            {related && url && <Link to={url} style={{ color: "var(--ledger-700)" }}>{related}</Link>}
+                            {related && url && <Link to={url} className="text-[var(--ledger-700)] hover:underline">{related}</Link>}
                           </div>
                         </div>
                         {t.owner && <Badge>{t.owner.firstName} {t.owner.lastName}</Badge>}

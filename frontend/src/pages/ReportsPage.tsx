@@ -75,20 +75,19 @@ function OwnerPerformanceTab() {
       <Card>
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left border-b" style={{ borderColor: "var(--ink-100)" }}>
-              {["Rep", "Role", "Open Opps", "Open Deals", "Pipeline", "Weighted", "Closed Won", "Win Rate"].map(h => (
-                <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>{h}</th>
+            <tr className="text-left border-b border-[var(--ink-100)]">
+              {["Rep", "Role", "Open Opps", "Pipeline", "Weighted", "Closed Won", "Win Rate"].map(h => (
+                <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {data.data.map((row: any) => (
-              <tr key={row.user.id} className="border-b last:border-0 hover:bg-[var(--ink-50)]" style={{ borderColor: "var(--ink-100)" }}>
+              <tr key={row.user.id} className="border-b last:border-0 hover:bg-[var(--ink-50)] border-[var(--ink-100)]">
                 <td className="px-4 py-3">
                   <button
                     onClick={() => setSelectedUserId(row.user.id)}
-                    className="font-semibold text-left flex items-center gap-1.5 hover:underline group"
-                    style={{ color: "var(--ledger-700)" }}
+                    className="font-semibold text-left flex items-center gap-1.5 hover:underline group text-[var(--ledger-700)]"
                     title="Click to view Bird's-Eye Activity & Performance"
                   >
                     <Eye size={12} className="opacity-60 group-hover:opacity-100 transition-opacity" />
@@ -99,7 +98,6 @@ function OwnerPerformanceTab() {
                   <RoleBadge role={row.user.orgRole} />
                 </td>
                 <td className="px-4 py-3 font-mono-num">{row.metrics.openOpportunities}</td>
-                <td className="px-4 py-3 font-mono-num">{row.metrics.openDeals}</td>
                 <td className="px-4 py-3 font-mono-num">{formatCurrency(row.metrics.pipeline)}</td>
                 <td className="px-4 py-3 font-mono-num">{formatCurrency(row.metrics.weighted)}</td>
                 <td className="px-4 py-3 font-mono-num" style={{ color: "var(--ledger-700)" }}>{formatCurrency(row.metrics.closedWon)}</td>

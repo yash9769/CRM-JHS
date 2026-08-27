@@ -11,7 +11,6 @@ import ContactDetailPage from "./pages/ContactDetailPage";
 import OpportunitiesPage from "./pages/OpportunitiesPage";
 import OpportunityDetailPage from "./pages/OpportunityDetailPage";
 import PipelinePage from "./pages/PipelinePage";
-import WonDealsPage from "./pages/WonDealsPage";
 import ProductsPage from "./pages/ProductsPage";
 import QuotesPage from "./pages/QuotesPage";
 import ForecastingPage from "./pages/ForecastingPage";
@@ -22,7 +21,7 @@ import OrgChartPage from "./pages/OrgChartPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-sm" style={{ color: "var(--ink-400)" }}>Loading…</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-sm text-[var(--ink-400)]">Loading…</div>;
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
@@ -42,7 +41,6 @@ export default function App() {
         <Route path="/opportunities" element={<OpportunitiesPage />} />
         <Route path="/opportunities/:id" element={<OpportunityDetailPage />} />
         <Route path="/pipeline" element={<PipelinePage />} />
-        <Route path="/won-deals" element={<WonDealsPage />} />
         <Route path="/quotes" element={<QuotesPage />} />
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/forecasting" element={<ForecastingPage />} />

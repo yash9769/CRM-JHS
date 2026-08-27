@@ -9,7 +9,7 @@ import {
   UserPlus, Trash2, Edit2, X, Shield, Users, Star,
   Eye, Trophy, TrendingUp, Target, Building2, Phone, Mail,
   Calendar, FileText, CheckSquare, Activity, ExternalLink,
-  Briefcase, Award,
+  Award,
 } from "lucide-react";
 
 // ── Role badge ─────────────────────────────────────────────────────────────
@@ -118,7 +118,7 @@ function UserCard({
 
 // ── Bird's-Eye View Modal ──────────────────────────────────────────────────
 export function BirdsEyeModal({ userId, onClose }: { userId: string; onClose: () => void }) {
-  const [activeTab, setActiveTab] = useState<"activity" | "deals" | "opportunities" | "accounts" | "team">("activity");
+  const [activeTab, setActiveTab] = useState<"activity" | "opportunities" | "accounts" | "team">("activity");
 
   const { data, isLoading, error } = useQuery<any>({
     queryKey: ["user-bird-eye", userId],
@@ -148,7 +148,7 @@ export function BirdsEyeModal({ userId, onClose }: { userId: string; onClose: ()
     );
   }
 
-  const { user, teamMembers = [], kpis = {}, recentActivities = [], recentDeals = [], recentOpps = [], accounts = [] } = data;
+  const { user, teamMembers = [], kpis = {}, recentActivities = [], recentOpps = [], accounts = [] } = data;
   const initials = `${user.firstName?.[0] || ""}${user.lastName?.[0] || ""}`.toUpperCase();
 
   const activityIcons: Record<string, any> = {
@@ -199,7 +199,7 @@ export function BirdsEyeModal({ userId, onClose }: { userId: string; onClose: ()
               {formatCurrency(kpis.closedWonRevenue)}
             </div>
             <div className="text-[11px] text-emerald-700 font-medium mt-1">
-              {kpis.closedWonCount} deals closed won
+              {kpis.closedWonCount} opportunities won
             </div>
           </div>
 
@@ -212,7 +212,7 @@ export function BirdsEyeModal({ userId, onClose }: { userId: string; onClose: ()
               {formatCurrency(kpis.openPipelineRevenue)}
             </div>
             <div className="text-[11px] text-blue-700 font-medium mt-1">
-              {kpis.openDealsCount} active deals in progress
+              {kpis.openOpportunitiesCount} active opportunities in progress
             </div>
           </div>
 
@@ -254,17 +254,6 @@ export function BirdsEyeModal({ userId, onClose }: { userId: string; onClose: ()
             }`}
           >
             <Activity size={13} /> Activity Feed ({recentActivities.length})
-          </button>
-
-          <button
-            onClick={() => setActiveTab("deals")}
-            className={`flex items-center gap-1.5 px-3 py-2 border-b-2 font-semibold transition-colors ${
-              activeTab === "deals"
-                ? "border-[var(--ledger-700)] text-[var(--ledger-700)]"
-                : "border-transparent text-[var(--ink-500)] hover:text-[var(--ink-800)]"
-            }`}
-          >
-            <Briefcase size={13} /> Deals ({recentDeals.length})
           </button>
 
           <button
@@ -327,7 +316,6 @@ export function BirdsEyeModal({ userId, onClose }: { userId: string; onClose: ()
                           <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[10px]">
                             <Badge tone={act.status === "COMPLETED" ? "green" : "neutral"}>{act.type}</Badge>
                             {act.account && <span className="font-medium" style={{ color: "var(--ink-500)" }}>Account: {act.account.name}</span>}
-                            {act.deal && <span className="font-medium" style={{ color: "var(--ink-500)" }}>Deal: {act.deal.name}</span>}
                             {act.opportunity && <span className="font-medium" style={{ color: "var(--ink-500)" }}>Opp: {act.opportunity.name}</span>}
                             {act.owner && (
                               <span className="ml-auto" style={{ color: "var(--ink-400)" }}>By: {act.owner.firstName} {act.owner.lastName}</span>
@@ -338,41 +326,6 @@ export function BirdsEyeModal({ userId, onClose }: { userId: string; onClose: ()
                     );
                   })}
                 </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === "deals" && (
-            <div>
-              {recentDeals.length === 0 ? (
-                <div className="text-center py-10 text-xs" style={{ color: "var(--ink-400)" }}>No deals assigned to this user or team.</div>
-              ) : (
-                <table className="w-full text-xs text-left">
-                  <thead>
-                    <tr className="border-b uppercase font-semibold" style={{ borderColor: "var(--ink-100)", color: "var(--ink-400)" }}>
-                      <th className="pb-2">Deal Name</th>
-                      <th className="pb-2">Account</th>
-                      <th className="pb-2">Value</th>
-                      <th className="pb-2">Stage</th>
-                      <th className="pb-2">Owner</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentDeals.map((d: any) => (
-                      <tr key={d.id} className="border-b last:border-0 hover:bg-[var(--ink-50)]" style={{ borderColor: "var(--ink-100)" }}>
-                        <td className="py-2.5 font-semibold" style={{ color: "var(--ledger-700)" }}>
-                          <Link to={`/deals/${d.id}`} className="hover:underline flex items-center gap-1" onClick={onClose}>
-                            {d.name} <ExternalLink size={10} />
-                          </Link>
-                        </td>
-                        <td className="py-2.5" style={{ color: "var(--ink-700)" }}>{d.account?.name || "—"}</td>
-                        <td className="py-2.5 font-mono-num font-bold" style={{ color: "var(--ink-900)" }}>{formatCurrency(d.amount)}</td>
-                        <td className="py-2.5"><StageBadge stage={d.stage} /></td>
-                        <td className="py-2.5" style={{ color: "var(--ink-500)" }}>{d.owner?.firstName} {d.owner?.lastName}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               )}
             </div>
           )}

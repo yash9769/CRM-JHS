@@ -193,7 +193,7 @@ export function KanbanBoard<T extends KanbanItem>({
               <strong>{confirmMove.targetStage.name}</strong>?
             </p>
             <div className="p-3 rounded-lg text-xs space-y-1.5" style={{ background: "var(--ink-50)", color: "var(--ink-600)" }}>
-              <div><strong>Deal Value:</strong> {formatCurrency(confirmMove.item.amount)}</div>
+              <div><strong>Opportunity Value:</strong> {formatCurrency(confirmMove.item.amount)}</div>
               <div><strong>Account:</strong> {confirmMove.item.account?.name || "—"}</div>
               <div><strong>Close Date:</strong> {formatDate(confirmMove.item.expectedCloseDate || confirmMove.item.closeDate)}</div>
             </div>

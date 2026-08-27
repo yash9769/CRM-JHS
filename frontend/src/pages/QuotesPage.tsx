@@ -18,7 +18,7 @@ const statusConfig: Record<string, { label: string; tone: "neutral" | "green" | 
 
 const QUOTE_COLUMNS: ColumnDef[] = [
   { key: "quoteNumber", label: "Quote #", permanent: true },
-  { key: "deal", label: "Deal" },
+  { key: "opportunity", label: "Opportunity" },
   { key: "account", label: "Account" },
   { key: "amount", label: "Amount" },
   { key: "status", label: "Status" },
@@ -26,25 +26,25 @@ const QUOTE_COLUMNS: ColumnDef[] = [
   { key: "actions", label: "Actions", permanent: true },
 ];
 
-function NewQuoteModal({ onClose }: { onClose: () => void }) {
+function NewQuoteModalPage({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
-  const [dealId, setDealId] = useState("");
+  const [opportunityId, setOpportunityId] = useState("");
   const [expirationDate, setExpirationDate] = useState("");
   const [discountPct, setDiscountPct] = useState("0");
   const [taxPct, setTaxPct] = useState("0");
 
-  const { data: deals } = useQuery<any>({
-    queryKey: ["deals", "picker"],
-    queryFn: async () => (await api.get("/deals", { params: { pageSize: 100 } })).data,
+  const { data: opps } = useQuery<any>({
+    queryKey: ["opportunities", "picker"],
+    queryFn: async () => (await api.get("/opportunities", { params: { pageSize: 100 } })).data,
   });
 
-  const selectedDeal = deals?.data?.find((d: any) => d.id === dealId);
+  const selectedOpp = opps?.data?.find((o: any) => o.id === opportunityId);
 
   const mutation = useMutation({
     mutationFn: () =>
       api.post("/quotes", {
-        dealId,
-        accountId: selectedDeal?.accountId,
+        opportunityId,
+        accountId: selectedOpp?.accountId,
         expirationDate: expirationDate || undefined,
         discountPct: Number(discountPct),
         taxPct: Number(taxPct),
@@ -60,21 +60,21 @@ function NewQuoteModal({ onClose }: { onClose: () => void }) {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (dealId) mutation.mutate();
+          if (opportunityId) mutation.mutate();
         }}
       >
-        <Field label="Deal" required>
+        <Field label="Opportunity" required>
           <select
             required
-            value={dealId}
-            onChange={(e) => setDealId(e.target.value)}
+            value={opportunityId}
+            onChange={(e) => setOpportunityId(e.target.value)}
             className={inputClass}
             style={inputStyle}
           >
-            <option value="">Select deal…</option>
-            {deals?.data?.map((d: any) => (
-              <option key={d.id} value={d.id}>
-                {d.name} — {formatCurrency(d.amount)}
+            <option value="">Select opportunity…</option>
+            {opps?.data?.map((o: any) => (
+              <option key={o.id} value={o.id}>
+                {o.name} — {formatCurrency(o.amount)}
               </option>
             ))}
           </select>
@@ -113,7 +113,7 @@ function NewQuoteModal({ onClose }: { onClose: () => void }) {
           />
         </Field>
         {mutation.isError && (
-          <div className="text-sm mb-3" style={{ color: "var(--rose-600)" }}>
+          <div className="text-sm mb-3 text-[var(--rose-600)]">
             {(mutation.error as any)?.response?.data?.error || "Could not create quote."}
           </div>
         )}
@@ -121,7 +121,7 @@ function NewQuoteModal({ onClose }: { onClose: () => void }) {
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={mutation.isPending || !dealId}>
+          <Button type="submit" disabled={mutation.isPending || !opportunityId}>
             {mutation.isPending ? "Creating…" : "Create Quote"}
           </Button>
         </div>
@@ -171,12 +171,12 @@ export default function QuotesPage() {
   }
 
   return (
-    <div>
+    <div className="pb-24 md:pb-8">
       <PageHeader
         title="Quotes"
-        subtitle="Formal price proposals linked to deals."
+        subtitle="Formal price proposals linked to opportunities."
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <ColumnFilterDropdown
               columns={QUOTE_COLUMNS}
               visibleKeys={visibleKeys}
@@ -194,120 +194,122 @@ export default function QuotesPage() {
           </div>
         }
       />
-      <div className="px-8 pb-8">
+      <div className="px-4 md:px-8 pb-8">
         <Card>
           {isLoading ? (
-            <div className="p-6 text-sm" style={{ color: "var(--ink-400)" }}>Loading…</div>
+            <div className="p-6 text-sm text-[var(--ink-400)]">Loading…</div>
           ) : !data?.data?.length ? (
             <EmptyState
               title="No quotes yet"
-              subtitle="Create a quote from a deal to send a formal price proposal."
+              subtitle="Create a quote from an opportunity to send a formal price proposal."
               action={<Button onClick={() => setShowNew(true)}><Plus size={15} /> New Quote</Button>}
             />
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b" style={{ borderColor: "var(--ink-100)" }}>
-                  {isVisible("quoteNumber") && (
-                    <th className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      Quote #
-                    </th>
-                  )}
-                  {isVisible("deal") && (
-                    <th className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      Deal
-                    </th>
-                  )}
-                  {isVisible("account") && (
-                    <th className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      Account
-                    </th>
-                  )}
-                  {isVisible("amount") && (
-                    <th className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      Amount
-                    </th>
-                  )}
-                  {isVisible("status") && (
-                    <th className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      Status
-                    </th>
-                  )}
-                  {isVisible("expires") && (
-                    <th className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      Expires
-                    </th>
-                  )}
-                  {isVisible("actions") && (
-                    <th className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      Actions
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {data.data.map((q: any) => {
-                  const sc = statusConfig[q.status] || statusConfig.DRAFT;
-                  return (
-                    <tr key={q.id} className="border-b last:border-0 hover:bg-[var(--ink-50)]" style={{ borderColor: "var(--ink-100)" }}>
-                      {isVisible("quoteNumber") && (
-                        <td className="px-4 py-3 font-mono-num font-medium">{q.quoteNumber}</td>
-                      )}
-                      {isVisible("deal") && (
-                        <td className="px-4 py-3">
-                          <span className="font-medium" style={{ color: "var(--ledger-700)" }}>
-                            {q.deal?.name || "—"}
-                          </span>
-                        </td>
-                      )}
-                      {isVisible("account") && (
-                        <td className="px-4 py-3" style={{ color: "var(--ink-600)" }}>{q.account?.name || "—"}</td>
-                      )}
-                      {isVisible("amount") && (
-                        <td className="px-4 py-3 font-mono-num font-medium">{formatCurrency(q.amount)}</td>
-                      )}
-                      {isVisible("status") && (
-                        <td className="px-4 py-3"><Badge tone={sc.tone}>{sc.label}</Badge></td>
-                      )}
-                      {isVisible("expires") && (
-                        <td className="px-4 py-3" style={{ color: "var(--ink-500)" }}>{formatDate(q.expirationDate)}</td>
-                      )}
-                      {isVisible("actions") && (
-                        <td className="px-4 py-3">
-                          <div className="flex gap-1 flex-wrap">
-                            <Button size="sm" variant="secondary" onClick={() => downloadPdf(q.id, q.quoteNumber)}>
-                              <Download size={12} /> PDF
-                            </Button>
-                            {q.status === "DRAFT" && (
-                              <Button size="sm" variant="secondary" onClick={() => updateStatus.mutate({ id: q.id, status: "SENT" })}>
-                                <Send size={12} /> Send
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b border-[var(--ink-100)]">
+                    {isVisible("quoteNumber") && (
+                      <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
+                        Quote #
+                      </th>
+                    )}
+                    {isVisible("opportunity") && (
+                      <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
+                        Opportunity
+                      </th>
+                    )}
+                    {isVisible("account") && (
+                      <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
+                        Account
+                      </th>
+                    )}
+                    {isVisible("amount") && (
+                      <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
+                        Amount
+                      </th>
+                    )}
+                    {isVisible("status") && (
+                      <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
+                        Status
+                      </th>
+                    )}
+                    {isVisible("expires") && (
+                      <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
+                        Expires
+                      </th>
+                    )}
+                    {isVisible("actions") && (
+                      <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
+                        Actions
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.data.map((q: any) => {
+                    const sc = statusConfig[q.status] || statusConfig.DRAFT;
+                    return (
+                      <tr key={q.id} className="border-b last:border-0 hover:bg-[var(--ink-50)] border-[var(--ink-100)]">
+                        {isVisible("quoteNumber") && (
+                          <td className="px-4 py-3 font-mono-num font-medium">{q.quoteNumber}</td>
+                        )}
+                        {isVisible("opportunity") && (
+                          <td className="px-4 py-3">
+                            <span className="font-medium text-[var(--ledger-700)]">
+                              {q.opportunity?.name || "—"}
+                            </span>
+                          </td>
+                        )}
+                        {isVisible("account") && (
+                          <td className="px-4 py-3 text-[var(--ink-600)]">{q.account?.name || "—"}</td>
+                        )}
+                        {isVisible("amount") && (
+                          <td className="px-4 py-3 font-mono-num font-medium">{formatCurrency(q.amount)}</td>
+                        )}
+                        {isVisible("status") && (
+                          <td className="px-4 py-3"><Badge tone={sc.tone}>{sc.label}</Badge></td>
+                        )}
+                        {isVisible("expires") && (
+                          <td className="px-4 py-3 text-[var(--ink-500)]">{formatDate(q.expirationDate)}</td>
+                        )}
+                        {isVisible("actions") && (
+                          <td className="px-4 py-3">
+                            <div className="flex gap-1 flex-wrap">
+                              <Button size="sm" variant="secondary" onClick={() => downloadPdf(q.id, q.quoteNumber)}>
+                                <Download size={12} /> PDF
                               </Button>
-                            )}
-                            {q.status === "SENT" && (
-                              <>
-                                <Button size="sm" variant="secondary" onClick={() => updateStatus.mutate({ id: q.id, status: "ACCEPTED" })}>
-                                  <CheckCircle size={12} /> Accept
+                              {q.status === "DRAFT" && (
+                                <Button size="sm" variant="secondary" onClick={() => updateStatus.mutate({ id: q.id, status: "SENT" })}>
+                                  <Send size={12} /> Send
                                 </Button>
-                                <Button size="sm" variant="danger" onClick={() => updateStatus.mutate({ id: q.id, status: "REJECTED" })}>
-                                  <XCircle size={12} /> Reject
-                                </Button>
-                              </>
-                            )}
-                            <Button size="sm" variant="secondary" onClick={() => duplicateMutation.mutate(q.id)} disabled={duplicateMutation.isPending}>
-                              <Copy size={12} /> Duplicate
-                            </Button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                              )}
+                              {q.status === "SENT" && (
+                                <>
+                                  <Button size="sm" variant="secondary" onClick={() => updateStatus.mutate({ id: q.id, status: "ACCEPTED" })}>
+                                    <CheckCircle size={12} /> Accept
+                                  </Button>
+                                  <Button size="sm" variant="danger" onClick={() => updateStatus.mutate({ id: q.id, status: "REJECTED" })}>
+                                    <XCircle size={12} /> Reject
+                                  </Button>
+                                </>
+                              )}
+                              <Button size="sm" variant="secondary" onClick={() => duplicateMutation.mutate(q.id)} disabled={duplicateMutation.isPending}>
+                                <Copy size={12} /> Duplicate
+                              </Button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card>
       </div>
-      {showNew && <NewQuoteModal onClose={() => setShowNew(false)} />}
+      {showNew && <NewQuoteModalPage onClose={() => setShowNew(false)} />}
     </div>
   );
 }

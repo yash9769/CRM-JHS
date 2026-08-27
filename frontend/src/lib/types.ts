@@ -21,10 +21,9 @@ export interface Account {
   ownerId?: string | null;
   createdAt: string;
   updatedAt: string;
-  _count?: { contacts: number; opportunities: number; deals: number };
+  _count?: { contacts: number; opportunities: number };
   contacts?: Contact[];
   opportunities?: Opportunity[];
-  deals?: Deal[];
   quotes?: any[];
   activities?: Activity[];
   notes?: Note[];
@@ -88,9 +87,7 @@ export interface Contact {
   createdAt: string;
   updatedAt: string;
   opportunityContacts?: { opportunity: Opportunity }[];
-  dealContacts?: { deal: Deal }[];
   primaryOpportunities?: Opportunity[];
-  primaryDeals?: Deal[];
   activities?: Activity[];
   notes?: Note[];
 }
@@ -123,7 +120,7 @@ export interface PipelineStage {
 export interface Pipeline {
   id: string;
   name: string;
-  type: "OPPORTUNITY" | "DEAL";
+  type: "OPPORTUNITY";
   isDefault: boolean;
   stages: PipelineStage[];
 }
@@ -140,48 +137,18 @@ export interface Opportunity {
   pipeline?: Pipeline;
   stageId: string;
   stage: PipelineStage;
-  dealStageId?: string | null;
-  dealStage?: PipelineStage | null;
   probability: number;
   expectedCloseDate?: string | null;
+  actualCloseDate?: string | null;
+  wonDate?: string | null;
+  lostReason?: string | null;
+  dealType?: string | null;
+  forecastCategory?: string;
   ownerId: string;
   owner?: Owner;
   opportunityType: "NEW_BUSINESS" | "EXPANSION" | "RENEWAL";
   leadSource?: string | null;
   description?: string | null;
-  isConverted: boolean;
-  convertedDealId?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  contacts?: { contact: Contact }[];
-  activities?: Activity[];
-  notes?: Note[];
-  stageHistory?: any[];
-}
-
-export interface Deal {
-  id: string;
-  name: string;
-  accountId: string;
-  account?: Account;
-  contactId?: string | null;
-  contact?: Contact | null;
-  opportunityId?: string | null;
-  opportunity?: Opportunity | null;
-  amount: string;
-  pipelineId: string;
-  pipeline?: Pipeline;
-  stageId: string;
-  stage: PipelineStage;
-  closeDate?: string | null;
-  ownerId: string;
-  owner?: Owner;
-  probability: number;
-  dealType?: string | null;
-  forecastCategory: string;
-  description?: string | null;
-  wonDate?: string | null;
-  lostReason?: string | null;
   createdAt: string;
   updatedAt: string;
   contacts?: { contact: Contact }[];
@@ -207,7 +174,7 @@ export interface LineItem {
   id: string;
   productId: string;
   product?: Product;
-  dealId?: string | null;
+  opportunityId?: string | null;
   quoteId?: string | null;
   quantity: string;
   unitPrice: string;

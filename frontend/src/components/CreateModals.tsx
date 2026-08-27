@@ -4,12 +4,13 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { Modal, Field, Button, inputClass, inputStyle } from "./ui";
 import { RelationshipSelector, type RelationshipOption } from "./RelationshipSelector";
-import { fetchAccountOptions, fetchContactOptions, fetchOpportunityOptions, fetchOwnerOptions } from "../lib/pickers";
+import { fetchAccountOptions, fetchContactOptions, fetchOwnerOptions } from "../lib/pickers";
 import type { Pipeline, DuplicateLeadCandidate } from "../lib/types";
+import { formatCurrency } from "../lib/format";
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
-  return <div className="text-xs mt-1" style={{ color: "var(--rose-600)" }}>{message}</div>;
+  return <div className="text-xs mt-1 text-[var(--rose-600)]">{message}</div>;
 }
 
 function fieldErrorsFrom(err: any): Record<string, string> {
@@ -27,7 +28,7 @@ function fieldErrorsFrom(err: any): Record<string, string> {
 function GeneralError({ err, fallback }: { err: any; fallback: string }) {
   if (!err) return null;
   const msg = err?.response?.data?.error || fallback;
-  return <div className="text-sm mb-3 px-3 py-2 rounded-md" style={{ color: "var(--rose-600)", background: "var(--rose-100)" }}>{msg}</div>;
+  return <div className="text-sm mb-3 px-3 py-2 rounded-md text-[var(--rose-600)] bg-[var(--rose-100)]">{msg}</div>;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -70,12 +71,12 @@ export function NewAccountModal({
   if (duplicates) {
     return (
       <Modal title="Possible duplicate" onClose={onClose}>
-        <p className="text-sm mb-3" style={{ color: "var(--ink-600)" }}>An account that looks like this may already exist:</p>
+        <p className="text-sm mb-3 text-[var(--ink-600)]">An account that looks like this may already exist:</p>
         <div className="space-y-2 mb-4">
           {duplicates.map((d) => (
-            <div key={d.id} className="p-3 rounded-md border text-sm" style={{ borderColor: "var(--ink-100)" }}>
+            <div key={d.id} className="p-3 rounded-md border text-sm border-[var(--ink-100)]">
               <div className="font-medium">{d.name}</div>
-              <div style={{ color: "var(--ink-500)" }}>{[d.domain, d.industry].filter(Boolean).join(" · ")}</div>
+              <div className="text-[var(--ink-500)]">{[d.domain, d.industry].filter(Boolean).join(" · ")}</div>
             </div>
           ))}
         </div>
@@ -176,12 +177,12 @@ export function NewContactModal({
   if (duplicates) {
     return (
       <Modal title="Possible duplicate" onClose={onClose}>
-        <p className="text-sm mb-3" style={{ color: "var(--ink-600)" }}>A contact that looks like this may already exist:</p>
+        <p className="text-sm mb-3 text-[var(--ink-600)]">A contact that looks like this may already exist:</p>
         <div className="space-y-2 mb-4">
           {duplicates.map((d) => (
-            <div key={d.id} className="p-3 rounded-md border text-sm" style={{ borderColor: "var(--ink-100)" }}>
+            <div key={d.id} className="p-3 rounded-md border text-sm border-[var(--ink-100)]">
               <div className="font-medium">{d.firstName} {d.lastName}</div>
-              <div style={{ color: "var(--ink-500)" }}>{[d.email, d.phone, d.account?.name].filter(Boolean).join(" · ")}</div>
+              <div className="text-[var(--ink-500)]">{[d.email, d.phone, d.account?.name].filter(Boolean).join(" · ")}</div>
             </div>
           ))}
         </div>
@@ -232,7 +233,7 @@ export function NewContactModal({
               />
             </Field>
           ) : (
-            accountLabel && <div className="text-xs mb-3.5" style={{ color: "var(--ink-500)" }}>Will be linked to <span className="font-medium" style={{ color: "var(--ink-700)" }}>{accountLabel}</span> automatically.</div>
+            accountLabel && <div className="text-xs mb-3.5 text-[var(--ink-500)]">Will be linked to <span className="font-medium text-[var(--ink-700)]">{accountLabel}</span> automatically.</div>
           )}
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
@@ -282,7 +283,6 @@ export function NewOpportunityModal({
 }) {
   const qc = useQueryClient();
 
-  // Query for Opportunity pipeline
   const { data: oppPipelines } = useQuery<{ data: Pipeline[] }>({
     queryKey: ["pipelines", "OPPORTUNITY"],
     queryFn: async () => (await api.get("/pipelines", { params: { type: "OPPORTUNITY" } })).data,
@@ -290,25 +290,20 @@ export function NewOpportunityModal({
 
   const oppPipeline = oppPipelines?.data[0];
 
-  // 1. Account & Account Owner state
   const [accountId, setAccountId] = useState<string | null>(fixedAccountId || null);
   const [accountLabel, setAccountLabel] = useState<string | null>(accountName || null);
   const [accountOwnerId, setAccountOwnerId] = useState<string | null>(fixedAccountOwnerId || null);
   const [accountOwnerLabel, setAccountOwnerLabel] = useState<string | null>(fixedAccountOwnerLabel || null);
 
-  // 2. Contact Person state
   const [contactId, setContactId] = useState<string | null>(fixedContactId || null);
   const [contactLabel, setContactLabel] = useState<string | null>(contactName || null);
 
-  // Inline modal drawers
   const [showNewAccount, setShowNewAccount] = useState<string | null>(null);
   const [showNewContact, setShowNewContact] = useState<string | null>(null);
 
-  // 3. Assigned To (Opportunity Owner)
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [ownerLabel, setOwnerLabel] = useState<string | null>(null);
 
-  // 4. Primary fields
   const todayStr = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({
     name: initialName || "",
@@ -320,11 +315,8 @@ export function NewOpportunityModal({
   });
 
   const [clientError, setClientError] = useState<string | null>(null);
-
-  // Default stage resolution
   const effectiveStageId = form.stageId || oppPipeline?.stages[0]?.id || "";
 
-  // When an account is selected, auto-populate Account Owner and clear mismatching contact if any
   function handleAccountSelect(id: string | null, opt?: RelationshipOption) {
     setAccountId(id);
     setAccountLabel(opt?.label || null);
@@ -332,12 +324,10 @@ export function NewOpportunityModal({
       setAccountOwnerId(opt.ownerId);
       setAccountOwnerLabel(opt.ownerLabel || null);
     }
-    // Also if ownerId (Assigned To) is not set yet, default to Account Owner
     if (!ownerId && opt?.ownerId) {
       setOwnerId(opt.ownerId);
       setOwnerLabel(opt.ownerLabel || null);
     }
-    // Reset contact if not linked to new account
     if (contactId && opt && id) {
       setContactId(null);
       setContactLabel(null);
@@ -346,7 +336,6 @@ export function NewOpportunityModal({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      // Validate dates
       if (form.createdDate && form.closeDate) {
         if (new Date(form.closeDate) < new Date(form.createdDate)) {
           throw new Error("Close Date cannot be earlier than Created Date");
@@ -359,7 +348,7 @@ export function NewOpportunityModal({
         throw new Error("Please assign the opportunity to a user");
       }
       if (Number(form.amount) < 0) {
-        throw new Error("Deal Value must be non-negative");
+        throw new Error("Value must be non-negative");
       }
 
       return api.post("/opportunities", {
@@ -403,13 +392,12 @@ export function NewOpportunityModal({
           className="space-y-4"
         >
           {clientError && (
-            <div className="text-sm px-3 py-2 rounded-md" style={{ color: "var(--rose-600)", background: "var(--rose-100)" }}>
+            <div className="text-sm px-3 py-2 rounded-md text-[var(--rose-600)] bg-[var(--rose-100)]">
               {clientError}
             </div>
           )}
           <GeneralError err={mutation.error} fallback="Could not create opportunity." />
 
-          {/* 1. Account Owner */}
           <Field label="Account Owner">
             <RelationshipSelector
               value={accountOwnerId}
@@ -424,7 +412,6 @@ export function NewOpportunityModal({
             <FieldError message={fieldErrors.accountOwnerId} />
           </Field>
 
-          {/* 2. Account */}
           <Field label="Account" required>
             <RelationshipSelector
               value={accountId}
@@ -438,7 +425,6 @@ export function NewOpportunityModal({
             <FieldError message={fieldErrors.accountId || fieldErrors.account} />
           </Field>
 
-          {/* 3. Contact Person */}
           <Field label="Contact Person">
             <RelationshipSelector
               value={contactId}
@@ -446,7 +432,6 @@ export function NewOpportunityModal({
               onChange={(id, opt) => {
                 setContactId(id);
                 setContactLabel(opt?.label || null);
-                // If contact has account and account not selected yet, auto-select account
                 if (opt?.accountId && !accountId) {
                   setAccountId(opt.accountId);
                   setAccountLabel(opt.accountLabel || null);
@@ -460,7 +445,6 @@ export function NewOpportunityModal({
             <FieldError message={fieldErrors.contactId} />
           </Field>
 
-          {/* 4. Opportunity Name */}
           <Field label="Opportunity Name" required>
             <input
               required
@@ -473,7 +457,6 @@ export function NewOpportunityModal({
             <FieldError message={fieldErrors.name} />
           </Field>
 
-          {/* 5. Opportunity Stage & Deal Value */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Opportunity Stage" required>
               <select
@@ -493,7 +476,7 @@ export function NewOpportunityModal({
 
             <Field label="Opportunity Value" required>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-medium" style={{ color: "var(--ink-500)" }}>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-medium text-[var(--ink-500)]">
                   ₹
                 </span>
                 <input
@@ -512,7 +495,6 @@ export function NewOpportunityModal({
             </Field>
           </div>
 
-          {/* 8. Remarks */}
           <Field label="Remarks">
             <textarea
               rows={3}
@@ -525,7 +507,6 @@ export function NewOpportunityModal({
             <FieldError message={fieldErrors.description || fieldErrors.remarks} />
           </Field>
 
-          {/* 9. Assigned To */}
           <Field label="Assigned To" required>
             <RelationshipSelector
               value={ownerId}
@@ -540,7 +521,6 @@ export function NewOpportunityModal({
             <FieldError message={fieldErrors.ownerId} />
           </Field>
 
-          {/* 10 & 11. Created Date & Close Date */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Created Date">
               <input
@@ -565,7 +545,7 @@ export function NewOpportunityModal({
             </Field>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2 border-t" style={{ borderColor: "var(--ink-100)" }}>
+          <div className="flex justify-end gap-2 pt-2 border-t border-[var(--ink-100)]">
             <Button variant="secondary" onClick={onClose} type="button">
               Cancel
             </Button>
@@ -576,7 +556,6 @@ export function NewOpportunityModal({
         </form>
       </Modal>
 
-      {/* Inline Account Creation Modal */}
       {showNewAccount !== null && (
         <NewAccountModal
           initialName={showNewAccount}
@@ -599,7 +578,6 @@ export function NewOpportunityModal({
         />
       )}
 
-      {/* Inline Contact Creation Modal */}
       {showNewContact !== null && (
         <NewContactModal
           accountId={accountId || undefined}
@@ -623,273 +601,220 @@ export function NewOpportunityModal({
 }
 
 /* ---------------------------------------------------------------------- */
-/* Deal                                                                    */
+/* Add Line Item                                                           */
 /* ---------------------------------------------------------------------- */
 
-export function NewDealModal({
+export function AddLineItemModal({
+  opportunityId,
   onClose,
-  onCreated,
-  accountId: fixedAccountId,
-  accountName,
-  contactId: fixedContactId,
-  contactName,
-  opportunityId: fixedOpportunityId,
-  opportunityName,
-  initialAmount,
-  initialRemarks,
+  onSuccess,
 }: {
+  opportunityId: string;
   onClose: () => void;
-  onCreated?: (deal: any) => void;
-  accountId?: string;
-  accountName?: string;
-  contactId?: string;
-  contactName?: string;
-  opportunityId?: string;
-  opportunityName?: string;
-  initialAmount?: string | number;
-  initialRemarks?: string;
+  onSuccess?: () => void;
 }) {
-  const qc = useQueryClient();
-  const { data: pipelines } = useQuery<{ data: Pipeline[] }>({
-    queryKey: ["pipelines", "DEAL"],
-    queryFn: async () => (await api.get("/pipelines", { params: { type: "DEAL" } })).data,
+  const [productId, setProductId] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [unitPrice, setUnitPrice] = useState("");
+  const [discountPct, setDiscountPct] = useState("0");
+
+  const { data: products } = useQuery<any>({
+    queryKey: ["products", "picker"],
+    queryFn: async () => (await api.get("/products", { params: { pageSize: 100 } })).data,
   });
-  const pipeline = pipelines?.data[0];
-
-  const [accountId, setAccountId] = useState<string | null>(fixedAccountId || null);
-  const [accountLabel, setAccountLabel] = useState<string | null>(accountName || null);
-  const [showNewAccount, setShowNewAccount] = useState<string | null>(null);
-
-  const [contactId, setContactId] = useState<string | null>(fixedContactId || null);
-  const [contactLabel, setContactLabel] = useState<string | null>(contactName || null);
-  const [showNewContact, setShowNewContact] = useState<string | null>(null);
-
-  const [opportunityId, setOpportunityId] = useState<string | null>(fixedOpportunityId || null);
-  const [opportunityLabel, setOpportunityLabel] = useState<string | null>(opportunityName || null);
-
-  const [ownerId, setOwnerId] = useState<string | null>(null);
-  const [ownerLabel, setOwnerLabel] = useState<string | null>(null);
-
-  const [form, setForm] = useState({
-    name: opportunityName ? `${opportunityName} - Deal` : "",
-    amount: initialAmount ? String(initialAmount) : "",
-    stageId: "",
-    closeDate: "",
-    remarks: initialRemarks || "",
-  });
-
-  const stageId = form.stageId || pipeline?.stages.find((s) => !s.isClosed)?.id || "";
 
   const mutation = useMutation({
     mutationFn: () =>
-      api.post("/deals", {
-        name: form.name,
-        amount: Number(form.amount || 0),
-        pipelineId: pipeline!.id,
-        stageId,
-        ownerId,
-        accountId: accountId || undefined,
-        contactId: contactId || undefined,
-        opportunityId: opportunityId || undefined,
-        closeDate: form.closeDate ? new Date(form.closeDate).toISOString() : null,
-        description: form.remarks || null,
+      api.post(`/opportunities/${opportunityId}/line-items`, {
+        productId,
+        quantity: Number(quantity),
+        unitPrice: Number(unitPrice),
+        discountPct: Number(discountPct),
       }),
-    onSuccess: (res) => {
-      qc.invalidateQueries({ queryKey: ["deals"] });
-      if (accountId) qc.invalidateQueries({ queryKey: ["account", accountId] });
-      onCreated?.(res.data);
+    onSuccess: () => {
+      onSuccess?.();
       onClose();
     },
   });
-  const fieldErrors = fieldErrorsFrom(mutation.error);
-
-  if (!pipeline) return null;
 
   return (
-    <>
-      <Modal title="Create Deal" onClose={onClose}>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            mutation.mutate();
-          }}
-          className="space-y-4"
-        >
-          <GeneralError err={mutation.error} fallback="Could not create deal." />
-          <Field label="Deal Name" required>
+    <Modal title="Add Line Item" onClose={onClose}>
+      <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="space-y-4">
+        <Field label="Product" required>
+          <select
+            required
+            value={productId}
+            onChange={(e) => {
+              const pId = e.target.value;
+              setProductId(pId);
+              const p = products?.data?.find((x: any) => x.id === pId);
+              if (p) setUnitPrice(String(p.unitPrice));
+            }}
+            className={inputClass}
+            style={inputStyle}
+          >
+            <option value="">Select product…</option>
+            {products?.data?.map((p: any) => (
+              <option key={p.id} value={p.id}>
+                {p.name} ({formatCurrency(p.unitPrice)})
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Quantity" required>
             <input
-              required
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              type="number"
+              min="1"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
               className={inputClass}
               style={inputStyle}
-              placeholder="e.g. Acme Enterprise License Deal"
-            />
-            <FieldError message={fieldErrors.name} />
-          </Field>
-
-          <Field label="Account" required>
-            <RelationshipSelector
-              value={accountId}
-              valueLabel={accountLabel}
-              onChange={(id, opt) => {
-                setAccountId(id);
-                setAccountLabel(opt?.label || null);
-                if (opt?.ownerId && !ownerId) {
-                  setOwnerId(opt.ownerId);
-                  setOwnerLabel(opt.ownerLabel || null);
-                }
-              }}
-              fetchOptions={fetchAccountOptions}
-              placeholder="Search or select company…"
-              onCreateNew={(term) => setShowNewAccount(term)}
-              createLabel="+ Create new account"
-            />
-            <FieldError message={fieldErrors.accountId || fieldErrors.account} />
-          </Field>
-
-          <Field label="Contact Person">
-            <RelationshipSelector
-              value={contactId}
-              valueLabel={contactLabel}
-              onChange={(id, opt) => {
-                setContactId(id);
-                setContactLabel(opt?.label || null);
-              }}
-              fetchOptions={(s) => fetchContactOptions(s, accountId || undefined)}
-              placeholder={accountId ? `Search contacts for ${accountLabel}…` : "Search contacts…"}
-              onCreateNew={(term) => setShowNewContact(term)}
-              createLabel="+ Create new contact"
             />
           </Field>
-
-          {!fixedOpportunityId && (
-            <Field label="Source Opportunity (Optional)">
-              <RelationshipSelector
-                value={opportunityId}
-                valueLabel={opportunityLabel}
-                onChange={(id, opt) => {
-                  setOpportunityId(id);
-                  setOpportunityLabel(opt?.label || null);
-                }}
-                fetchOptions={(s) => fetchOpportunityOptions(s, accountId || undefined)}
-                placeholder="Link to an existing opportunity…"
-              />
-            </Field>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Deal Value" required>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-medium" style={{ color: "var(--ink-500)" }}>
-                  ₹
-                </span>
-                <input
-                  required
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  className={`${inputClass} pl-8`}
-                  style={inputStyle}
-                  placeholder="12,00,000"
-                />
-              </div>
-              <FieldError message={fieldErrors.amount} />
-            </Field>
-
-            <Field label="Deal Stage" required>
-              <select
-                value={stageId}
-                onChange={(e) => setForm({ ...form, stageId: e.target.value })}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {pipeline.stages.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Assigned To" required>
-              <RelationshipSelector
-                value={ownerId}
-                valueLabel={ownerLabel}
-                onChange={(id, opt) => {
-                  setOwnerId(id);
-                  setOwnerLabel(opt?.label || null);
-                }}
-                fetchOptions={fetchOwnerOptions}
-                placeholder="Search assigned user…"
-              />
-              <FieldError message={fieldErrors.ownerId} />
-            </Field>
-
-            <Field label="Close Date">
-              <input
-                type="date"
-                value={form.closeDate}
-                onChange={(e) => setForm({ ...form, closeDate: e.target.value })}
-                className={inputClass}
-                style={inputStyle}
-              />
-            </Field>
-          </div>
-
-          <Field label="Remarks">
-            <textarea
-              rows={2}
-              value={form.remarks}
-              onChange={(e) => setForm({ ...form, remarks: e.target.value })}
+          <Field label="Unit Price" required>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={unitPrice}
+              onChange={(e) => setUnitPrice(e.target.value)}
               className={inputClass}
-              style={{ ...inputStyle, minHeight: 60 }}
-              placeholder="Deal terms, notes, and milestones…"
+              style={inputStyle}
             />
           </Field>
+          <Field label="Discount %">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={discountPct}
+              onChange={(e) => setDiscountPct(e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+            />
+          </Field>
+        </div>
 
-          <div className="flex justify-end gap-2 pt-2 border-t" style={{ borderColor: "var(--ink-100)" }}>
-            <Button variant="secondary" onClick={onClose} type="button">
-              Cancel
-            </Button>
-            <Button type="submit" disabled={mutation.isPending || !accountId || !ownerId || !form.name}>
-              {mutation.isPending ? "Creating…" : "Create Deal"}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        <div className="flex justify-end gap-2 pt-2 border-t border-[var(--ink-100)]">
+          <Button variant="secondary" onClick={onClose} type="button">Cancel</Button>
+          <Button type="submit" disabled={mutation.isPending || !productId}>
+            {mutation.isPending ? "Adding…" : "Add Product"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
 
-      {showNewAccount !== null && (
-        <NewAccountModal
-          initialName={showNewAccount}
-          onClose={() => setShowNewAccount(null)}
-          onCreated={(acc) => {
-            setAccountId(acc.id);
-            setAccountLabel(acc.name);
-            setShowNewAccount(null);
-          }}
-        />
-      )}
+/* ---------------------------------------------------------------------- */
+/* New Quote Modal                                                         */
+/* ---------------------------------------------------------------------- */
 
-      {showNewContact !== null && (
-        <NewContactModal
-          accountId={accountId || undefined}
-          accountName={accountLabel || undefined}
-          initialFirstName={showNewContact.split(" ")[0] || ""}
-          initialLastName={showNewContact.split(" ").slice(1).join(" ") || ""}
-          onClose={() => setShowNewContact(null)}
-          onCreated={(ct) => {
-            setContactId(ct.id);
-            setContactLabel(`${ct.firstName} ${ct.lastName}`);
-            setShowNewContact(null);
-          }}
-        />
-      )}
-    </>
+export function NewQuoteModal({
+  opportunityId: fixedOpportunityId,
+  accountId: fixedAccountId,
+  onClose,
+  onSuccess,
+}: {
+  opportunityId?: string;
+  accountId?: string;
+  onClose: () => void;
+  onSuccess?: () => void;
+}) {
+  const [opportunityId, setOpportunityId] = useState(fixedOpportunityId || "");
+  const [expirationDate, setExpirationDate] = useState("");
+  const [discountPct, setDiscountPct] = useState("0");
+  const [taxPct, setTaxPct] = useState("0");
+
+  const { data: opps } = useQuery<any>({
+    queryKey: ["opportunities", "picker"],
+    queryFn: async () => (await api.get("/opportunities", { params: { pageSize: 100 } })).data,
+  });
+
+  const selectedOpp = opps?.data?.find((o: any) => o.id === opportunityId);
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      api.post("/quotes", {
+        opportunityId: opportunityId || fixedOpportunityId,
+        accountId: fixedAccountId || selectedOpp?.accountId,
+        expirationDate: expirationDate || undefined,
+        discountPct: Number(discountPct),
+        taxPct: Number(taxPct),
+      }),
+    onSuccess: () => {
+      onSuccess?.();
+      onClose();
+    },
+  });
+
+  return (
+    <Modal title="Create Quote" onClose={onClose}>
+      <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="space-y-4">
+        {!fixedOpportunityId && (
+          <Field label="Opportunity" required>
+            <select
+              required
+              value={opportunityId}
+              onChange={(e) => setOpportunityId(e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+            >
+              <option value="">Select opportunity…</option>
+              {opps?.data?.map((o: any) => (
+                <option key={o.id} value={o.id}>
+                  {o.name} — {formatCurrency(o.amount)}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Discount %">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={discountPct}
+              onChange={(e) => setDiscountPct(e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+            />
+          </Field>
+          <Field label="Tax %">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={taxPct}
+              onChange={(e) => setTaxPct(e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+            />
+          </Field>
+        </div>
+
+        <Field label="Expiration Date">
+          <input
+            type="date"
+            value={expirationDate}
+            onChange={(e) => setExpirationDate(e.target.value)}
+            className={inputClass}
+            style={inputStyle}
+          />
+        </Field>
+
+        <div className="flex justify-end gap-2 pt-2 border-t border-[var(--ink-100)]">
+          <Button variant="secondary" onClick={onClose} type="button">Cancel</Button>
+          <Button type="submit" disabled={mutation.isPending || (!opportunityId && !fixedOpportunityId)}>
+            {mutation.isPending ? "Generating…" : "Generate Quote"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -945,12 +870,12 @@ export function NewLeadModal({
   if (duplicates) {
     return (
       <Modal title="Possible duplicate" onClose={onClose}>
-        <p className="text-sm mb-3" style={{ color: "var(--ink-600)" }}>A lead that looks like this may already exist:</p>
+        <p className="text-sm mb-3 text-[var(--ink-600)]">A lead that looks like this may already exist:</p>
         <div className="space-y-2 mb-4">
           {duplicates.map((d) => (
-            <div key={d.id} className="p-3 rounded-md border text-sm" style={{ borderColor: "var(--ink-100)" }}>
+            <div key={d.id} className="p-3 rounded-md border text-sm border-[var(--ink-100)]">
               <div className="font-medium">{d.firstName} {d.lastName}</div>
-              <div style={{ color: "var(--ink-500)" }}>{[d.email, d.phone, d.companyName].filter(Boolean).join(" · ")}</div>
+              <div className="text-[var(--ink-500)]">{[d.email, d.phone, d.companyName].filter(Boolean).join(" · ")}</div>
             </div>
           ))}
         </div>
@@ -998,7 +923,7 @@ export function NewLeadModal({
         <Field label="Notes">
           <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={inputClass} style={{ ...inputStyle, minHeight: 70 }} placeholder="Interested in…" />
         </Field>
-        <div className="flex justify-end gap-2 pt-2 border-t" style={{ borderColor: "var(--ink-100)" }}>
+        <div className="flex justify-end gap-2 pt-2 border-t border-[var(--ink-100)]">
           <Button variant="secondary" onClick={onClose} type="button">Cancel</Button>
           <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Creating…" : "Create Lead"}</Button>
         </div>
@@ -1011,7 +936,7 @@ export function NewLeadModal({
 /* Task / Log activity                                                     */
 /* ---------------------------------------------------------------------- */
 
-type AssocContext = { objectType: "ACCOUNT" | "CONTACT" | "OPPORTUNITY" | "DEAL" | "LEAD"; accountId?: string; contactId?: string; opportunityId?: string; dealId?: string; leadId?: string; label?: string };
+type AssocContext = { objectType: "ACCOUNT" | "CONTACT" | "OPPORTUNITY" | "LEAD"; accountId?: string; contactId?: string; opportunityId?: string; leadId?: string; label?: string };
 
 export function NewTaskModal({ onClose, onCreated, context }: { onClose: () => void; onCreated?: () => void; context?: AssocContext }) {
   const qc = useQueryClient();
@@ -1028,7 +953,6 @@ export function NewTaskModal({ onClose, onCreated, context }: { onClose: () => v
         accountId: context?.accountId,
         contactId: context?.contactId,
         opportunityId: context?.opportunityId,
-        dealId: context?.dealId,
         leadId: context?.leadId,
       }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["activities"] }); onCreated?.(); onClose(); },
@@ -1038,7 +962,7 @@ export function NewTaskModal({ onClose, onCreated, context }: { onClose: () => v
     <Modal title="New Task" onClose={onClose}>
       <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="space-y-4">
         <GeneralError err={mutation.error} fallback="Could not create task." />
-        {context?.label && <div className="text-xs mb-3.5" style={{ color: "var(--ink-500)" }}>Related to <span className="font-medium" style={{ color: "var(--ink-700)" }}>{context.label}</span></div>}
+        {context?.label && <div className="text-xs mb-3.5 text-[var(--ink-500)]">Related to <span className="font-medium text-[var(--ink-700)]">{context.label}</span></div>}
         <Field label="Title" required>
           <input required value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className={inputClass} style={inputStyle} placeholder="Follow up on proposal" />
         </Field>
@@ -1048,7 +972,7 @@ export function NewTaskModal({ onClose, onCreated, context }: { onClose: () => v
         <Field label="Notes">
           <textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} className={inputClass} style={{ ...inputStyle, minHeight: 70 }} />
         </Field>
-        <div className="flex justify-end gap-2 pt-2 border-t" style={{ borderColor: "var(--ink-100)" }}>
+        <div className="flex justify-end gap-2 pt-2 border-t border-[var(--ink-100)]">
           <Button variant="secondary" onClick={onClose} type="button">Cancel</Button>
           <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Creating…" : "Create Task"}</Button>
         </div>
@@ -1073,7 +997,6 @@ export function LogActivityModal({ onClose, onCreated, context }: { onClose: () 
         accountId: context?.accountId,
         contactId: context?.contactId,
         opportunityId: context?.opportunityId,
-        dealId: context?.dealId,
         leadId: context?.leadId,
       }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["activities"] }); onCreated?.(); onClose(); },
@@ -1083,7 +1006,7 @@ export function LogActivityModal({ onClose, onCreated, context }: { onClose: () 
     <Modal title="Log Activity" onClose={onClose}>
       <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="space-y-4">
         <GeneralError err={mutation.error} fallback="Could not log activity." />
-        {context?.label && <div className="text-xs mb-3.5" style={{ color: "var(--ink-500)" }}>Related to <span className="font-medium" style={{ color: "var(--ink-700)" }}>{context.label}</span></div>}
+        {context?.label && <div className="text-xs mb-3.5 text-[var(--ink-500)]">Related to <span className="font-medium text-[var(--ink-700)]">{context.label}</span></div>}
         <Field label="Type" required>
           <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as any })} className={inputClass} style={inputStyle}>
             {LOGGABLE_TYPES.map((t) => <option key={t} value={t}>{t.replace("_", " ")}</option>)}
@@ -1095,7 +1018,7 @@ export function LogActivityModal({ onClose, onCreated, context }: { onClose: () 
         <Field label="Notes">
           <textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} className={inputClass} style={{ ...inputStyle, minHeight: 70 }} />
         </Field>
-        <div className="flex justify-end gap-2 pt-2 border-t" style={{ borderColor: "var(--ink-100)" }}>
+        <div className="flex justify-end gap-2 pt-2 border-t border-[var(--ink-100)]">
           <Button variant="secondary" onClick={onClose} type="button">Cancel</Button>
           <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Logging…" : "Log Activity"}</Button>
         </div>

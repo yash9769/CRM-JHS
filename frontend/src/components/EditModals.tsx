@@ -5,7 +5,7 @@ import { Modal, Field, Button, inputClass, inputStyle } from "./ui";
 import { RelationshipSelector, type RelationshipOption } from "./RelationshipSelector";
 import { fetchAccountOptions, fetchContactOptions, fetchOwnerOptions } from "../lib/pickers";
 import { NewAccountModal, NewContactModal } from "./CreateModals";
-import type { Account, Contact, Opportunity, Deal, Lead, Pipeline } from "../lib/types";
+import type { Account, Contact, Opportunity, Lead, Pipeline } from "../lib/types";
 
 export function ArchiveConfirmModal({
   title, impactUrl, onConfirm, onClose, isPending,
@@ -20,8 +20,8 @@ export function ArchiveConfirmModal({
   return (
     <Modal title={`Archive ${title}?`} onClose={onClose} width="440px">
       {entries.length > 0 && (
-        <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: "var(--ink-50)" }}>
-          <div className="mb-1.5" style={{ color: "var(--ink-500)" }}>This record has:</div>
+        <div className="mb-4 p-3 rounded-lg text-sm bg-[var(--ink-50)]">
+          <div className="mb-1.5 text-[var(--ink-500)]">This record has:</div>
           <ul className="space-y-0.5">
             {entries.map(([k, v]) => (
               <li key={k} className="font-medium">{v} {k}</li>
@@ -29,7 +29,7 @@ export function ArchiveConfirmModal({
           </ul>
         </div>
       )}
-      <p className="text-sm mb-4" style={{ color: "var(--ink-600)" }}>
+      <p className="text-sm mb-4 text-[var(--ink-600)]">
         Archived records are hidden from lists but not deleted — you can restore this later.
       </p>
       <div className="flex justify-end gap-2">
@@ -42,7 +42,7 @@ export function ArchiveConfirmModal({
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
-  return <div className="text-xs mt-1" style={{ color: "var(--rose-600)" }}>{message}</div>;
+  return <div className="text-xs mt-1 text-[var(--rose-600)]">{message}</div>;
 }
 
 function fieldErrorsFrom(err: any): Record<string, string> {
@@ -60,7 +60,7 @@ function fieldErrorsFrom(err: any): Record<string, string> {
 function GeneralError({ err, fallback }: { err: any; fallback: string }) {
   if (!err) return null;
   const msg = err?.response?.data?.error || fallback;
-  return <div className="text-sm mb-3 px-3 py-2 rounded-md" style={{ color: "var(--rose-600)", background: "var(--rose-100)" }}>{msg}</div>;
+  return <div className="text-sm mb-3 px-3 py-2 rounded-md text-[var(--rose-600)] bg-[var(--rose-100)]">{msg}</div>;
 }
 
 export function EditAccountModal({ account, onClose }: { account: Account; onClose: () => void }) {
@@ -216,7 +216,7 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
         }
       }
       if (Number(form.amount) < 0) {
-        throw new Error("Deal Value must be non-negative");
+        throw new Error("Value must be non-negative");
       }
       if (!accountId) {
         throw new Error("Account is required");
@@ -261,13 +261,12 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
           className="space-y-4"
         >
           {clientError && (
-            <div className="text-sm px-3 py-2 rounded-md" style={{ color: "var(--rose-600)", background: "var(--rose-100)" }}>
+            <div className="text-sm px-3 py-2 rounded-md text-[var(--rose-600)] bg-[var(--rose-100)]">
               {clientError}
             </div>
           )}
           <GeneralError err={mutation.error} fallback="Could not update opportunity." />
 
-          {/* 1. Account Owner */}
           <Field label="Account Owner">
             <RelationshipSelector
               value={accountOwnerId}
@@ -281,7 +280,6 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
             />
           </Field>
 
-          {/* 2. Account */}
           <Field label="Account" required>
             <RelationshipSelector
               value={accountId}
@@ -295,7 +293,6 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
             <FieldError message={fieldErrors.accountId || fieldErrors.account} />
           </Field>
 
-          {/* 3. Contact Person */}
           <Field label="Contact Person">
             <RelationshipSelector
               value={contactId}
@@ -312,7 +309,6 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
             <FieldError message={fieldErrors.contactId} />
           </Field>
 
-          {/* 4. Opportunity Name */}
           <Field label="Opportunity Name" required>
             <input
               required
@@ -324,7 +320,6 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
             <FieldError message={fieldErrors.name} />
           </Field>
 
-          {/* 5. Opportunity Stage & Deal Value */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Opportunity Stage" required>
               <select
@@ -344,7 +339,7 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
 
             <Field label="Opportunity Value" required>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-medium" style={{ color: "var(--ink-500)" }}>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-medium text-[var(--ink-500)]">
                   ₹
                 </span>
                 <input
@@ -363,7 +358,6 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
             </Field>
           </div>
 
-          {/* 8. Remarks */}
           <Field label="Remarks">
             <textarea
               rows={3}
@@ -375,7 +369,6 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
             <FieldError message={fieldErrors.description || fieldErrors.remarks} />
           </Field>
 
-          {/* 9. Assigned To */}
           <Field label="Assigned To" required>
             <RelationshipSelector
               value={ownerId}
@@ -390,7 +383,6 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
             <FieldError message={fieldErrors.ownerId} />
           </Field>
 
-          {/* 10 & 11. Created Date & Close Date */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Created Date">
               <input
@@ -415,7 +407,7 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
             </Field>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2 border-t" style={{ borderColor: "var(--ink-100)" }}>
+          <div className="flex justify-end gap-2 pt-2 border-t border-[var(--ink-100)]">
             <Button variant="secondary" onClick={onClose} type="button">
               Cancel
             </Button>
@@ -451,53 +443,6 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
         />
       )}
     </>
-  );
-}
-
-export function EditDealModal({ deal, onClose }: { deal: Deal; onClose: () => void }) {
-  const qc = useQueryClient();
-  const [form, setForm] = useState({
-    name: deal.name, amount: String(deal.amount), closeDate: deal.closeDate ? deal.closeDate.slice(0, 10) : "",
-    description: deal.description || "",
-  });
-  const mutation = useMutation({
-    mutationFn: () => api.patch(`/deals/${deal.id}`, {
-      name: form.name,
-      amount: Number(form.amount),
-      closeDate: form.closeDate ? new Date(form.closeDate).toISOString() : null,
-      description: form.description || null,
-    }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["deal", deal.id] }); qc.invalidateQueries({ queryKey: ["deals"] }); onClose(); },
-  });
-  const fieldErrors = fieldErrorsFrom(mutation.error);
-
-  return (
-    <Modal title="Edit Deal" onClose={onClose}>
-      <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="space-y-4">
-        <GeneralError err={mutation.error} fallback="Could not update deal." />
-        <Field label="Deal Name" required>
-          <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClass} style={inputStyle} />
-          <FieldError message={fieldErrors.name} />
-        </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Deal Value" required>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-medium" style={{ color: "var(--ink-500)" }}>₹</span>
-              <input required type="number" min="0.01" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className={`${inputClass} pl-8`} style={inputStyle} />
-            </div>
-            <FieldError message={fieldErrors.amount} />
-          </Field>
-          <Field label="Close Date">
-            <input type="date" value={form.closeDate} onChange={(e) => setForm({ ...form, closeDate: e.target.value })} className={inputClass} style={inputStyle} />
-          </Field>
-        </div>
-        <Field label="Remarks"><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={inputClass} style={{ ...inputStyle, minHeight: 70 }} /></Field>
-        <div className="flex justify-end gap-2 pt-2 border-t" style={{ borderColor: "var(--ink-100)" }}>
-          <Button variant="secondary" onClick={onClose} type="button">Cancel</Button>
-          <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Saving…" : "Save Changes"}</Button>
-        </div>
-      </form>
-    </Modal>
   );
 }
 
@@ -546,7 +491,7 @@ export function EditLeadModal({ lead, onClose }: { lead: Lead; onClose: () => vo
           </Field>
         </div>
         <Field label="Notes"><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={inputClass} style={{ ...inputStyle, minHeight: 70 }} /></Field>
-        <div className="flex justify-end gap-2 pt-2 border-t" style={{ borderColor: "var(--ink-100)" }}>
+        <div className="flex justify-end gap-2 pt-2 border-t border-[var(--ink-100)]">
           <Button variant="secondary" onClick={onClose} type="button">Cancel</Button>
           <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Saving…" : "Save Changes"}</Button>
         </div>

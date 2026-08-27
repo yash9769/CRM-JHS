@@ -14,7 +14,7 @@ export function SavedViewsBar<F extends Record<string, any>>({
   currentFilters,
   onApply,
 }: {
-  objectType: "LEAD" | "ACCOUNT" | "CONTACT" | "OPPORTUNITY" | "DEAL";
+  objectType: "LEAD" | "ACCOUNT" | "CONTACT" | "OPPORTUNITY";
   currentFilters: F;
   onApply: (filters: F) => void;
 }) {

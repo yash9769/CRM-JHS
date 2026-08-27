@@ -4,15 +4,15 @@ import { api } from "../lib/api";
 import { PageHeader, Card } from "../components/ui";
 import { formatCurrency, formatDate, relativeTime } from "../lib/format";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { TrendingUp, Target, Handshake, Trophy, Percent, Wallet, Timer, CalendarClock, FileText, Flame } from "lucide-react";
+import { TrendingUp, Target, Trophy, Percent, Wallet, Timer, CalendarClock, FileText, Flame } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
 interface ActionCenterData {
-  todaysWork: { overdueTasks: number; tasksDueToday: number; newLeads: number; uncontactedLeads: number; dealsClosingThisWeek: number; quotesAwaiting: number };
+  todaysWork: { overdueTasks: number; tasksDueToday: number; newLeads: number; uncontactedLeads: number; oppsClosingThisWeek: number; quotesAwaiting: number };
   recentLeads: { id: string; firstName: string; lastName: string; companyName?: string | null; status: string; createdAt: string }[];
-  upcomingTasks: { id: string; subject: string; dueDate: string | null; accountId?: string | null; contactId?: string | null; opportunityId?: string | null; dealId?: string | null; leadId?: string | null }[];
-  recentActivity: { id: string; type: string; subject: string; createdAt: string; owner?: { firstName: string; lastName: string } | null; account?: { id: string; name: string } | null; deal?: { id: string; name: string } | null; opportunity?: { id: string; name: string } | null; lead?: { id: string; firstName: string; lastName: string } | null }[];
-  dealsAtRisk: { id: string; name: string; amount: number; reason: string; account?: { id: string; name: string } | null }[];
+  upcomingTasks: { id: string; subject: string; dueDate: string | null; accountId?: string | null; contactId?: string | null; opportunityId?: string | null; leadId?: string | null }[];
+  recentActivity: { id: string; type: string; subject: string; createdAt: string; owner?: { firstName: string; lastName: string } | null; account?: { id: string; name: string } | null; opportunity?: { id: string; name: string } | null; lead?: { id: string; firstName: string; lastName: string } | null }[];
+  opportunitiesAtRisk: { id: string; name: string; amount: number; reason: string; account?: { id: string; name: string } | null }[];
 }
 
 function taskLink(t: ActionCenterData["upcomingTasks"][number]) {
@@ -36,24 +36,23 @@ function ActionTile({ icon: Icon, label, value, url, tone = "ink" }: { icon: any
           <div className="w-8 h-8 rounded-md flex items-center justify-center" style={{ background: tone === "rose" && value > 0 ? "var(--rose-100)" : "var(--ink-50)" }}>
             <Icon size={15} style={{ color: tone === "rose" && value > 0 ? "var(--rose-600)" : "var(--ink-500)" }} />
           </div>
-          <div className="font-mono-num text-2xl font-semibold" style={{ color: tone === "rose" && value > 0 ? "var(--rose-600)" : "var(--ink-900)" }}>{value}</div>
+          <div className="font-mono-num text-2xl font-semibold text-[var(--ink-900)]">{value}</div>
         </div>
-        <div className="text-xs font-medium mt-2" style={{ color: "var(--ink-500)" }}>{label}</div>
+        <div className="text-xs font-medium mt-2 text-[var(--ink-500)]">{label}</div>
       </Card>
     </Link>
   );
 }
 
-
 interface DashboardData {
   kpis: {
-    totalPipeline: number; weightedPipeline: number; openOpportunities: number; openDeals: number;
-    closedWonRevenue: number; winRate: number; avgDealSize: number; dealsClosingThisMonth: number;
+    totalPipeline: number; weightedPipeline: number; openOpportunities: number;
+    closedWonRevenue: number; winRate: number; avgOpportunitySize: number; oppsClosingThisMonth: number;
   };
   charts: {
     pipelineByStage: { stageName: string; count: number; amount: number }[];
     revenueByMonth: { month: string; revenue: number }[];
-    dealsByOwner: { owner: string; count: number; amount: number }[];
+    oppsByOwner: { owner: string; count: number; amount: number }[];
   };
 }
 
@@ -67,9 +66,9 @@ function Kpi({ icon: Icon, label, value, tone = "ink" }: { icon: any; label: str
         >
           <Icon size={14} style={{ color: tone === "green" ? "var(--ledger-700)" : "var(--ink-500)" }} />
         </div>
-        <span className="text-xs font-medium" style={{ color: "var(--ink-500)" }}>{label}</span>
+        <span className="text-xs font-medium text-[var(--ink-500)]">{label}</span>
       </div>
-      <div className="font-mono-num text-2xl font-semibold" style={{ color: "var(--ink-900)" }}>{value}</div>
+      <div className="font-mono-num text-xl md:text-2xl font-semibold text-[var(--ink-900)]">{value}</div>
     </Card>
   );
 }
@@ -89,62 +88,64 @@ export default function DashboardPage() {
   const greeting = greetingHour < 12 ? "Good morning" : greetingHour < 18 ? "Good afternoon" : "Good evening";
 
   return (
-    <div>
-      <PageHeader title={`${greeting}, ${user?.firstName}`} subtitle="Here's where your pipeline stands today." />
+    <div className="pb-24 md:pb-8">
+      <PageHeader title={`${greeting}, ${user?.firstName}`} subtitle="Here's where your sales pipeline stands today." />
 
       {action && (
-        <div className="px-8 pb-6">
-          <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--ink-800)" }}>Today's Work</h3>
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
-            <ActionTile icon={CalendarClock} label="Deals Closing This Week" value={action.todaysWork.dealsClosingThisWeek} url="/pipeline" />
+        <div className="px-4 md:px-8 pb-6">
+          <h3 className="text-sm font-semibold mb-3 text-[var(--ink-800)]">Today's Work</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-6">
+            <ActionTile icon={CalendarClock} label="Closing This Week" value={action.todaysWork.oppsClosingThisWeek} url="/opportunities" />
             <ActionTile icon={FileText} label="Quotes Awaiting Response" value={action.todaysWork.quotesAwaiting} url="/quotes" />
           </div>
 
-          <div className="grid grid-cols-4 gap-4 mb-2">
-            <Card className="p-4 col-span-1">
-              <h4 className="text-xs uppercase font-medium mb-3" style={{ color: "var(--ink-400)" }}>Recent Leads</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
+            <Card className="p-4">
+              <h4 className="text-xs uppercase font-medium mb-3 text-[var(--ink-400)]">Recent Leads</h4>
               {!action.recentLeads.length ? (
-                <div className="text-sm" style={{ color: "var(--ink-400)" }}>No leads yet</div>
+                <div className="text-sm text-[var(--ink-400)]">No leads yet</div>
               ) : (
                 <div className="space-y-2.5">
                   {action.recentLeads.map((l) => (
                     <div key={l.id} className="block text-sm">
-                      <div className="font-medium">{l.firstName} {l.lastName}</div>
-                      <div className="text-xs" style={{ color: "var(--ink-400)" }}>{l.companyName || l.status.replace("_", " ")}</div>
+                      <div className="font-medium text-[var(--ink-900)]">{l.firstName} {l.lastName}</div>
+                      <div className="text-xs text-[var(--ink-400)]">{l.companyName || l.status.replace("_", " ")}</div>
                     </div>
                   ))}
                 </div>
               )}
             </Card>
-            <Card className="p-4 col-span-1">
-              <h4 className="text-xs uppercase font-medium mb-3" style={{ color: "var(--ink-400)" }}>Upcoming Tasks</h4>
+
+            <Card className="p-4">
+              <h4 className="text-xs uppercase font-medium mb-3 text-[var(--ink-400)]">Upcoming Tasks</h4>
               {!action.upcomingTasks.length ? (
-                <div className="text-sm" style={{ color: "var(--ink-400)" }}>Nothing scheduled</div>
+                <div className="text-sm text-[var(--ink-400)]">Nothing scheduled</div>
               ) : (
                 <div className="space-y-2.5">
                   {action.upcomingTasks.map((t) => (
-                    <Link key={t.id} to={taskLink(t)} className="block text-sm">
-                      <div className="font-medium">{t.subject}</div>
-                      <div className="text-xs" style={{ color: "var(--ink-400)" }}>{t.dueDate ? formatDate(t.dueDate) : "No due date"}</div>
+                    <Link key={t.id} to={taskLink(t)} className="block text-sm hover:underline">
+                      <div className="font-medium text-[var(--ink-900)]">{t.subject}</div>
+                      <div className="text-xs text-[var(--ink-400)]">{t.dueDate ? formatDate(t.dueDate) : "No due date"}</div>
                     </Link>
                   ))}
                 </div>
               )}
             </Card>
-            <Card className="p-4 col-span-1">
-              <h4 className="text-xs uppercase font-medium mb-3" style={{ color: "var(--ink-400)" }}>Recent Activity</h4>
+
+            <Card className="p-4">
+              <h4 className="text-xs uppercase font-medium mb-3 text-[var(--ink-400)]">Recent Activity</h4>
               {!action.recentActivity.length ? (
-                <div className="text-sm" style={{ color: "var(--ink-400)" }}>Nothing logged yet</div>
+                <div className="text-sm text-[var(--ink-400)]">Nothing logged yet</div>
               ) : (
                 <div className="space-y-2.5">
                   {action.recentActivity.slice(0, 5).map((a) => {
                     const related = activityRelated(a);
                     return (
                       <div key={a.id} className="text-sm">
-                        <div className="font-medium">{a.subject}</div>
-                        <div className="text-xs" style={{ color: "var(--ink-400)" }}>
+                        <div className="font-medium text-[var(--ink-900)]">{a.subject}</div>
+                        <div className="text-xs text-[var(--ink-400)]">
                           {a.owner ? `${a.owner.firstName} ${a.owner.lastName} · ` : ""}
-                          {related ? <Link to={related.url} style={{ color: "var(--ledger-700)" }}>{related.label}</Link> : relativeTime(a.createdAt)}
+                          {related ? <Link to={related.url} className="text-[var(--ledger-700)] hover:underline">{related.label}</Link> : relativeTime(a.createdAt)}
                         </div>
                       </div>
                     );
@@ -152,17 +153,20 @@ export default function DashboardPage() {
                 </div>
               )}
             </Card>
-            <Card className="p-4 col-span-1">
-              <h4 className="text-xs uppercase font-medium mb-3 flex items-center gap-1.5" style={{ color: "var(--ink-400)" }}><Flame size={13} /> Deals at Risk</h4>
-              {!action.dealsAtRisk.length ? (
-                <div className="text-sm" style={{ color: "var(--ink-400)" }}>No deals need attention</div>
+
+            <Card className="p-4">
+              <h4 className="text-xs uppercase font-medium mb-3 flex items-center gap-1.5 text-[var(--ink-400)]">
+                <Flame size={13} /> Opportunities at Risk
+              </h4>
+              {!action.opportunitiesAtRisk?.length ? (
+                <div className="text-sm text-[var(--ink-400)]">No opportunities need attention</div>
               ) : (
                 <div className="space-y-2.5">
-                  {action.dealsAtRisk.map((d) => (
-                    <Link key={d.id} to={`/deals/${d.id}`} className="block text-sm">
-                      <div className="font-medium">{d.name}</div>
-                      <div className="text-xs font-mono-num" style={{ color: "var(--ink-600)" }}>{formatCurrency(d.amount)}</div>
-                      <div className="text-xs" style={{ color: "var(--rose-600)" }}>{d.reason}</div>
+                  {action.opportunitiesAtRisk.map((o) => (
+                    <Link key={o.id} to={`/opportunities/${o.id}`} className="block text-sm hover:underline">
+                      <div className="font-medium text-[var(--ink-900)]">{o.name}</div>
+                      <div className="text-xs font-mono-num text-[var(--ink-600)]">{formatCurrency(o.amount)}</div>
+                      <div className="text-xs text-[var(--rose-600)]">{o.reason}</div>
                     </Link>
                   ))}
                 </div>
@@ -173,23 +177,22 @@ export default function DashboardPage() {
       )}
 
       {isLoading || !data ? (
-        <div className="px-8 text-sm" style={{ color: "var(--ink-400)" }}>Loading…</div>
+        <div className="px-4 md:px-8 text-sm text-[var(--ink-400)]">Loading…</div>
       ) : (
-        <div className="px-8 pb-10 space-y-6">
-          <div className="grid grid-cols-4 gap-3">
+        <div className="px-4 md:px-8 pb-10 space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             <Kpi icon={Wallet} label="Total Pipeline" value={formatCurrency(data.kpis.totalPipeline)} />
             <Kpi icon={TrendingUp} label="Weighted Pipeline" value={formatCurrency(data.kpis.weightedPipeline)} />
             <Kpi icon={Target} label="Open Opportunities" value={String(data.kpis.openOpportunities)} />
-            <Kpi icon={Handshake} label="Open Deals" value={String(data.kpis.openDeals)} />
             <Kpi icon={Trophy} label="Closed Won Revenue" value={formatCurrency(data.kpis.closedWonRevenue)} tone="green" />
             <Kpi icon={Percent} label="Win Rate" value={`${Math.round(data.kpis.winRate * 100)}%`} />
-            <Kpi icon={Wallet} label="Avg Deal Size" value={formatCurrency(data.kpis.avgDealSize)} />
-            <Kpi icon={CalendarClock} label="Closing This Month" value={String(data.kpis.dealsClosingThisMonth)} />
+            <Kpi icon={Wallet} label="Avg Opp Size" value={formatCurrency(data.kpis.avgOpportunitySize)} />
+            <Kpi icon={CalendarClock} label="Closing This Month" value={String(data.kpis.oppsClosingThisMonth)} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Card className="p-5">
-              <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--ink-800)" }}>Revenue by Month</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card className="p-4 md:p-5">
+              <h3 className="text-sm font-semibold mb-4 text-[var(--ink-800)]">Revenue by Month</h3>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={data.charts.revenueByMonth}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" vertical={false} />
@@ -201,11 +204,11 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </Card>
 
-            <Card className="p-5">
-              <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--ink-800)" }}>Pipeline by Stage</h3>
+            <Card className="p-4 md:p-5">
+              <h3 className="text-sm font-semibold mb-4 text-[var(--ink-800)]">Pipeline by Stage</h3>
               {data.charts.pipelineByStage.length === 0 ? (
-                <div className="flex items-center justify-center h-[220px] text-sm" style={{ color: "var(--ink-400)" }}>
-                  <Timer size={16} className="mr-2" /> No open deals yet
+                <div className="flex items-center justify-center h-[220px] text-sm text-[var(--ink-400)]">
+                  <Timer size={16} className="mr-2" /> No open opportunities yet
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={220}>

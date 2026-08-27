@@ -15,7 +15,7 @@ import {
   XCircle,
 } from "lucide-react";
 
-export type ImportEntityType = "accounts" | "contacts" | "leads" | "opportunities" | "deals";
+export type ImportEntityType = "accounts" | "contacts" | "leads" | "opportunities";
 
 interface FieldDef {
   key: string;
@@ -48,7 +48,7 @@ const ENTITY_CONFIGS: Record<
       "Contact Person",
       "Opportunity Name",
       "Opportunity Stage",
-      "Deal Value",
+      "Opportunity Value",
       "Remarks",
       "Assigned To",
       "Created Date",
@@ -69,7 +69,7 @@ const ENTITY_CONFIGS: Record<
     fields: [
       { key: "name", label: "Opportunity Name", required: true, synonyms: ["opportunity name", "opportunity", "name", "deal name", "title"] },
       { key: "account", label: "Account", required: true, synonyms: ["account", "company", "account name", "company name", "client", "customer"] },
-      { key: "amount", label: "Deal Value", required: true, synonyms: ["deal value", "amount", "value", "revenue", "deal amount", "opp value"] },
+      { key: "amount", label: "Opportunity Value", required: true, synonyms: ["opportunity value", "deal value", "amount", "value", "revenue", "deal amount", "opp value"] },
       { key: "opportunityStage", label: "Opportunity Stage", synonyms: ["opportunity stage", "opp stage", "stage", "status"] },
       { key: "contactPerson", label: "Contact Person", synonyms: ["contact person", "contact", "contact name", "primary contact"] },
       { key: "accountOwner", label: "Account Owner", synonyms: ["account owner", "acc owner"] },
@@ -200,42 +200,6 @@ const ENTITY_CONFIGS: Record<
       { key: "source", label: "Source", synonyms: ["source", "lead source", "channel"] },
       { key: "status", label: "Status", synonyms: ["status", "lead status"] },
       { key: "owner", label: "Owner", synonyms: ["owner", "assigned to"] },
-    ],
-  },
-  deals: {
-    title: "Import Deals",
-    endpoint: "/deals/import",
-    queryKey: "deals",
-    templateFileName: "deals_template.csv",
-    templateHeaders: [
-      "Deal Name",
-      "Account",
-      "Contact Person",
-      "Deal Value",
-      "Stage",
-      "Owner",
-      "Close Date",
-      "Remarks",
-    ],
-    sampleRow: [
-      "HDFC Cloud SOC Retainer",
-      "HDFC Bank",
-      "Vikram Seth",
-      "4500000",
-      "Negotiation",
-      "Yash Raj",
-      new Date(Date.now() + 45 * 86400000).toISOString().slice(0, 10),
-      "Commercial contract under legal review",
-    ],
-    fields: [
-      { key: "name", label: "Deal Name", required: true, synonyms: ["deal name", "deal", "name", "title"] },
-      { key: "account", label: "Account", required: true, synonyms: ["account", "company", "account name", "client"] },
-      { key: "amount", label: "Deal Value", required: true, synonyms: ["deal value", "amount", "value", "deal amount"] },
-      { key: "stage", label: "Stage", synonyms: ["stage", "deal stage", "pipeline stage", "status"] },
-      { key: "contactPerson", label: "Contact Person", synonyms: ["contact person", "contact", "contact name"] },
-      { key: "owner", label: "Owner", synonyms: ["owner", "assigned to", "deal owner"] },
-      { key: "closeDate", label: "Close Date", synonyms: ["close date", "expected close date", "target close"] },
-      { key: "remarks", label: "Remarks / Notes", synonyms: ["remarks", "notes", "description"] },
     ],
   },
 };
@@ -447,7 +411,7 @@ export function CsvImportModal({
           {/* Additional Import Options */}
           <div className="p-3 rounded-lg bg-ink-50 border border-ink-100 space-y-2 text-xs">
             <div className="font-semibold text-ink-700 mb-1">Import Options & Relationship Resolution</div>
-            {(entity === "opportunities" || entity === "deals" || entity === "contacts") && (
+            {(entity === "opportunities" || entity === "contacts") && (
               <label className="flex items-center gap-2 cursor-pointer text-ink-600">
                 <input
                   type="checkbox"
@@ -458,7 +422,7 @@ export function CsvImportModal({
                 <span>Automatically create new Account if name does not exist in CRM</span>
               </label>
             )}
-            {(entity === "opportunities" || entity === "deals") && (
+            {entity === "opportunities" && (
               <label className="flex items-center gap-2 cursor-pointer text-ink-600">
                 <input
                   type="checkbox"

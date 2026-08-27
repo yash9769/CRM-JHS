@@ -36,7 +36,7 @@ export default function PipelinePage() {
     queryFn: async () =>
       (
         await api.get("/opportunities", {
-          params: { pipelineId: pipeline!.id, isConverted: false, pageSize: 1000 },
+          params: { pipelineId: pipeline!.id, pageSize: 1000 },
         })
       ).data,
     enabled: !!pipeline,
@@ -48,15 +48,15 @@ export default function PipelinePage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["opportunities", "kanban"] }),
   });
 
-  if (!pipeline) return <div className="p-8 text-sm" style={{ color: "var(--ink-400)" }}>Loading pipeline…</div>;
+  if (!pipeline) return <div className="p-8 text-sm text-[var(--ink-400)]">Loading pipeline…</div>;
 
   return (
-    <div>
+    <div className="pb-24 md:pb-8">
       <PageHeader
         title="Sales Pipeline"
-        subtitle="Drag opportunities between stages as deals progress."
+        subtitle="Drag opportunities between stages as work progresses."
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <ColumnFilterDropdown
               columns={stageColumns}
               visibleKeys={visibleKeys}
@@ -71,7 +71,7 @@ export default function PipelinePage() {
           </div>
         }
       />
-      <div className="px-8 pb-8">
+      <div className="px-4 md:px-8 pb-8">
         <KanbanBoard
           stages={pipeline.stages}
           items={opps?.data || []}
