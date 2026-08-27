@@ -11,10 +11,10 @@ import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../co
 import { Trophy, Search, Download, CheckCircle2, TrendingUp } from "lucide-react";
 
 const WON_DEAL_COLUMNS: ColumnDef[] = [
-  { key: "name", label: "Deal / Opportunity Name", permanent: true },
+  { key: "name", label: "Opportunity Name", permanent: true },
   { key: "account", label: "Account" },
   { key: "contact", label: "Contact Person" },
-  { key: "amount", label: "Deal Value" },
+  { key: "amount", label: "Opportunity Value" },
   { key: "owner", label: "Owner" },
   { key: "wonDate", label: "Won Date" },
   { key: "closeDate", label: "Close Date" },
@@ -117,15 +117,15 @@ export default function WonDealsPage() {
     await downloadCsvExport(
       "/deals/export",
       { won: "true", search, ...(ownerId ? { ownerId } : {}) },
-      "won_deals.csv"
+      "won_opportunities.csv"
     );
   }
 
   return (
     <div>
       <PageHeader
-        title="Won Deals"
-        subtitle="All successfully closed deals and won proposals across your organization."
+        title="Won Opportunities"
+        subtitle="All successfully closed opportunities across your organization."
         action={
           <div className="flex items-center gap-2">
             <ColumnFilterDropdown
@@ -161,7 +161,7 @@ export default function WonDealsPage() {
             <div className="flex items-center gap-2 mb-1.5">
               <CheckCircle2 size={15} style={{ color: "var(--ledger-600)" }} />
               <span className="text-xs font-medium" style={{ color: "var(--ink-500)" }}>
-                Won Deals Count
+                Won Opportunities Count
               </span>
             </div>
             <div className="font-mono-num text-2xl font-bold" style={{ color: "var(--ink-900)" }}>
@@ -172,7 +172,7 @@ export default function WonDealsPage() {
             <div className="flex items-center gap-2 mb-1.5">
               <TrendingUp size={15} style={{ color: "var(--ledger-600)" }} />
               <span className="text-xs font-medium" style={{ color: "var(--ink-500)" }}>
-                Average Deal Size
+                Average Opportunity Size
               </span>
             </div>
             <div className="font-mono-num text-2xl font-bold" style={{ color: "var(--ink-900)" }}>
@@ -191,7 +191,7 @@ export default function WonDealsPage() {
             />
             <input
               type="text"
-              placeholder="Search won deals & proposals…"
+              placeholder="Search won opportunities…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className={`${inputClass} pl-8 text-xs`}
@@ -229,15 +229,15 @@ export default function WonDealsPage() {
         <Card className="overflow-hidden">
           {isLoading ? (
             <div className="p-8 text-sm text-center" style={{ color: "var(--ink-400)" }}>
-              Loading won deals…
+              Loading won opportunities…
             </div>
           ) : wonList.length === 0 ? (
             <EmptyState
-              title="No won deals found"
+              title="No won opportunities found"
               subtitle={
                 search || ownerId
-                  ? "No won deals match the current filter criteria."
-                  : "Deals and opportunities marked as Proposal Won will appear here."
+                  ? "No won opportunities match the current filter criteria."
+                  : "Opportunities marked as Proposal Won will appear here."
               }
             />
           ) : (
@@ -246,7 +246,7 @@ export default function WonDealsPage() {
                 <tr className="border-b" style={{ borderColor: "var(--ink-100)", background: "var(--ink-50)" }}>
                   {isVisible("name") && (
                     <th className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      Deal / Opportunity Name
+                      Opportunity Name
                     </th>
                   )}
                   {isVisible("account") && (
@@ -261,7 +261,7 @@ export default function WonDealsPage() {
                   )}
                   {isVisible("amount") && (
                     <th className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      Deal Value
+                      Opportunity Value
                     </th>
                   )}
                   {isVisible("owner") && (

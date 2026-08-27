@@ -20,7 +20,7 @@ const OPPORTUNITY_COLUMNS: ColumnDef[] = [
   { key: "account", label: "Account" },
   { key: "contact", label: "Contact Person" },
   { key: "stage", label: "Opportunity Stage" },
-  { key: "amount", label: "Deal Value" },
+  { key: "amount", label: "Opportunity Value" },
   { key: "owner", label: "Assigned To" },
   { key: "createdAt", label: "Created Date" },
   { key: "closeDate", label: "Close Date" },
@@ -215,7 +215,7 @@ export default function OpportunitiesPage() {
                   )}
                   {isVisible("amount") && (
                     <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap" style={{ color: "var(--ink-400)" }}>
-                      Deal Value
+                      Opportunity Value
                     </th>
                   )}
                   {isVisible("owner") && (

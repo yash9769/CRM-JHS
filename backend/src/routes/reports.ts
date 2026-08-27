@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
 import { getCreatedByFilter } from "../lib/rbac.js";
+import { toCsv } from "../lib/csv.js";
 
 export default async function reportRoutes(app: FastifyInstance) {
   // Pipeline health report
@@ -91,6 +92,68 @@ export default async function reportRoutes(app: FastifyInstance) {
     }));
 
     return { period: targetPeriod, data: data.filter(d => d.metrics.pipeline > 0 || d.metrics.closedWon > 0 || d.metrics.openDeals > 0) };
+  });
+
+  // Owner performance export CSV
+  app.get("/api/v1/reports/owner-performance/export", { preHandler: [app.authenticate] }, async (req: any, reply) => {
+    const tenantId = req.authUser.tenantId;
+    const users = await prisma.user.findMany({
+      where: { tenantId },
+      select: { id: true, firstName: true, lastName: true, orgRole: true },
+    });
+
+    const rbacFilter = await getCreatedByFilter(req.authUser);
+
+    const rows = await Promise.all(users.map(async (user) => {
+      const [openDeals, wonDeals, lostDeals, openOpps] = await Promise.all([
+        prisma.deal.findMany({
+          where: { tenantId, ...rbacFilter, ownerId: user.id, stage: { isClosed: false } },
+          select: { amount: true, probability: true },
+        }),
+        prisma.deal.findMany({
+          where: { tenantId, ...rbacFilter, ownerId: user.id, stage: { isClosed: true, isWon: true } },
+          select: { amount: true },
+        }),
+        prisma.deal.findMany({
+          where: { tenantId, ...rbacFilter, ownerId: user.id, stage: { isClosed: true, isWon: false } },
+          select: { amount: true },
+        }),
+        prisma.opportunity.count({ where: { tenantId, ...rbacFilter, ownerId: user.id, isConverted: false } }),
+      ]);
+
+      const pipeline = openDeals.reduce((s, d) => s + Number(d.amount), 0);
+      const weighted = openDeals.reduce((s, d) => s + Number(d.amount) * (d.probability / 100), 0);
+      const closedWon = wonDeals.reduce((s, d) => s + Number(d.amount), 0);
+      const winRate = (wonDeals.length + lostDeals.length) > 0
+        ? `${Math.round((wonDeals.length / (wonDeals.length + lostDeals.length)) * 100)}%`
+        : "—";
+
+      return {
+        rep: `${user.firstName} ${user.lastName}`,
+        role: user.orgRole.replace("_", " "),
+        openOpportunities: openOpps,
+        openDeals: openDeals.length,
+        pipeline,
+        weighted,
+        closedWon,
+        winRate,
+      };
+    }));
+
+    const csv = toCsv(rows, [
+      { key: "rep", label: "Rep Name" },
+      { key: "role", label: "Role" },
+      { key: "openOpportunities", label: "Open Opps" },
+      { key: "openDeals", label: "Open Deals" },
+      { key: "pipeline", label: "Pipeline Value" },
+      { key: "weighted", label: "Weighted Value" },
+      { key: "closedWon", label: "Closed Won Revenue" },
+      { key: "winRate", label: "Win Rate" },
+    ]);
+
+    reply.header("Content-Type", "text/csv");
+    reply.header("Content-Disposition", 'attachment; filename="owner_performance.csv"');
+    return reply.send(csv);
   });
 
   // Win/Loss analysis

@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { PageHeader, Card } from "../components/ui";
+import { PageHeader, Card, Button } from "../components/ui";
 import { formatCurrency } from "../lib/format";
+import { downloadCsvExport } from "../lib/exportCsv";
+import { RoleBadge, BirdsEyeModal } from "./OrgChartPage";
+import { Download, Eye } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
 
 const TABS = ["Pipeline Health", "Owner Performance", "Win / Loss", "Conversion Funnel"] as const;
@@ -10,31 +13,34 @@ type Tab = typeof TABS[number];
 
 function PipelineHealthTab() {
   const { data } = useQuery<any>({ queryKey: ["report-pipeline-health"], queryFn: async () => (await api.get("/reports/pipeline-health")).data });
-  if (!data?.data?.length) return <div className="text-sm py-8 text-center" style={{ color: "var(--ink-400)" }}>No open deals in pipeline.</div>;
+  if (!data?.data?.length) return <div className="text-sm py-8 text-center" style={{ color: "var(--ink-400)" }}>No open opportunities in pipeline.</div>;
   return (
     <div className="space-y-5">
       <Card className="p-5">
-        <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--ink-800)" }}>Open deal value by stage</h3>
+        <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--ink-800)" }}>Open opportunity value by stage</h3>
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={data.data} layout="vertical" margin={{ left: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" horizontal={false} />
-            <XAxis type="number" tick={{ fontSize: 11, fill: "var(--ink-400)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
+            <XAxis type="number" tick={{ fontSize: 11, fill: "var(--ink-400)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} />
             <YAxis type="category" dataKey="stage.name" tick={{ fontSize: 12, fill: "var(--ink-500)" }} axisLine={false} tickLine={false} width={120} />
             <Tooltip formatter={(v: any) => formatCurrency(Number(v))} contentStyle={{ borderRadius: 8, borderColor: "var(--ink-200)", fontSize: 12 }} />
-            <Bar dataKey="amount" name="Deal Value" fill="var(--ledger-600)" radius={[0, 4, 4, 0]} />
+            <Bar dataKey="amount" name="Opportunity Value" fill="var(--ledger-600)" radius={[0, 4, 4, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </Card>
       <Card>
         <table className="w-full text-sm">
-          <thead><tr className="text-left border-b" style={{ borderColor: "var(--ink-100)" }}>
-            {["Stage", "Deals", "Value", "Overdue", "Avg Age (days)"].map(h => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>{h}</th>)}
-          </tr></thead>
+          <thead>
+            <tr className="text-left border-b" style={{ borderColor: "var(--ink-100)" }}>
+              {["Stage", "Value", "Overdue", "Avg Age (days)"].map(h => (
+                <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
           <tbody>
             {data.data.map((row: any) => (
               <tr key={row.stage.id} className="border-b last:border-0 hover:bg-[var(--ink-50)]" style={{ borderColor: "var(--ink-100)" }}>
                 <td className="px-4 py-3 font-medium">{row.stage.name}</td>
-                <td className="px-4 py-3 font-mono-num">{row.count}</td>
                 <td className="px-4 py-3 font-mono-num">{formatCurrency(row.amount)}</td>
                 <td className="px-4 py-3 font-mono-num" style={{ color: row.overdue > 0 ? "var(--rose-600)" : undefined }}>{row.overdue}</td>
                 <td className="px-4 py-3 font-mono-num">{row.avgAgeDays}</td>
@@ -48,31 +54,68 @@ function PipelineHealthTab() {
 }
 
 function OwnerPerformanceTab() {
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const { data } = useQuery<any>({ queryKey: ["report-owner-perf"], queryFn: async () => (await api.get("/reports/owner-performance")).data });
-  if (!data?.data?.length) return <div className="text-sm py-8 text-center" style={{ color: "var(--ink-400)" }}>No data yet.</div>;
+
+  async function exportCsv() {
+    await downloadCsvExport("/reports/owner-performance/export", {}, "owner_performance.csv");
+  }
+
+  if (!data?.data?.length) return <div className="text-sm py-8 text-center" style={{ color: "var(--ink-400)" }}>No performance data available.</div>;
+
   return (
-    <Card>
-      <table className="w-full text-sm">
-        <thead><tr className="text-left border-b" style={{ borderColor: "var(--ink-100)" }}>
-          {["Rep", "Open Opps", "Open Deals", "Pipeline", "Weighted", "Closed Won", "Win Rate"].map(h => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>{h}</th>)}
-        </tr></thead>
-        <tbody>
-          {data.data.map((row: any) => (
-            <tr key={row.user.id} className="border-b last:border-0 hover:bg-[var(--ink-50)]" style={{ borderColor: "var(--ink-100)" }}>
-              <td className="px-4 py-3 font-medium">{row.user.firstName} {row.user.lastName}</td>
-              <td className="px-4 py-3 font-mono-num">{row.metrics.openOpportunities}</td>
-              <td className="px-4 py-3 font-mono-num">{row.metrics.openDeals}</td>
-              <td className="px-4 py-3 font-mono-num">{formatCurrency(row.metrics.pipeline)}</td>
-              <td className="px-4 py-3 font-mono-num">{formatCurrency(row.metrics.weighted)}</td>
-              <td className="px-4 py-3 font-mono-num" style={{ color: "var(--ledger-700)" }}>{formatCurrency(row.metrics.closedWon)}</td>
-              <td className="px-4 py-3 font-mono-num">
-                {row.metrics.winRate != null ? `${Math.round(row.metrics.winRate * 100)}%` : "—"}
-              </td>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-[var(--ink-500)]">Click any representative's name to open their complete Bird's-Eye View activity & performance.</p>
+        <Button variant="secondary" onClick={exportCsv}>
+          <Download size={14} /> Export CSV
+        </Button>
+      </div>
+
+      <Card>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left border-b" style={{ borderColor: "var(--ink-100)" }}>
+              {["Rep", "Role", "Open Opps", "Open Deals", "Pipeline", "Weighted", "Closed Won", "Win Rate"].map(h => (
+                <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>{h}</th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </Card>
+          </thead>
+          <tbody>
+            {data.data.map((row: any) => (
+              <tr key={row.user.id} className="border-b last:border-0 hover:bg-[var(--ink-50)]" style={{ borderColor: "var(--ink-100)" }}>
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => setSelectedUserId(row.user.id)}
+                    className="font-semibold text-left flex items-center gap-1.5 hover:underline group"
+                    style={{ color: "var(--ledger-700)" }}
+                    title="Click to view Bird's-Eye Activity & Performance"
+                  >
+                    <Eye size={12} className="opacity-60 group-hover:opacity-100 transition-opacity" />
+                    {row.user.firstName} {row.user.lastName}
+                  </button>
+                </td>
+                <td className="px-4 py-3">
+                  <RoleBadge role={row.user.orgRole} />
+                </td>
+                <td className="px-4 py-3 font-mono-num">{row.metrics.openOpportunities}</td>
+                <td className="px-4 py-3 font-mono-num">{row.metrics.openDeals}</td>
+                <td className="px-4 py-3 font-mono-num">{formatCurrency(row.metrics.pipeline)}</td>
+                <td className="px-4 py-3 font-mono-num">{formatCurrency(row.metrics.weighted)}</td>
+                <td className="px-4 py-3 font-mono-num" style={{ color: "var(--ledger-700)" }}>{formatCurrency(row.metrics.closedWon)}</td>
+                <td className="px-4 py-3 font-mono-num">
+                  {row.metrics.winRate != null ? `${Math.round(row.metrics.winRate * 100)}%` : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+
+      {selectedUserId && (
+        <BirdsEyeModal userId={selectedUserId} onClose={() => setSelectedUserId(null)} />
+      )}
+    </div>
   );
 }
 
@@ -90,8 +133,8 @@ function WinLossTab() {
     <div className="space-y-5">
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: "Deals Won", value: String(s.totalWon), sub: formatCurrency(s.wonRevenue) },
-          { label: "Deals Lost", value: String(s.totalLost), sub: formatCurrency(s.lostRevenue) },
+          { label: "Opportunities Won", value: String(s.totalWon), sub: formatCurrency(s.wonRevenue) },
+          { label: "Opportunities Lost", value: String(s.totalLost), sub: formatCurrency(s.lostRevenue) },
           { label: "Win Rate", value: `${Math.round(s.winRate * 100)}%`, sub: "by count" },
           { label: "Won Revenue", value: formatCurrency(s.wonRevenue), sub: "last 6 months" },
         ].map(({ label, value, sub }) => (

@@ -169,7 +169,7 @@ export default function OpportunityDetailPage() {
               </div>
 
               <div>
-                <dt className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--ink-400)" }}>Deal Value</dt>
+                <dt className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--ink-400)" }}>Opportunity Value</dt>
                 <dd className="mt-1 font-mono-num font-bold text-base" style={{ color: "var(--ledger-700)" }}>
                   {formatCurrency(opp.amount)}
                 </dd>

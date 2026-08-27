@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 // ── Role badge ─────────────────────────────────────────────────────────────
-function RoleBadge({ role }: { role: string }) {
+export function RoleBadge({ role }: { role: string }) {
   const map: Record<string, { bg: string; text: string; icon: any }> = {
     SENIOR_PARTNER: { bg: "#0d2744", text: "#93c5fd", icon: Star },
     PARTNER: { bg: "#14532d", text: "#86efac", icon: Shield },
@@ -117,7 +117,7 @@ function UserCard({
 }
 
 // ── Bird's-Eye View Modal ──────────────────────────────────────────────────
-function BirdsEyeModal({ userId, onClose }: { userId: string; onClose: () => void }) {
+export function BirdsEyeModal({ userId, onClose }: { userId: string; onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<"activity" | "deals" | "opportunities" | "accounts" | "team">("activity");
 
   const { data, isLoading, error } = useQuery<any>({
@@ -596,11 +596,138 @@ function AddUserModal({
   );
 }
 
+// ── Edit User modal ────────────────────────────────────────────────────────
+function EditUserModal({
+  user,
+  actorOrgRole,
+  partners,
+  onClose,
+}: {
+  user: any;
+  actorOrgRole: string;
+  partners: any[];
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState({
+    firstName: user.firstName || "",
+    lastName: user.lastName || "",
+    email: user.email || "",
+    orgRole: user.orgRole || "MANAGER",
+    partnerId: user.partnerId || "",
+  });
+  const [error, setError] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      api.patch(`/users/${user.id}`, {
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        ...(actorOrgRole === "SENIOR_PARTNER"
+          ? {
+              orgRole: form.orgRole,
+              partnerId: form.orgRole === "MANAGER" ? (form.partnerId || null) : null,
+            }
+          : {}),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["org-chart"] });
+      qc.invalidateQueries({ queryKey: ["users"] });
+      onClose();
+    },
+    onError: (e: any) => setError(e?.response?.data?.error || "Could not update user"),
+  });
+
+  const inputCls =
+    "w-full px-3 py-2 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-[var(--ledger-600)] focus:border-transparent";
+  const inputStyle = { borderColor: "var(--ink-200)", background: "var(--ink-50)" };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--ink-100)" }}>
+          <h2 className="font-semibold text-base flex items-center gap-2">
+            <Edit2 size={16} style={{ color: "var(--ledger-600)" }} />
+            Edit team member
+          </h2>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-[var(--ink-50)]">
+            <X size={16} style={{ color: "var(--ink-400)" }} />
+          </button>
+        </div>
+        <form
+          className="px-6 py-4 space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setError("");
+            mutation.mutate();
+          }}
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: "var(--ink-600)" }}>First name</label>
+              <input required className={inputCls} style={inputStyle} value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: "var(--ink-600)" }}>Last name</label>
+              <input required className={inputCls} style={inputStyle} value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: "var(--ink-600)" }}>Email</label>
+            <input required type="email" className={inputCls} style={inputStyle} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          </div>
+
+          {actorOrgRole === "SENIOR_PARTNER" && (
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: "var(--ink-600)" }}>Role</label>
+              <select className={inputCls} style={inputStyle} value={form.orgRole} onChange={(e) => setForm({ ...form, orgRole: e.target.value })}>
+                <option value="PARTNER">Partner</option>
+                <option value="MANAGER">Manager</option>
+              </select>
+            </div>
+          )}
+
+          {(actorOrgRole === "SENIOR_PARTNER" && form.orgRole === "MANAGER") && (
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: "var(--ink-600)" }}>Reports to (Partner)</label>
+              <select className={inputCls} style={inputStyle} value={form.partnerId} onChange={(e) => setForm({ ...form, partnerId: e.target.value })}>
+                <option value="">— Unassigned —</option>
+                {partners.filter((p: any) => p.id !== user.id).map((p: any) => (
+                  <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {error && <p className="text-xs" style={{ color: "#dc2626" }}>{error}</p>}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm border hover:bg-[var(--ink-50)]" style={{ borderColor: "var(--ink-200)" }}>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={mutation.isPending}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-white"
+              style={{ background: "var(--ledger-700)" }}
+            >
+              {mutation.isPending ? "Saving…" : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────
 export default function OrgChartPage() {
   const { user: me } = useAuth();
   const qc = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
+  const [editUser, setEditUser] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [deleteError, setDeleteError] = useState("");
   const [birdEyeUser, setBirdEyeUser] = useState<any>(null);
@@ -714,7 +841,7 @@ export default function OrgChartPage() {
                 <UserCard
                   user={partner}
                   canEdit={canEdit && me?.orgRole === "SENIOR_PARTNER"}
-                  onEdit={() => {}}
+                  onEdit={(u) => setEditUser(u)}
                   onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
                   onSelect={(u) => setBirdEyeUser(u)}
                 />
@@ -743,7 +870,7 @@ export default function OrgChartPage() {
                             <UserCard
                               user={mgr}
                               canEdit={canEdit}
-                              onEdit={() => {}}
+                              onEdit={(u) => setEditUser(u)}
                               onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
                               onSelect={(u) => setBirdEyeUser(u)}
                             />
@@ -776,7 +903,7 @@ export default function OrgChartPage() {
                   key={mgr.id}
                   user={mgr}
                   canEdit={canEdit}
-                  onEdit={() => {}}
+                  onEdit={(u) => setEditUser(u)}
                   onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
                   onSelect={(u) => setBirdEyeUser(u)}
                 />
@@ -799,6 +926,16 @@ export default function OrgChartPage() {
         <BirdsEyeModal
           userId={birdEyeUser.id}
           onClose={() => setBirdEyeUser(null)}
+        />
+      )}
+
+      {/* Edit user modal */}
+      {editUser && (
+        <EditUserModal
+          user={editUser}
+          actorOrgRole={me?.orgRole || "PARTNER"}
+          partners={partners}
+          onClose={() => setEditUser(null)}
         />
       )}
 

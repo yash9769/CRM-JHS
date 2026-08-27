@@ -491,7 +491,7 @@ export function NewOpportunityModal({
               <FieldError message={fieldErrors.stageId} />
             </Field>
 
-            <Field label="Deal Value" required>
+            <Field label="Opportunity Value" required>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 font-medium" style={{ color: "var(--ink-500)" }}>
                   ₹

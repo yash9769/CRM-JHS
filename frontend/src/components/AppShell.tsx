@@ -15,7 +15,7 @@ const salesCrmNav = [
   { to: "/contacts",       label: "Contacts",       icon: Users },
   { to: "/opportunities",  label: "Opportunities",  icon: Target },
   { to: "/pipeline",       label: "Pipeline",       icon: KanbanSquare },
-  { to: "/won-deals",      label: "Won Deals",      icon: Trophy },
+  { to: "/won-deals",      label: "Won Opportunities", icon: Trophy },
   { to: "/quotes",         label: "Quotes",         icon: FileText },
   { to: "/products",       label: "Products",       icon: Package },
 ];

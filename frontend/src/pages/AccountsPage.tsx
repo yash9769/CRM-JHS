@@ -29,7 +29,6 @@ const ACCOUNT_COLUMNS: ColumnDef[] = [
   { key: "owner", label: "Owner" },
   { key: "contacts", label: "Contacts" },
   { key: "opportunities", label: "Open Opps" },
-  { key: "deals", label: "Deals" },
   { key: "updatedAt", label: "Updated" },
 ];
 
@@ -181,11 +180,6 @@ export default function AccountsPage() {
                       Open Opps
                     </th>
                   )}
-                  {isVisible("deals") && (
-                    <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: "var(--ink-400)" }}>
-                      Deals
-                    </th>
-                  )}
                   {isVisible("updatedAt") && (
                     <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: "var(--ink-400)" }}>
                       Updated
@@ -229,11 +223,6 @@ export default function AccountsPage() {
                     {isVisible("opportunities") && (
                       <td className="px-4 py-3 font-mono-num" style={{ color: "var(--ink-600)" }}>
                         {a._count?.opportunities ?? 0}
-                      </td>
-                    )}
-                    {isVisible("deals") && (
-                      <td className="px-4 py-3 font-mono-num" style={{ color: "var(--ink-600)" }}>
-                        {a._count?.deals ?? 0}
                       </td>
                     )}
                     {isVisible("updatedAt") && (

@@ -166,7 +166,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       { key: "contactPerson", label: "Contact Person" },
       { key: "name", label: "Opportunity Name" },
       { key: "opportunityStage", label: "Opportunity Stage" },
-      { key: "amount", label: "Deal Value" },
+      { key: "amount", label: "Opportunity Value" },
       { key: "remarks", label: "Remarks" },
       { key: "assignedTo", label: "Assigned To" },
       { key: "createdDate", label: "Created Date" },
