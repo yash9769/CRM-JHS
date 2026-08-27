@@ -360,7 +360,6 @@ export default async function contactRoutes(app: FastifyInstance) {
         account: true,
         owner: { select: { id: true, firstName: true, lastName: true } },
         opportunityContacts: { include: { opportunity: { include: { stage: true } } } },
-        dealContacts: { include: { deal: { include: { stage: true } } } },
         activities: { orderBy: { createdAt: "desc" }, take: 50 },
         notes: { include: { author: { select: { id: true, firstName: true, lastName: true } } }, orderBy: { createdAt: "desc" } },
       },

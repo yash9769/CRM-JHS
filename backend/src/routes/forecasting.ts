@@ -29,9 +29,9 @@ export default async function forecastingRoutes(app: FastifyInstance) {
       where: { tenantId, period: targetPeriod, ...(ownerId ? { ownerId } : {}) },
     });
 
-    // Get deals and opportunities
-    const [closedWonDeals, closedLostDeals, closedLostOpps, openDeals] = await Promise.all([
-      prisma.deal.findMany({
+    // Get opportunities
+    const [closedWonOpps, closedLostOpps, openOpps] = await Promise.all([
+      prisma.opportunity.findMany({
         where: {
           tenantId,
           ...rbacFilter,
@@ -39,23 +39,7 @@ export default async function forecastingRoutes(app: FastifyInstance) {
           stage: { isWon: true },
           OR: [
             { wonDate: { gte: periodStart, lte: periodEnd } },
-            { closeDate: { gte: periodStart, lte: periodEnd } },
-            { updatedAt: { gte: periodStart, lte: periodEnd } },
-          ],
-        },
-        include: {
-          stage: true,
-          owner: { select: { id: true, firstName: true, lastName: true } },
-        },
-      }),
-      prisma.deal.findMany({
-        where: {
-          tenantId,
-          ...rbacFilter,
-          ...ownerFilter,
-          stage: { isClosed: true, isWon: false },
-          OR: [
-            { closeDate: { gte: periodStart, lte: periodEnd } },
+            { actualCloseDate: { gte: periodStart, lte: periodEnd } },
             { updatedAt: { gte: periodStart, lte: periodEnd } },
           ],
         },
@@ -70,16 +54,23 @@ export default async function forecastingRoutes(app: FastifyInstance) {
           ...rbacFilter,
           ...ownerFilter,
           stage: { isClosed: true, isWon: false },
-          updatedAt: { gte: periodStart, lte: periodEnd },
+          OR: [
+            { actualCloseDate: { gte: periodStart, lte: periodEnd } },
+            { updatedAt: { gte: periodStart, lte: periodEnd } },
+          ],
+        },
+        include: {
+          stage: true,
+          owner: { select: { id: true, firstName: true, lastName: true } },
         },
       }),
-      prisma.deal.findMany({
+      prisma.opportunity.findMany({
         where: {
           tenantId,
           ...rbacFilter,
           ...ownerFilter,
           stage: { isClosed: false },
-          closeDate: { gte: periodStart, lte: periodEnd },
+          expectedCloseDate: { gte: periodStart, lte: periodEnd },
         },
         include: {
           stage: true,
@@ -88,14 +79,12 @@ export default async function forecastingRoutes(app: FastifyInstance) {
       }),
     ]);
 
-    const closedWonRevenue = closedWonDeals.reduce((s, d) => s + Number(d.amount), 0);
-    const closedLostRevenue =
-      closedLostDeals.reduce((s, d) => s + Number(d.amount), 0) +
-      closedLostOpps.reduce((s, o) => s + Number(o.amount), 0);
-    const commitRevenue = openDeals.filter(d => d.forecastCategory === "COMMIT").reduce((s, d) => s + Number(d.amount), 0);
-    const bestCaseRevenue = openDeals.filter(d => ["COMMIT", "BEST_CASE"].includes(d.forecastCategory)).reduce((s, d) => s + Number(d.amount), 0);
-    const pipelineRevenue = openDeals.reduce((s, d) => s + Number(d.amount), 0);
-    const weightedRevenue = openDeals.reduce((s, d) => s + Number(d.amount) * (d.probability / 100), 0);
+    const closedWonRevenue = closedWonOpps.reduce((s, o) => s + Number(o.amount), 0);
+    const closedLostRevenue = closedLostOpps.reduce((s, o) => s + Number(o.amount), 0);
+    const commitRevenue = openOpps.filter(o => o.forecastCategory === "COMMIT").reduce((s, o) => s + Number(o.amount), 0);
+    const bestCaseRevenue = openOpps.filter(o => ["COMMIT", "BEST_CASE"].includes(o.forecastCategory)).reduce((s, o) => s + Number(o.amount), 0);
+    const pipelineRevenue = openOpps.reduce((s, o) => s + Number(o.amount), 0);
+    const weightedRevenue = openOpps.reduce((s, o) => s + Number(o.amount) * (o.probability / 100), 0);
     const totalTarget = targets.reduce((s, t) => s + Number(t.targetAmount), 0);
 
     // By owner breakdown
@@ -107,12 +96,10 @@ export default async function forecastingRoutes(app: FastifyInstance) {
 
     const byOwner = users.map(user => {
       const userTarget = targets.find(t => t.ownerId === user.id);
-      const userClosed = closedWonDeals.filter(d => d.ownerId === user.id).reduce((s, d) => s + Number(d.amount), 0);
-      const userLost =
-        closedLostDeals.filter(d => d.ownerId === user.id).reduce((s, d) => s + Number(d.amount), 0) +
-        closedLostOpps.filter(o => o.ownerId === user.id).reduce((s, o) => s + Number(o.amount), 0);
-      const userPipeline = openDeals.filter(d => d.ownerId === user.id).reduce((s, d) => s + Number(d.amount), 0);
-      const userWeighted = openDeals.filter(d => d.ownerId === user.id).reduce((s, d) => s + Number(d.amount) * (d.probability / 100), 0);
+      const userClosed = closedWonOpps.filter(o => o.ownerId === user.id).reduce((s, o) => s + Number(o.amount), 0);
+      const userLost = closedLostOpps.filter(o => o.ownerId === user.id).reduce((s, o) => s + Number(o.amount), 0);
+      const userPipeline = openOpps.filter(o => o.ownerId === user.id).reduce((s, o) => s + Number(o.amount), 0);
+      const userWeighted = openOpps.filter(o => o.ownerId === user.id).reduce((s, o) => s + Number(o.amount) * (o.probability / 100), 0);
       return {
         owner: user,
         target: userTarget ? Number(userTarget.targetAmount) : 0,
@@ -136,9 +123,9 @@ export default async function forecastingRoutes(app: FastifyInstance) {
         gap: Math.max(0, totalTarget - closedWonRevenue),
       },
       byOwner,
-      deals: {
-        closedWon: closedWonDeals.map(d => ({ id: d.id, name: d.name, amount: Number(d.amount), owner: d.owner, wonDate: d.wonDate })),
-        open: openDeals.map(d => ({ id: d.id, name: d.name, amount: Number(d.amount), probability: d.probability, forecastCategory: d.forecastCategory, closeDate: d.closeDate, owner: d.owner })),
+      opportunities: {
+        closedWon: closedWonOpps.map(o => ({ id: o.id, name: o.name, amount: Number(o.amount), owner: o.owner, wonDate: o.wonDate })),
+        open: openOpps.map(o => ({ id: o.id, name: o.name, amount: Number(o.amount), probability: o.probability, forecastCategory: o.forecastCategory, closeDate: o.expectedCloseDate, owner: o.owner })),
       },
     };
   });
@@ -193,14 +180,14 @@ export default async function forecastingRoutes(app: FastifyInstance) {
           where: { tenantId, period },
           _sum: { targetAmount: true },
         }),
-        prisma.deal.aggregate({
+        prisma.opportunity.aggregate({
           where: {
             tenantId,
             ...rbacFilter,
             stage: { isWon: true },
             OR: [
               { wonDate: { gte: periodStart, lte: periodEnd } },
-              { closeDate: { gte: periodStart, lte: periodEnd } },
+              { actualCloseDate: { gte: periodStart, lte: periodEnd } },
               { updatedAt: { gte: periodStart, lte: periodEnd } },
             ],
           },

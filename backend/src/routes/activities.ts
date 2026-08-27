@@ -10,11 +10,10 @@ const activitySchema = z.object({
   body: z.string().optional().nullable(),
   dueDate: z.string().datetime().optional().nullable(),
   status: z.enum(["PENDING", "COMPLETED", "CANCELLED"]).optional(),
-  objectType: z.enum(["ACCOUNT", "CONTACT", "OPPORTUNITY", "DEAL", "QUOTE", "LEAD"]),
+  objectType: z.enum(["ACCOUNT", "CONTACT", "OPPORTUNITY", "QUOTE", "LEAD"]),
   accountId: z.string().uuid().optional().nullable(),
   contactId: z.string().uuid().optional().nullable(),
   opportunityId: z.string().uuid().optional().nullable(),
-  dealId: z.string().uuid().optional().nullable(),
   leadId: z.string().uuid().optional().nullable(),
   ownerId: z.string().uuid().optional(),
 });
@@ -24,19 +23,17 @@ const noteSchema = z.object({
   accountId: z.string().uuid().optional().nullable(),
   contactId: z.string().uuid().optional().nullable(),
   opportunityId: z.string().uuid().optional().nullable(),
-  dealId: z.string().uuid().optional().nullable(),
   leadId: z.string().uuid().optional().nullable(),
 });
 
 export default async function activityRoutes(app: FastifyInstance) {
   app.get("/api/v1/activities", { preHandler: app.authenticate }, async (req) => {
-    const q = req.query as { accountId?: string; contactId?: string; opportunityId?: string; dealId?: string; leadId?: string; status?: string; ownerId?: string; dueBefore?: string; dueAfter?: string; type?: string };
+    const q = req.query as { accountId?: string; contactId?: string; opportunityId?: string; leadId?: string; status?: string; ownerId?: string; dueBefore?: string; dueAfter?: string; type?: string };
     const where = {
       tenantId: req.authUser.tenantId,
       ...(q.accountId ? { accountId: q.accountId } : {}),
       ...(q.contactId ? { contactId: q.contactId } : {}),
       ...(q.opportunityId ? { opportunityId: q.opportunityId } : {}),
-      ...(q.dealId ? { dealId: q.dealId } : {}),
       ...(q.leadId ? { leadId: q.leadId } : {}),
       ...(q.status ? { status: q.status as any } : {}),
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
@@ -52,7 +49,6 @@ export default async function activityRoutes(app: FastifyInstance) {
         account: { select: { id: true, name: true } },
         contact: { select: { id: true, firstName: true, lastName: true } },
         opportunity: { select: { id: true, name: true } },
-        deal: { select: { id: true, name: true } },
         lead: { select: { id: true, firstName: true, lastName: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -70,7 +66,6 @@ export default async function activityRoutes(app: FastifyInstance) {
       accountId?: string;
       contactId?: string;
       opportunityId?: string;
-      dealId?: string;
       leadId?: string;
       search?: string;
     };
@@ -82,7 +77,6 @@ export default async function activityRoutes(app: FastifyInstance) {
       ...(q.accountId ? { accountId: q.accountId } : {}),
       ...(q.contactId ? { contactId: q.contactId } : {}),
       ...(q.opportunityId ? { opportunityId: q.opportunityId } : {}),
-      ...(q.dealId ? { dealId: q.dealId } : {}),
       ...(q.leadId ? { leadId: q.leadId } : {}),
       ...(q.search ? { subject: { contains: q.search, mode: "insensitive" as const } } : {}),
     };
@@ -93,7 +87,6 @@ export default async function activityRoutes(app: FastifyInstance) {
         account: { select: { name: true } },
         contact: { select: { firstName: true, lastName: true } },
         opportunity: { select: { name: true } },
-        deal: { select: { name: true } },
         lead: { select: { firstName: true, lastName: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -101,7 +94,6 @@ export default async function activityRoutes(app: FastifyInstance) {
     const rows = activities.map((a) => {
       let relatedEntity = "";
       if (a.account) relatedEntity = `Account: ${a.account.name}`;
-      else if (a.deal) relatedEntity = `Deal: ${a.deal.name}`;
       else if (a.opportunity) relatedEntity = `Opportunity: ${a.opportunity.name}`;
       else if (a.lead) relatedEntity = `Lead: ${a.lead.firstName} ${a.lead.lastName}`;
       else if (a.contact) relatedEntity = `Contact: ${a.contact.firstName} ${a.contact.lastName}`;

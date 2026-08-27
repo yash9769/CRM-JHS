@@ -68,16 +68,6 @@ export default async function authRoutes(app: FastifyInstance) {
         },
       });
 
-      await tx.pipeline.create({
-        data: {
-          tenantId: tenant.id,
-          name: "Standard Deal Pipeline",
-          type: "DEAL",
-          isDefault: true,
-          stages: { create: canonicalStages },
-        },
-      });
-
       return { tenant, user };
     });
 

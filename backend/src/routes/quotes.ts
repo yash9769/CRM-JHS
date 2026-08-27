@@ -6,7 +6,7 @@ import { generateQuotePdf } from "../lib/quotePdf.js";
 import { toCsv } from "../lib/csv.js";
 
 const CreateQuoteSchema = z.object({
-  dealId: z.string(),
+  opportunityId: z.string(),
   accountId: z.string(),
   expirationDate: z.string().optional(),
   discountPct: z.number().min(0).max(100).default(0),
@@ -30,9 +30,9 @@ const UpdateQuoteSchema = z.object({
 export default async function quoteRoutes(app: FastifyInstance) {
   // List quotes
   app.get("/api/v1/quotes", { preHandler: [app.authenticate] }, async (req: any, reply) => {
-    const { dealId, accountId, status, page = "1", pageSize = "20" } = req.query as any;
+    const { opportunityId, accountId, status, page = "1", pageSize = "20" } = req.query as any;
     const where: any = { tenantId: req.authUser.tenantId };
-    if (dealId) where.dealId = dealId;
+    if (opportunityId) where.opportunityId = opportunityId;
     if (accountId) where.accountId = accountId;
     if (status) where.status = status;
 
@@ -40,7 +40,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
       prisma.quote.findMany({
         where,
         include: {
-          deal: { select: { id: true, name: true } },
+          opportunity: { select: { id: true, name: true } },
           account: { select: { id: true, name: true } },
           owner: { select: { id: true, firstName: true, lastName: true } },
           lineItems: { include: { product: { select: { id: true, name: true } } } },
@@ -57,10 +57,10 @@ export default async function quoteRoutes(app: FastifyInstance) {
 
   // Export quotes CSV
   app.get("/api/v1/quotes/export", { preHandler: [app.authenticate] }, async (req: any, reply) => {
-    const { status, dealId, accountId, search } = req.query as any;
+    const { status, opportunityId, accountId, search } = req.query as any;
     const where: any = { tenantId: req.authUser.tenantId };
     if (status) where.status = status;
-    if (dealId) where.dealId = dealId;
+    if (opportunityId) where.opportunityId = opportunityId;
     if (accountId) where.accountId = accountId;
     if (search) {
       where.OR = [
@@ -70,7 +70,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
     const quotes = await prisma.quote.findMany({
       where,
       include: {
-        deal: { select: { name: true } },
+        opportunity: { select: { name: true } },
         account: { select: { name: true } },
         owner: { select: { firstName: true, lastName: true } },
       },
@@ -78,7 +78,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
     });
     const rows = quotes.map((q) => ({
       quoteNumber: q.quoteNumber,
-      deal: q.deal?.name || "",
+      opportunity: q.opportunity?.name || "",
       account: q.account?.name || "",
       status: q.status,
       amount: Number(q.amount),
@@ -89,7 +89,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
     }));
     const csv = toCsv(rows, [
       { key: "quoteNumber", label: "Quote Number" },
-      { key: "deal", label: "Deal" },
+      { key: "opportunity", label: "Opportunity" },
       { key: "account", label: "Account" },
       { key: "status", label: "Status" },
       { key: "amount", label: "Amount" },
@@ -108,7 +108,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
     const quote = await prisma.quote.findFirst({
       where: { id: req.params.id, tenantId: req.authUser.tenantId },
       include: {
-        deal: { select: { id: true, name: true } },
+        opportunity: { select: { id: true, name: true } },
         account: { select: { id: true, name: true } },
         owner: { select: { id: true, firstName: true, lastName: true } },
         lineItems: {
@@ -125,19 +125,16 @@ export default async function quoteRoutes(app: FastifyInstance) {
   app.post("/api/v1/quotes", { preHandler: [app.authenticate] }, async (req: any, reply) => {
     const body = CreateQuoteSchema.parse(req.body);
 
-    // Verify deal/account belong to tenant
-    const deal = await prisma.deal.findFirst({ where: { id: body.dealId, tenantId: req.authUser.tenantId } });
-    if (!deal) return reply.code(404).send({ error: "Deal not found" });
+    const opp = await prisma.opportunity.findFirst({ where: { id: body.opportunityId, tenantId: req.authUser.tenantId } });
+    if (!opp) return reply.code(404).send({ error: "Opportunity not found" });
 
-    // Generate quote number
     const count = await prisma.quote.count({ where: { tenantId: req.authUser.tenantId } });
     const quoteNumber = `Q-${String(count + 1).padStart(5, "0")}`;
 
-    // Build line items from deal's line items if none provided
     let lineItemsToCreate = body.lineItems || [];
     if (!lineItemsToCreate.length) {
-      const dealItems = await prisma.lineItem.findMany({ where: { dealId: body.dealId }, include: { product: true } });
-      lineItemsToCreate = dealItems.map(li => ({
+      const oppItems = await prisma.lineItem.findMany({ where: { opportunityId: body.opportunityId }, include: { product: true } });
+      lineItemsToCreate = oppItems.map(li => ({
         productId: li.productId,
         quantity: Number(li.quantity),
         unitPrice: Number(li.unitPrice),
@@ -145,16 +142,15 @@ export default async function quoteRoutes(app: FastifyInstance) {
       }));
     }
 
-    // If still no line items, use deal amount directly
     if (!lineItemsToCreate.length) {
-      const taxAmt2 = Number(deal.amount) * (body.taxPct / 100);
-      const discountAmt2 = Number(deal.amount) * (body.discountPct / 100);
-      const quoteAmount = Number(deal.amount) - discountAmt2 + taxAmt2;
+      const taxAmt2 = Number(opp.amount) * (body.taxPct / 100);
+      const discountAmt2 = Number(opp.amount) * (body.discountPct / 100);
+      const quoteAmount = Number(opp.amount) - discountAmt2 + taxAmt2;
       const quote = await prisma.quote.create({
         data: {
           tenantId: req.authUser.tenantId,
           quoteNumber,
-          dealId: body.dealId,
+          opportunityId: body.opportunityId,
           accountId: body.accountId,
           ownerId: req.authUser.id,
           amount: quoteAmount,
@@ -163,13 +159,12 @@ export default async function quoteRoutes(app: FastifyInstance) {
           currency: body.currency,
           expirationDate: body.expirationDate ? new Date(body.expirationDate) : null,
         },
-        include: { account: { select: { id: true, name: true } }, deal: { select: { id: true, name: true } }, owner: { select: { id: true, firstName: true, lastName: true } }, lineItems: { include: { product: true } } },
+        include: { account: { select: { id: true, name: true } }, opportunity: { select: { id: true, name: true } }, owner: { select: { id: true, firstName: true, lastName: true } }, lineItems: { include: { product: true } } },
       });
       await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, action: "CREATE", objectType: "Quote", recordId: quote.id, newValues: quote });
       return reply.code(201).send(quote);
     }
 
-    // Calculate totals
     let subtotal = 0;
     const preparedItems = await Promise.all(lineItemsToCreate.map(async (item) => {
       const product = await prisma.product.findFirst({ where: { id: item.productId, tenantId: req.authUser.tenantId } });
@@ -189,7 +184,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
       data: {
         tenantId: req.authUser.tenantId,
         quoteNumber,
-        dealId: body.dealId,
+        opportunityId: body.opportunityId,
         accountId: body.accountId,
         ownerId: req.authUser.id,
         amount,
@@ -202,7 +197,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
       include: {
         lineItems: { include: { product: true } },
         account: { select: { id: true, name: true } },
-        deal: { select: { id: true, name: true } },
+        opportunity: { select: { id: true, name: true } },
         owner: { select: { id: true, firstName: true, lastName: true } },
       },
     });
@@ -231,7 +226,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
       include: {
         lineItems: { include: { product: true } },
         account: { select: { id: true, name: true } },
-        deal: { select: { id: true, name: true } },
+        opportunity: { select: { id: true, name: true } },
         owner: { select: { id: true, firstName: true, lastName: true } },
       },
     });
@@ -255,7 +250,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
     const quote = await prisma.quote.findFirst({
       where: { id: req.params.id, tenantId: req.authUser.tenantId },
       include: {
-        deal: { select: { name: true } },
+        opportunity: { select: { name: true } },
         account: { select: { name: true } },
         owner: { select: { firstName: true, lastName: true, email: true } },
         lineItems: { include: { product: { select: { name: true, sku: true } } }, orderBy: { createdAt: "asc" } },
@@ -274,7 +269,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
       taxPct: Number(quote.taxPct),
       amount: Number(quote.amount),
       account: quote.account,
-      deal: quote.deal,
+      opportunity: quote.opportunity,
       owner: quote.owner,
       lineItems: quote.lineItems.map((li) => ({
         product: li.product,
@@ -306,7 +301,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
       data: {
         tenantId: req.authUser.tenantId,
         quoteNumber,
-        dealId: existing.dealId,
+        opportunityId: existing.opportunityId,
         accountId: existing.accountId,
         ownerId: req.authUser.id,
         amount: existing.amount,
@@ -328,7 +323,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
       include: {
         lineItems: { include: { product: true } },
         account: { select: { id: true, name: true } },
-        deal: { select: { id: true, name: true } },
+        opportunity: { select: { id: true, name: true } },
         owner: { select: { id: true, firstName: true, lastName: true } },
       },
     });

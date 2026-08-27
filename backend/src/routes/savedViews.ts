@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 
 const savedViewSchema = z.object({
-  objectType: z.enum(["LEAD", "ACCOUNT", "CONTACT", "OPPORTUNITY", "DEAL"]),
+  objectType: z.enum(["LEAD", "ACCOUNT", "CONTACT", "OPPORTUNITY"]),
   name: z.string().min(1),
   filters: z.record(z.any()).default({}),
   sortBy: z.string().optional().nullable(),

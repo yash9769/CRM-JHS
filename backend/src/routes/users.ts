@@ -36,22 +36,17 @@ const userSelect = {
 } as const;
 
 export default async function userRoutes(app: FastifyInstance) {
-  // -------------------------------------------------------------------
   // GET /users — list users visible to the authenticated user
-  // -------------------------------------------------------------------
   app.get("/api/v1/users", { preHandler: [app.authenticate] }, async (req: any) => {
     const actor = req.authUser;
 
     let where: any = { tenantId: actor.tenantId };
 
     if (actor.orgRole === "PARTNER") {
-      // Partners see themselves + their Managers
       where = { tenantId: actor.tenantId, OR: [{ id: actor.id }, { partnerId: actor.id }] };
     } else if (actor.orgRole === "MANAGER") {
-      // Managers only see themselves
       where = { tenantId: actor.tenantId, id: actor.id };
     }
-    // SENIOR_PARTNER: no extra filter — sees all
 
     const users = await prisma.user.findMany({
       where,
@@ -61,17 +56,13 @@ export default async function userRoutes(app: FastifyInstance) {
     return { data: users };
   });
 
-  // -------------------------------------------------------------------
-  // GET /users/org-chart — full hierarchy tree (SP + Partners + Managers)
-  // Restricted to SENIOR_PARTNER and PARTNER
-  // -------------------------------------------------------------------
+  // GET /users/org-chart — full hierarchy tree
   app.get("/api/v1/users/org-chart", { preHandler: [app.authenticate] }, async (req: any, reply) => {
     const actor = req.authUser;
     if (actor.orgRole === "MANAGER") {
       return reply.code(403).send({ error: "Managers cannot view the org chart" });
     }
 
-    // Fetch all users in tenant
     const allUsers = await prisma.user.findMany({
       where: { tenantId: actor.tenantId },
       select: userSelect,
@@ -82,7 +73,6 @@ export default async function userRoutes(app: FastifyInstance) {
     const partners = allUsers.filter((u) => u.orgRole === "PARTNER");
     const managers = allUsers.filter((u) => u.orgRole === "MANAGER");
 
-    // If actor is a Partner, only return their branch
     if (actor.orgRole === "PARTNER") {
       const myManagers = managers.filter((m) => m.partnerId === actor.id);
       return {
@@ -95,9 +85,7 @@ export default async function userRoutes(app: FastifyInstance) {
     return { seniorPartner, partners, managers };
   });
 
-  // -------------------------------------------------------------------
-  // POST /users — create a new user (Senior Partner → Partner/Manager; Partner → Manager)
-  // -------------------------------------------------------------------
+  // POST /users — create a new user
   app.post("/api/v1/users", { preHandler: [app.authenticate] }, async (req: any, reply) => {
     const actor = req.authUser;
 
@@ -107,21 +95,17 @@ export default async function userRoutes(app: FastifyInstance) {
 
     const body = CreateUserSchema.parse(req.body);
 
-    // Determine partnerId: Partner always creates Managers under themselves
     const partnerId =
       actor.orgRole === "PARTNER" ? actor.id : (body.partnerId ?? null);
 
-    // Validate that actor is allowed to create this role+partnerId combo
     if (!canManageUser(actor, body.orgRole, partnerId)) {
       return reply.code(403).send({ error: "You are not allowed to create this user type" });
     }
 
-    // Partner can only create MANAGER
     if (actor.orgRole === "PARTNER" && body.orgRole !== "MANAGER") {
       return reply.code(403).send({ error: "Partners can only create Managers" });
     }
 
-    // If creating a MANAGER, ensure partnerId is valid and in the same tenant
     if (body.orgRole === "MANAGER") {
       if (!partnerId) {
         return reply.code(400).send({ error: "partnerId is required when creating a Manager" });
@@ -159,9 +143,7 @@ export default async function userRoutes(app: FastifyInstance) {
     return reply.code(201).send(user);
   });
 
-  // -------------------------------------------------------------------
-  // PATCH /users/:id — edit user name/email/role (with hierarchy checks)
-  // -------------------------------------------------------------------
+  // PATCH /users/:id — edit user name/email/role
   app.patch("/api/v1/users/:id", { preHandler: [app.authenticate] }, async (req: any, reply) => {
     const actor = req.authUser;
     const targetId = req.params.id;
@@ -172,13 +154,11 @@ export default async function userRoutes(app: FastifyInstance) {
     });
     if (!target) return reply.code(404).send({ error: "User not found" });
 
-    // Managers can only update themselves (no role changes)
     if (actor.orgRole === "MANAGER") {
       if (targetId !== actor.id) return reply.code(403).send({ error: "Access denied" });
       if (body.orgRole) return reply.code(403).send({ error: "Managers cannot change roles" });
     }
 
-    // Partners can only manage their own Managers (or themselves)
     if (actor.orgRole === "PARTNER") {
       const isSelf = targetId === actor.id;
       const isOwnManager = target.orgRole === "MANAGER" && target.partnerId === actor.id;
@@ -193,7 +173,6 @@ export default async function userRoutes(app: FastifyInstance) {
         ...(body.lastName ? { lastName: body.lastName } : {}),
         ...(body.email ? { email: body.email } : {}),
         ...(body.active !== undefined ? { active: body.active } : {}),
-        // Only SP can change role/partnerId
         ...(actor.orgRole === "SENIOR_PARTNER" && body.orgRole ? { orgRole: body.orgRole } : {}),
         ...(actor.orgRole === "SENIOR_PARTNER" && body.partnerId !== undefined ? { partnerId: body.partnerId } : {}),
       },
@@ -202,9 +181,7 @@ export default async function userRoutes(app: FastifyInstance) {
     return updated;
   });
 
-  // -------------------------------------------------------------------
-  // DELETE /users/:id — remove user (with hierarchy checks)
-  // -------------------------------------------------------------------
+  // DELETE /users/:id — remove user
   app.delete("/api/v1/users/:id", { preHandler: [app.authenticate] }, async (req: any, reply) => {
     const actor = req.authUser;
     const targetId = req.params.id;
@@ -221,25 +198,21 @@ export default async function userRoutes(app: FastifyInstance) {
     });
     if (!target) return reply.code(404).send({ error: "User not found" });
 
-    // Partners can only remove their own Managers
     if (actor.orgRole === "PARTNER") {
       if (target.orgRole !== "MANAGER" || target.partnerId !== actor.id) {
         return reply.code(403).send({ error: "Partners can only remove their own Managers" });
       }
     }
 
-    // Cannot remove Senior Partner
     if (target.orgRole === "SENIOR_PARTNER") {
       return reply.code(403).send({ error: "Cannot remove the Senior Partner" });
     }
 
-    // Reassign owned records to actor before deleting
     const actorId = actor.id;
     await prisma.$transaction([
       prisma.account.updateMany({ where: { ownerId: targetId }, data: { ownerId: actorId } }),
       prisma.contact.updateMany({ where: { ownerId: targetId }, data: { ownerId: actorId } }),
       prisma.opportunity.updateMany({ where: { ownerId: targetId }, data: { ownerId: actorId } }),
-      prisma.deal.updateMany({ where: { ownerId: targetId }, data: { ownerId: actorId } }),
       prisma.quote.updateMany({ where: { ownerId: targetId }, data: { ownerId: actorId } }),
       prisma.product.updateMany({ where: { ownerId: targetId }, data: { ownerId: actorId } }),
       prisma.activity.updateMany({ where: { ownerId: targetId }, data: { ownerId: actorId } }),
@@ -251,9 +224,7 @@ export default async function userRoutes(app: FastifyInstance) {
     return reply.code(204).send();
   });
 
-  // -------------------------------------------------------------------
   // GET /users/stats — scoped to visible users
-  // -------------------------------------------------------------------
   app.get("/api/v1/users/stats", { preHandler: [app.authenticate] }, async (req: any) => {
     const actor = req.authUser;
     const tenantId = actor.tenantId;
@@ -267,17 +238,15 @@ export default async function userRoutes(app: FastifyInstance) {
 
     const stats = await Promise.all(
       users.map(async (u) => {
-        const [openDeals, closedWon, openOpps] = await Promise.all([
-          prisma.deal.count({ where: { tenantId, ownerId: u.id, stage: { isClosed: false } } }),
-          prisma.deal.aggregate({
+        const [openOpps, closedWon] = await Promise.all([
+          prisma.opportunity.count({ where: { tenantId, ownerId: u.id, stage: { isClosed: false } } }),
+          prisma.opportunity.aggregate({
             where: { tenantId, ownerId: u.id, stage: { isClosed: true, isWon: true } },
             _sum: { amount: true },
           }),
-          prisma.opportunity.count({ where: { tenantId, ownerId: u.id, isConverted: false } }),
         ]);
         return {
           ...u,
-          openDeals,
           closedWonRevenue: Number(closedWon._sum.amount || 0),
           openOpportunities: openOpps,
         };
@@ -287,9 +256,7 @@ export default async function userRoutes(app: FastifyInstance) {
     return { data: stats };
   });
 
-  // -------------------------------------------------------------------
   // GET /users/:id/bird-eye — detailed bird's-eye view for a user (P or M)
-  // -------------------------------------------------------------------
   app.get("/api/v1/users/:id/bird-eye", { preHandler: [app.authenticate] }, async (req: any, reply) => {
     const actor = req.authUser;
     const tenantId = actor.tenantId;
@@ -301,7 +268,6 @@ export default async function userRoutes(app: FastifyInstance) {
     });
     if (!targetUser) return reply.code(404).send({ error: "User not found" });
 
-    // Hierarchy check: Manager can only view self; Partner can only view self or own managers
     if (actor.orgRole === "MANAGER" && actor.id !== targetId) {
       return reply.code(403).send({ error: "Access denied" });
     }
@@ -311,7 +277,6 @@ export default async function userRoutes(app: FastifyInstance) {
       if (!isSelf && !isOwnManager) return reply.code(403).send({ error: "Access denied" });
     }
 
-    // Determine team user IDs for aggregates
     let teamUserIds = [targetId];
     let teamMembers: any[] = [];
 
@@ -324,10 +289,8 @@ export default async function userRoutes(app: FastifyInstance) {
     }
 
     const [
-      closedWonDeals,
-      openDeals,
+      closedWonOpps,
       openOpps,
-      recentDeals,
       recentOpps,
       accounts,
       accountsCount,
@@ -335,27 +298,13 @@ export default async function userRoutes(app: FastifyInstance) {
       activitiesCount,
       recentActivities,
     ] = await Promise.all([
-      prisma.deal.findMany({
+      prisma.opportunity.findMany({
         where: { tenantId, ownerId: { in: teamUserIds }, stage: { isWon: true } },
         select: { id: true, amount: true },
       }),
-      prisma.deal.findMany({
+      prisma.opportunity.findMany({
         where: { tenantId, ownerId: { in: teamUserIds }, stage: { isClosed: false } },
         select: { id: true, amount: true },
-      }),
-      prisma.opportunity.findMany({
-        where: { tenantId, ownerId: { in: teamUserIds }, isConverted: false },
-        select: { id: true, amount: true },
-      }),
-      prisma.deal.findMany({
-        where: { tenantId, ownerId: { in: teamUserIds } },
-        include: {
-          stage: true,
-          account: { select: { id: true, name: true } },
-          owner: { select: { id: true, firstName: true, lastName: true } },
-        },
-        orderBy: { updatedAt: "desc" },
-        take: 15,
       }),
       prisma.opportunity.findMany({
         where: { tenantId, ownerId: { in: teamUserIds } },
@@ -381,7 +330,6 @@ export default async function userRoutes(app: FastifyInstance) {
         include: {
           owner: { select: { id: true, firstName: true, lastName: true } },
           account: { select: { id: true, name: true } },
-          deal: { select: { id: true, name: true } },
           opportunity: { select: { id: true, name: true } },
           contact: { select: { id: true, firstName: true, lastName: true } },
         },
@@ -390,24 +338,22 @@ export default async function userRoutes(app: FastifyInstance) {
       }),
     ]);
 
-    const closedWonRevenue = closedWonDeals.reduce((sum, d) => sum + Number(d.amount || 0), 0);
-    const openPipelineRevenue = openDeals.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+    const closedWonRevenue = closedWonOpps.reduce((sum, o) => sum + Number(o.amount || 0), 0);
+    const openPipelineRevenue = openOpps.reduce((sum, o) => sum + Number(o.amount || 0), 0);
 
     return {
       user: targetUser,
       teamMembers,
       kpis: {
         closedWonRevenue,
-        closedWonCount: closedWonDeals.length,
+        closedWonCount: closedWonOpps.length,
         openPipelineRevenue,
-        openDealsCount: openDeals.length,
         openOpportunitiesCount: openOpps.length,
         accountsCount,
         contactsCount,
         activitiesCount,
       },
       recentActivities,
-      recentDeals,
       recentOpps,
       accounts,
     };

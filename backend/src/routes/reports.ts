@@ -10,24 +10,24 @@ export default async function reportRoutes(app: FastifyInstance) {
     const rbacFilter = await getCreatedByFilter(req.authUser);
 
     const stages = await prisma.pipelineStage.findMany({
-      where: { pipeline: { tenantId, type: "DEAL" } },
+      where: { pipeline: { tenantId, type: "OPPORTUNITY" } },
       orderBy: { order: "asc" },
     });
 
     const stageData = await Promise.all(stages.map(async (stage) => {
-      const deals = await prisma.deal.findMany({
+      const opps = await prisma.opportunity.findMany({
         where: { tenantId, ...rbacFilter, stageId: stage.id, stage: { isClosed: false } },
-        select: { amount: true, closeDate: true, createdAt: true, updatedAt: true },
+        select: { amount: true, expectedCloseDate: true, createdAt: true, updatedAt: true },
       });
-      const total = deals.reduce((s, d) => s + Number(d.amount), 0);
-      const overdue = deals.filter(d => d.closeDate && new Date(d.closeDate) < new Date()).length;
-      const avgAge = deals.length > 0
-        ? deals.reduce((s, d) => s + (Date.now() - new Date(d.createdAt).getTime()), 0) / deals.length / 86400000
+      const total = opps.reduce((s, o) => s + Number(o.amount), 0);
+      const overdue = opps.filter(o => o.expectedCloseDate && new Date(o.expectedCloseDate) < new Date()).length;
+      const avgAge = opps.length > 0
+        ? opps.reduce((s, o) => s + (Date.now() - new Date(o.createdAt).getTime()), 0) / opps.length / 86400000
         : 0;
 
       return {
         stage: { id: stage.id, name: stage.name, order: stage.order },
-        count: deals.length,
+        count: opps.length,
         amount: total,
         overdue,
         avgAgeDays: Math.round(avgAge),
@@ -56,42 +56,41 @@ export default async function reportRoutes(app: FastifyInstance) {
     const rbacFilter = await getCreatedByFilter(req.authUser);
 
     const data = await Promise.all(users.map(async (user) => {
-      const [openDeals, wonDeals, lostDeals, openOpps] = await Promise.all([
-        prisma.deal.findMany({
+      const [openOpps, wonOpps, lostOpps] = await Promise.all([
+        prisma.opportunity.findMany({
           where: { tenantId, ...rbacFilter, ownerId: user.id, stage: { isClosed: false } },
           select: { amount: true, probability: true },
         }),
-        prisma.deal.findMany({
-          where: { tenantId, ...rbacFilter, ownerId: user.id, wonDate: { gte: periodStart, lte: periodEnd } },
+        prisma.opportunity.findMany({
+          where: { tenantId, ...rbacFilter, ownerId: user.id, stage: { isClosed: true, isWon: true }, OR: [{ wonDate: { gte: periodStart, lte: periodEnd } }, { actualCloseDate: { gte: periodStart, lte: periodEnd } }, { updatedAt: { gte: periodStart, lte: periodEnd } }] },
           select: { amount: true },
         }),
-        prisma.deal.findMany({
+        prisma.opportunity.findMany({
           where: { tenantId, ...rbacFilter, ownerId: user.id, stage: { isClosed: true, isWon: false }, updatedAt: { gte: periodStart, lte: periodEnd } },
           select: { amount: true },
         }),
-        prisma.opportunity.count({ where: { tenantId, ...rbacFilter, ownerId: user.id, isConverted: false } }),
       ]);
 
-      const pipeline = openDeals.reduce((s, d) => s + Number(d.amount), 0);
-      const weighted = openDeals.reduce((s, d) => s + Number(d.amount) * (d.probability / 100), 0);
-      const closedWon = wonDeals.reduce((s, d) => s + Number(d.amount), 0);
-      const closedLost = lostDeals.reduce((s, d) => s + Number(d.amount), 0);
-      const winRate = (wonDeals.length + lostDeals.length) > 0
-        ? wonDeals.length / (wonDeals.length + lostDeals.length)
+      const pipeline = openOpps.reduce((s, o) => s + Number(o.amount), 0);
+      const weighted = openOpps.reduce((s, o) => s + Number(o.amount) * (o.probability / 100), 0);
+      const closedWon = wonOpps.reduce((s, o) => s + Number(o.amount), 0);
+      const closedLost = lostOpps.reduce((s, o) => s + Number(o.amount), 0);
+      const winRate = (wonOpps.length + lostOpps.length) > 0
+        ? wonOpps.length / (wonOpps.length + lostOpps.length)
         : null;
 
       return {
         user,
         metrics: {
           pipeline, weighted, closedWon, closedLost,
-          openDeals: openDeals.length, openOpportunities: openOpps,
-          wonDeals: wonDeals.length, lostDeals: lostDeals.length,
+          openOpportunities: openOpps.length,
+          wonOpportunities: wonOpps.length, lostOpportunities: lostOpps.length,
           winRate,
         },
       };
     }));
 
-    return { period: targetPeriod, data: data.filter(d => d.metrics.pipeline > 0 || d.metrics.closedWon > 0 || d.metrics.openDeals > 0) };
+    return { period: targetPeriod, data: data.filter(d => d.metrics.pipeline > 0 || d.metrics.closedWon > 0 || d.metrics.openOpportunities > 0) };
   });
 
   // Owner performance export CSV
@@ -105,34 +104,32 @@ export default async function reportRoutes(app: FastifyInstance) {
     const rbacFilter = await getCreatedByFilter(req.authUser);
 
     const rows = await Promise.all(users.map(async (user) => {
-      const [openDeals, wonDeals, lostDeals, openOpps] = await Promise.all([
-        prisma.deal.findMany({
+      const [openOpps, wonOpps, lostOpps] = await Promise.all([
+        prisma.opportunity.findMany({
           where: { tenantId, ...rbacFilter, ownerId: user.id, stage: { isClosed: false } },
           select: { amount: true, probability: true },
         }),
-        prisma.deal.findMany({
+        prisma.opportunity.findMany({
           where: { tenantId, ...rbacFilter, ownerId: user.id, stage: { isClosed: true, isWon: true } },
           select: { amount: true },
         }),
-        prisma.deal.findMany({
+        prisma.opportunity.findMany({
           where: { tenantId, ...rbacFilter, ownerId: user.id, stage: { isClosed: true, isWon: false } },
           select: { amount: true },
         }),
-        prisma.opportunity.count({ where: { tenantId, ...rbacFilter, ownerId: user.id, isConverted: false } }),
       ]);
 
-      const pipeline = openDeals.reduce((s, d) => s + Number(d.amount), 0);
-      const weighted = openDeals.reduce((s, d) => s + Number(d.amount) * (d.probability / 100), 0);
-      const closedWon = wonDeals.reduce((s, d) => s + Number(d.amount), 0);
-      const winRate = (wonDeals.length + lostDeals.length) > 0
-        ? `${Math.round((wonDeals.length / (wonDeals.length + lostDeals.length)) * 100)}%`
+      const pipeline = openOpps.reduce((s, o) => s + Number(o.amount), 0);
+      const weighted = openOpps.reduce((s, o) => s + Number(o.amount) * (o.probability / 100), 0);
+      const closedWon = wonOpps.reduce((s, o) => s + Number(o.amount), 0);
+      const winRate = (wonOpps.length + lostOpps.length) > 0
+        ? `${Math.round((wonOpps.length / (wonOpps.length + lostOpps.length)) * 100)}%`
         : "—";
 
       return {
         rep: `${user.firstName} ${user.lastName}`,
         role: user.orgRole.replace("_", " "),
-        openOpportunities: openOpps,
-        openDeals: openDeals.length,
+        openOpportunities: openOpps.length,
         pipeline,
         weighted,
         closedWon,
@@ -144,7 +141,6 @@ export default async function reportRoutes(app: FastifyInstance) {
       { key: "rep", label: "Rep Name" },
       { key: "role", label: "Role" },
       { key: "openOpportunities", label: "Open Opps" },
-      { key: "openDeals", label: "Open Deals" },
       { key: "pipeline", label: "Pipeline Value" },
       { key: "weighted", label: "Weighted Value" },
       { key: "closedWon", label: "Closed Won Revenue" },
@@ -164,12 +160,12 @@ export default async function reportRoutes(app: FastifyInstance) {
     since.setMonth(since.getMonth() - Number(months));
 
     const rbacFilter = await getCreatedByFilter(req.authUser);
-    const [wonDeals, lostDeals] = await Promise.all([
-      prisma.deal.findMany({
-        where: { tenantId, ...rbacFilter, wonDate: { gte: since }, stage: { isClosed: true, isWon: true } },
+    const [wonOpps, lostOpps] = await Promise.all([
+      prisma.opportunity.findMany({
+        where: { tenantId, ...rbacFilter, OR: [{ wonDate: { gte: since } }, { actualCloseDate: { gte: since } }], stage: { isClosed: true, isWon: true } },
         include: { stage: true, owner: { select: { id: true, firstName: true, lastName: true } } },
       }),
-      prisma.deal.findMany({
+      prisma.opportunity.findMany({
         where: { tenantId, ...rbacFilter, updatedAt: { gte: since }, stage: { isClosed: true, isWon: false } },
         include: { stage: true, owner: { select: { id: true, firstName: true, lastName: true } } },
       }),
@@ -185,16 +181,16 @@ export default async function reportRoutes(app: FastifyInstance) {
       monthlyData[period][`${type}Amount`] += amount;
     };
 
-    wonDeals.forEach(d => addToMonth(d.wonDate, Number(d.amount), "won"));
-    lostDeals.forEach(d => addToMonth(d.updatedAt, Number(d.amount), "lost"));
+    wonOpps.forEach(o => addToMonth(o.wonDate || o.actualCloseDate, Number(o.amount), "won"));
+    lostOpps.forEach(o => addToMonth(o.updatedAt, Number(o.amount), "lost"));
 
     return {
       summary: {
-        totalWon: wonDeals.length,
-        totalLost: lostDeals.length,
-        wonRevenue: wonDeals.reduce((s, d) => s + Number(d.amount), 0),
-        lostRevenue: lostDeals.reduce((s, d) => s + Number(d.amount), 0),
-        winRate: (wonDeals.length + lostDeals.length) > 0 ? wonDeals.length / (wonDeals.length + lostDeals.length) : 0,
+        totalWon: wonOpps.length,
+        totalLost: lostOpps.length,
+        wonRevenue: wonOpps.reduce((s, o) => s + Number(o.amount), 0),
+        lostRevenue: lostOpps.reduce((s, o) => s + Number(o.amount), 0),
+        winRate: (wonOpps.length + lostOpps.length) > 0 ? wonOpps.length / (wonOpps.length + lostOpps.length) : 0,
       },
       monthly: Object.values(monthlyData).sort((a, b) => a.period.localeCompare(b.period)),
     };
@@ -233,7 +229,6 @@ export default async function reportRoutes(app: FastifyInstance) {
 
   app.post("/api/v1/properties", { preHandler: [app.authenticate] }, async (req: any, reply) => {
     const { objectType, name, label, type, fieldType, options, required } = req.body as any;
-    // Accept either 'type' or 'fieldType', default to TEXT
     const resolvedType = (type || fieldType || "TEXT").toUpperCase();
     const validTypes = ["TEXT", "NUMBER", "BOOLEAN", "DATE", "DATETIME", "SELECT", "MULTISELECT"];
     const propType = validTypes.includes(resolvedType) ? resolvedType : "TEXT";

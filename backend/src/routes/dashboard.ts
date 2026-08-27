@@ -7,35 +7,34 @@ export default async function dashboardRoutes(app: FastifyInstance) {
     const tenantId = req.authUser.tenantId;
     const rbacFilter = await getCreatedByFilter(req.authUser);
 
-    const [openDeals, closedWonDeals, closedLostDeals, openOpportunities] = await Promise.all([
-      prisma.deal.findMany({ where: { tenantId, ...rbacFilter, stage: { isClosed: false } }, include: { stage: true, account: true, owner: true } }),
-      prisma.deal.findMany({ where: { tenantId, ...rbacFilter, stage: { isClosed: true, isWon: true } } }),
-      prisma.deal.count({ where: { tenantId, ...rbacFilter, stage: { isClosed: true, isWon: false } } }),
-      prisma.opportunity.findMany({ where: { tenantId, ...rbacFilter, isConverted: false }, include: { stage: true } }),
+    const [openOpps, closedWonOpps, closedLostOpps] = await Promise.all([
+      prisma.opportunity.findMany({ where: { tenantId, ...rbacFilter, stage: { isClosed: false } }, include: { stage: true, account: true, owner: true } }),
+      prisma.opportunity.findMany({ where: { tenantId, ...rbacFilter, stage: { isClosed: true, isWon: true } } }),
+      prisma.opportunity.count({ where: { tenantId, ...rbacFilter, stage: { isClosed: true, isWon: false } } }),
     ]);
 
-    const totalPipeline = openDeals.reduce((s, d) => s + Number(d.amount), 0);
-    const weightedPipeline = openDeals.reduce((s, d) => s + Number(d.amount) * (d.probability / 100), 0);
-    const closedWonRevenue = closedWonDeals.reduce((s, d) => s + Number(d.amount), 0);
-    const winRate = closedWonDeals.length + closedLostDeals > 0
-      ? closedWonDeals.length / (closedWonDeals.length + closedLostDeals)
+    const totalPipeline = openOpps.reduce((s, o) => s + Number(o.amount), 0);
+    const weightedPipeline = openOpps.reduce((s, o) => s + Number(o.amount) * (o.probability / 100), 0);
+    const closedWonRevenue = closedWonOpps.reduce((s, o) => s + Number(o.amount), 0);
+    const winRate = closedWonOpps.length + closedLostOpps > 0
+      ? closedWonOpps.length / (closedWonOpps.length + closedLostOpps)
       : 0;
-    const avgDealSize = closedWonDeals.length > 0 ? closedWonRevenue / closedWonDeals.length : 0;
+    const avgOpportunitySize = closedWonOpps.length > 0 ? closedWonRevenue / closedWonOpps.length : 0;
 
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const dealsClosingThisMonth = openDeals.filter(
-      (d) => d.closeDate && d.closeDate >= monthStart && d.closeDate < monthEnd
+    const oppsClosingThisMonth = openOpps.filter(
+      (o) => o.expectedCloseDate && o.expectedCloseDate >= monthStart && o.expectedCloseDate < monthEnd
     ).length;
 
-    // Pipeline by stage (open deals)
+    // Pipeline by stage (open opportunities)
     const byStageMap = new Map<string, { stageName: string; count: number; amount: number }>();
-    for (const d of openDeals) {
-      const key = d.stageId;
-      const cur = byStageMap.get(key) || { stageName: d.stage.name, count: 0, amount: 0 };
+    for (const o of openOpps) {
+      const key = o.stageId;
+      const cur = byStageMap.get(key) || { stageName: o.stage.name, count: 0, amount: 0 };
       cur.count += 1;
-      cur.amount += Number(d.amount);
+      cur.amount += Number(o.amount);
       byStageMap.set(key, cur);
     }
 
@@ -46,19 +45,22 @@ export default async function dashboardRoutes(app: FastifyInstance) {
       const label = d.toLocaleString("en-US", { month: "short", year: "2-digit" });
       const start = new Date(d.getFullYear(), d.getMonth(), 1);
       const end = new Date(d.getFullYear(), d.getMonth() + 1, 1);
-      const revenue = closedWonDeals
-        .filter((deal) => deal.wonDate && deal.wonDate >= start && deal.wonDate < end)
-        .reduce((s, deal) => s + Number(deal.amount), 0);
+      const revenue = closedWonOpps
+        .filter((opp) => {
+          const date = opp.wonDate || opp.actualCloseDate || opp.updatedAt;
+          return date && date >= start && date < end;
+        })
+        .reduce((s, opp) => s + Number(opp.amount), 0);
       revenueByMonth.push({ month: label, revenue });
     }
 
-    // Deals by owner
+    // Opportunities by owner
     const byOwnerMap = new Map<string, { owner: string; count: number; amount: number }>();
-    for (const d of openDeals) {
-      const key = d.ownerId;
-      const cur = byOwnerMap.get(key) || { owner: `${d.owner.firstName} ${d.owner.lastName}`, count: 0, amount: 0 };
+    for (const o of openOpps) {
+      const key = o.ownerId;
+      const cur = byOwnerMap.get(key) || { owner: `${o.owner.firstName} ${o.owner.lastName}`, count: 0, amount: 0 };
       cur.count += 1;
-      cur.amount += Number(d.amount);
+      cur.amount += Number(o.amount);
       byOwnerMap.set(key, cur);
     }
 
@@ -66,22 +68,21 @@ export default async function dashboardRoutes(app: FastifyInstance) {
       kpis: {
         totalPipeline,
         weightedPipeline,
-        openOpportunities: openOpportunities.length,
-        openDeals: openDeals.length,
+        openOpportunities: openOpps.length,
         closedWonRevenue,
         winRate,
-        avgDealSize,
-        dealsClosingThisMonth,
+        avgOpportunitySize,
+        oppsClosingThisMonth,
       },
       charts: {
         pipelineByStage: Array.from(byStageMap.values()),
         revenueByMonth,
-        dealsByOwner: Array.from(byOwnerMap.values()),
+        oppsByOwner: Array.from(byOwnerMap.values()),
       },
     };
   });
 
-  // Phase 20/21 — "Today's Work" action center + light sales-intelligence signals
+  // Action center
   app.get("/api/v1/dashboard/action-center", { preHandler: app.authenticate }, async (req) => {
     const tenantId = req.authUser.tenantId;
     const userId = req.authUser.id;
@@ -95,33 +96,33 @@ export default async function dashboardRoutes(app: FastifyInstance) {
     const staleThreshold = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
 
     const [
-      overdueTasks, tasksDueToday, newLeads, uncontactedLeads, dealsClosingThisWeek, quotesAwaiting,
-      recentLeads, upcomingTasks, recentActivity, openDealsForRisk,
+      overdueTasks, tasksDueToday, newLeads, uncontactedLeads, oppsClosingThisWeek, quotesAwaiting,
+      recentLeads, upcomingTasks, recentActivity, openOppsForRisk,
     ] = await Promise.all([
       prisma.activity.count({ where: { tenantId, ownerId: userId, type: "TASK", status: "PENDING", dueDate: { lt: todayStart } } }),
       prisma.activity.count({ where: { tenantId, ownerId: userId, type: "TASK", status: "PENDING", dueDate: { gte: todayStart, lte: todayEnd } } }),
       prisma.lead.count({ where: { tenantId, ...rbacFilter, archived: false, createdAt: { gte: sevenDaysAgo } } }),
       prisma.lead.count({ where: { tenantId, ...rbacFilter, archived: false, status: "NEW" } }),
-      prisma.deal.count({ where: { tenantId, ...rbacFilter, archived: false, stage: { isClosed: false }, closeDate: { gte: todayStart, lte: weekEnd } } }),
+      prisma.opportunity.count({ where: { tenantId, ...rbacFilter, archived: false, stage: { isClosed: false }, expectedCloseDate: { gte: todayStart, lte: weekEnd } } }),
       prisma.quote.count({ where: { tenantId, ...rbacFilter, status: { in: ["SENT", "VIEWED", "DRAFT"] } } }),
       prisma.lead.findMany({ where: { tenantId, ...rbacFilter, archived: false }, orderBy: { createdAt: "desc" }, take: 5, select: { id: true, firstName: true, lastName: true, companyName: true, status: true, createdAt: true } }),
-      prisma.activity.findMany({ where: { tenantId, ownerId: userId, type: "TASK", status: "PENDING", dueDate: { gte: todayStart } }, orderBy: { dueDate: "asc" }, take: 5, select: { id: true, subject: true, dueDate: true, accountId: true, contactId: true, opportunityId: true, dealId: true, leadId: true } }),
-      prisma.activity.findMany({ where: { tenantId, ...rbacFilter }, orderBy: { createdAt: "desc" }, take: 8, include: { owner: { select: { firstName: true, lastName: true } }, account: { select: { id: true, name: true } }, deal: { select: { id: true, name: true } }, opportunity: { select: { id: true, name: true } }, lead: { select: { id: true, firstName: true, lastName: true } } } }),
-      prisma.deal.findMany({
+      prisma.activity.findMany({ where: { tenantId, ownerId: userId, type: "TASK", status: "PENDING", dueDate: { gte: todayStart } }, orderBy: { dueDate: "asc" }, take: 5, select: { id: true, subject: true, dueDate: true, accountId: true, contactId: true, opportunityId: true, leadId: true } }),
+      prisma.activity.findMany({ where: { tenantId, ...rbacFilter }, orderBy: { createdAt: "desc" }, take: 8, include: { owner: { select: { firstName: true, lastName: true } }, account: { select: { id: true, name: true } }, opportunity: { select: { id: true, name: true } }, lead: { select: { id: true, firstName: true, lastName: true } } } }),
+      prisma.opportunity.findMany({
         where: { tenantId, ...rbacFilter, archived: false, stage: { isClosed: false } },
         include: { account: { select: { id: true, name: true } }, activities: { orderBy: { createdAt: "desc" }, take: 1 } },
       }),
     ]);
 
-    const dealsAtRisk = openDealsForRisk
-      .map((d) => {
-        const lastActivity = d.activities[0]?.createdAt;
+    const opportunitiesAtRisk = openOppsForRisk
+      .map((o) => {
+        const lastActivity = o.activities[0]?.createdAt;
         const noRecentActivity = !lastActivity || lastActivity < staleThreshold;
-        const closeDatePassed = d.closeDate && d.closeDate < todayStart;
+        const closeDatePassed = o.expectedCloseDate && o.expectedCloseDate < todayStart;
         if (!noRecentActivity && !closeDatePassed) return null;
         const daysSinceActivity = lastActivity ? Math.floor((now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24)) : null;
         return {
-          id: d.id, name: d.name, amount: d.amount, account: d.account,
+          id: o.id, name: o.name, amount: o.amount, account: o.account,
           reason: closeDatePassed ? "Expected close date passed" : `No activity for ${daysSinceActivity} days`,
         };
       })
@@ -129,11 +130,11 @@ export default async function dashboardRoutes(app: FastifyInstance) {
       .slice(0, 8);
 
     return {
-      todaysWork: { overdueTasks, tasksDueToday, newLeads, uncontactedLeads, dealsClosingThisWeek, quotesAwaiting },
+      todaysWork: { overdueTasks, tasksDueToday, newLeads, uncontactedLeads, oppsClosingThisWeek, quotesAwaiting },
       recentLeads,
       upcomingTasks,
       recentActivity,
-      dealsAtRisk,
+      opportunitiesAtRisk,
     };
   });
 }

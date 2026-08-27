@@ -12,7 +12,6 @@ import savedViewRoutes from "./routes/savedViews.js";
 import auditHistoryRoutes from "./routes/auditHistory.js";
 import contactRoutes from "./routes/contacts.js";
 import opportunityRoutes from "./routes/opportunities.js";
-import dealRoutes from "./routes/deals.js";
 import productRoutes from "./routes/products.js";
 import activityRoutes from "./routes/activities.js";
 import dashboardRoutes from "./routes/dashboard.js";
@@ -60,7 +59,6 @@ export async function buildApp(opts = {}) {
   await app.register(auditHistoryRoutes);
   await app.register(contactRoutes);
   await app.register(opportunityRoutes);
-  await app.register(dealRoutes);
   await app.register(productRoutes);
   await app.register(activityRoutes);
   await app.register(dashboardRoutes);

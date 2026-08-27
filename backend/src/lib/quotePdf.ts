@@ -10,7 +10,7 @@ interface QuotePdfInput {
   taxPct: number;
   amount: number;
   account: { name: string };
-  deal: { name: string };
+  opportunity: { name: string };
   owner: { firstName: string; lastName: string; email?: string };
   lineItems: { product: { name: string; sku?: string | null }; quantity: number; unitPrice: number; discountPct: number; total: number }[];
   tenantName: string;
@@ -58,7 +58,7 @@ export function generateQuotePdf(input: QuotePdfInput): Promise<Buffer> {
     if (input.owner.email) doc.fontSize(9).fillColor("#6b7280").text(input.owner.email, 320, colY + 30);
 
     doc.moveDown(3);
-    doc.fontSize(9).fillColor("#9ca3af").text(`RELATED DEAL: ${input.deal.name}`);
+    doc.fontSize(9).fillColor("#9ca3af").text(`RELATED OPPORTUNITY: ${input.opportunity.name}`);
     doc.moveDown(1);
 
     // Line items table
@@ -84,7 +84,7 @@ export function generateQuotePdf(input: QuotePdfInput): Promise<Buffer> {
         y += 20;
       }
     } else {
-      doc.fontSize(10).fillColor("#6b7280").text("Single line item — see deal amount below.", colX.name, y);
+      doc.fontSize(10).fillColor("#6b7280").text("Single line item — see opportunity amount below.", colX.name, y);
       y += 20;
     }
 

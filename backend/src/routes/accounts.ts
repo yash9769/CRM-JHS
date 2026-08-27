@@ -73,7 +73,7 @@ export default async function accountRoutes(app: FastifyInstance) {
         where,
         include: {
           owner: { select: { id: true, firstName: true, lastName: true } },
-          _count: { select: { contacts: true, opportunities: true, deals: true } },
+          _count: { select: { contacts: true, opportunities: true } },
         },
         orderBy: { [sortBy]: q.sortDir || "desc" },
         skip: (page - 1) * pageSize,
@@ -351,10 +351,6 @@ export default async function accountRoutes(app: FastifyInstance) {
           include: { stage: true, owner: { select: { id: true, firstName: true, lastName: true } } },
           orderBy: { createdAt: "desc" },
         },
-        deals: {
-          include: { stage: true, owner: { select: { id: true, firstName: true, lastName: true } } },
-          orderBy: { createdAt: "desc" },
-        },
         quotes: { orderBy: { createdAt: "desc" } },
         activities: {
           include: { owner: { select: { id: true, firstName: true, lastName: true } } },
@@ -414,13 +410,12 @@ export default async function accountRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const existing = await prisma.account.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Account not found" });
-    const [contacts, opportunities, deals, activities] = await Promise.all([
+    const [contacts, opportunities, activities] = await Promise.all([
       prisma.contact.count({ where: { accountId: id } }),
       prisma.opportunity.count({ where: { accountId: id } }),
-      prisma.deal.count({ where: { accountId: id } }),
       prisma.activity.count({ where: { accountId: id } }),
     ]);
-    return { contacts, opportunities, deals, activities };
+    return { contacts, opportunities, activities };
   });
 
   app.post("/api/v1/accounts/:id/archive", { preHandler: app.authenticate }, async (req, reply) => {

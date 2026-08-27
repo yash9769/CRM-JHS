@@ -34,13 +34,13 @@ async function main() {
         passwordHash,
         firstName: "Yashodhan",
         lastName: "Rajapkar",
-        role: "ADMIN",
+        orgRole: "SENIOR_PARTNER",
         active: true,
       },
     });
   }
 
-  // 3. Create Default Pipelines and Stages if they don't exist
+  // 3. Create Default Opportunity Pipeline if it doesn't exist
   let oppPipeline = await prisma.pipeline.findFirst({
     where: { tenantId: tenant.id, type: "OPPORTUNITY" },
     include: { stages: true },
@@ -72,44 +72,7 @@ async function main() {
     });
   }
 
-  let dealPipeline = await prisma.pipeline.findFirst({
-    where: { tenantId: tenant.id, type: "DEAL" },
-    include: { stages: true },
-  });
-
-  if (!dealPipeline) {
-    dealPipeline = await prisma.pipeline.create({
-      data: {
-        tenantId: tenant.id,
-        name: "Standard Deal Pipeline",
-        type: "DEAL",
-        isDefault: true,
-        stages: {
-          create: [
-            { name: "Prospect", order: 1, probability: 10, isClosed: false, isWon: false },
-            { name: "Lead", order: 2, probability: 20, isClosed: false, isWon: false },
-            { name: "Marketing Qualified Lead", order: 3, probability: 30, isClosed: false, isWon: false },
-            { name: "Opportunity", order: 4, probability: 40, isClosed: false, isWon: false },
-            { name: "Scope Discussion", order: 5, probability: 50, isClosed: false, isWon: false },
-            { name: "Proposal Sent", order: 6, probability: 65, isClosed: false, isWon: false },
-            { name: "Negotiation", order: 7, probability: 80, isClosed: false, isWon: false },
-            { name: "Proposal Won", order: 8, probability: 100, isClosed: true, isWon: true },
-            { name: "Proposal Lost", order: 9, probability: 0, isClosed: true, isWon: false },
-            { name: "Opportunity Dead", order: 10, probability: 0, isClosed: true, isWon: false },
-          ],
-        },
-      },
-      include: { stages: true },
-    });
-  }
-
-  // Helper maps to resolve stage IDs easily
   const oppStages = oppPipeline.stages.reduce((acc: any, s) => {
-    acc[s.name] = s.id;
-    return acc;
-  }, {});
-
-  const dealStages = dealPipeline.stages.reduce((acc: any, s) => {
     acc[s.name] = s.id;
     return acc;
   }, {});
@@ -143,7 +106,7 @@ async function main() {
     products.push(p);
   }
 
-  // 5. Accounts (Customer companies)
+  // 5. Accounts
   const accountsData = [
     { name: "Acme Corp", domain: "acme.com", industry: "Manufacturing", employeeCount: 250, annualRevenue: 15000000, accountType: "PROSPECT" as const },
     { name: "Tech Solutions Ltd", domain: "techsolutions.io", industry: "Technology", employeeCount: 45, annualRevenue: 3000000, accountType: "CUSTOMER" as const },
@@ -206,8 +169,9 @@ async function main() {
 
   // 7. Opportunities
   const oppsData = [
-    { name: "Acme Enterprise License Opportunity", accountId: acmeAccount.id, amount: 25000, stageId: oppStages["Scope Discussion"] || oppStages["Proposal Sent"], probability: 50, type: "NEW_BUSINESS" as const },
-    { name: "Global Industries Training Opportunity", accountId: globalAccount.id, amount: 15000, stageId: oppStages["Proposal Sent"] || oppStages["Scope Discussion"], probability: 65, type: "EXPANSION" as const },
+    { name: "Acme Enterprise License Opportunity", accountId: acmeAccount.id, amount: 25000, stageId: oppStages["Scope Discussion"] || oppStages["Proposal Sent"], probability: 50, type: "NEW_BUSINESS" as const, forecastCategory: "PIPELINE" as const },
+    { name: "Global Industries Training Opportunity", accountId: globalAccount.id, amount: 15000, stageId: oppStages["Proposal Sent"] || oppStages["Scope Discussion"], probability: 65, type: "EXPANSION" as const, forecastCategory: "BEST_CASE" as const },
+    { name: "Tech Solutions Setup Opportunity", accountId: techAccount.id, amount: 50000, stageId: oppStages["Proposal Won"], probability: 100, type: "NEW_BUSINESS" as const, forecastCategory: "CLOSED_WON" as const },
   ];
 
   const opportunities: any[] = [];
@@ -227,50 +191,22 @@ async function main() {
           probability: opp.probability,
           ownerId: user.id,
           opportunityType: opp.type,
-          expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          forecastCategory: opp.forecastCategory,
+          expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          wonDate: opp.forecastCategory === "CLOSED_WON" ? new Date() : null,
         },
       });
     }
     opportunities.push(o);
   }
 
-  // 8. Deals
-  const dealsData = [
-    { name: "Tech Solutions Setup Deal", accountId: techAccount.id, amount: 50000, stageId: dealStages["Proposal Won"], probability: 100, forecastCategory: "CLOSED_WON" as const },
-    { name: "Acme Pilot Deal", accountId: acmeAccount.id, amount: 12000, stageId: dealStages["Proposal Sent"], probability: 65, forecastCategory: "PIPELINE" as const },
-  ];
+  const acmeOpp = opportunities.find(o => o.name === "Acme Enterprise License Opportunity");
+  const techOpp = opportunities.find(o => o.name === "Tech Solutions Setup Opportunity");
 
-  const deals: any[] = [];
-  for (const d of dealsData) {
-    let dealObj = await prisma.deal.findFirst({
-      where: { tenantId: tenant.id, name: d.name },
-    });
-    if (!dealObj) {
-      dealObj = await prisma.deal.create({
-        data: {
-          tenantId: tenant.id,
-          name: d.name,
-          accountId: d.accountId,
-          amount: d.amount,
-          pipelineId: dealPipeline.id,
-          stageId: d.stageId,
-          probability: d.probability,
-          ownerId: user.id,
-          forecastCategory: d.forecastCategory,
-          closeDate: new Date(),
-        },
-      });
-    }
-    deals.push(dealObj);
-  }
-
-  const acmeDeal = deals.find(d => d.name === "Acme Pilot Deal");
-  const techDeal = deals.find(d => d.name === "Tech Solutions Setup Deal");
-
-  // 9. Quotes
+  // 8. Quotes
   const quotesData = [
-    { quoteNumber: "Q-00001", dealId: acmeDeal.id, accountId: acmeAccount.id, amount: 12000, status: "DRAFT" as const },
-    { quoteNumber: "Q-00002", dealId: techDeal.id, accountId: techAccount.id, amount: 50000, status: "ACCEPTED" as const },
+    { quoteNumber: "Q-00001", opportunityId: acmeOpp.id, accountId: acmeAccount.id, amount: 12000, status: "DRAFT" as const },
+    { quoteNumber: "Q-00002", opportunityId: techOpp.id, accountId: techAccount.id, amount: 50000, status: "ACCEPTED" as const },
   ];
 
   for (const q of quotesData) {
@@ -282,7 +218,7 @@ async function main() {
         data: {
           tenantId: tenant.id,
           quoteNumber: q.quoteNumber,
-          dealId: q.dealId,
+          opportunityId: q.opportunityId,
           accountId: q.accountId,
           amount: q.amount,
           status: q.status,
