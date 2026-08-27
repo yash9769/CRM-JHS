@@ -88,11 +88,6 @@ export function KanbanBoard<T extends KanbanItem>({
                     {stageItems.length}
                   </span>
                 </div>
-                {stage.probability !== undefined && (
-                  <span className="text-[11px] font-mono-num" style={{ color: "var(--ink-400)" }}>
-                    {stage.probability}%
-                  </span>
-                )}
               </div>
               <div className="px-3.5 py-1.5 text-xs font-mono-num font-semibold" style={{ color: "var(--ink-600)" }}>
                 {formatCurrency(total)}

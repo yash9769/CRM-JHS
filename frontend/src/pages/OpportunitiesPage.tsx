@@ -478,12 +478,9 @@ export default function OpportunitiesPage() {
               <button
                 key={s.id}
                 onClick={() => bulkMutation.mutate({ action: "changeStage", stageId: s.id })}
-                className="w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-[var(--ink-50)] flex items-center justify-between"
+                className="w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-[var(--ink-50)] flex items-center justify-between font-medium text-[var(--ink-800)]"
               >
                 <span>{s.name}</span>
-                <span className="text-[10px] text-[var(--ink-400)]">
-                  {s.probability}%
-                </span>
               </button>
             ))}
           </div>

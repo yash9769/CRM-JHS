@@ -208,7 +208,7 @@ export default function OpportunityDetailPage() {
           >
             {opp.pipeline!.stages.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name} ({s.probability}%)
+                {s.name}
               </option>
             ))}
           </select>
