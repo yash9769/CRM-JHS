@@ -95,14 +95,14 @@ export default function DashboardPage() {
         <div className="px-4 md:px-8 pb-6">
           <h3 className="text-sm font-semibold mb-3 text-[var(--ink-800)]">Today's Work</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-6">
-            <ActionTile icon={CalendarClock} label="Closing This Week" value={action.todaysWork.oppsClosingThisWeek} url="/opportunities" />
-            <ActionTile icon={FileText} label="Quotes Awaiting Response" value={action.todaysWork.quotesAwaiting} url="/quotes" />
+            <ActionTile icon={CalendarClock} label="Closing This Week" value={action.todaysWork?.oppsClosingThisWeek ?? 0} url="/opportunities" />
+            <ActionTile icon={FileText} label="Quotes Awaiting Response" value={action.todaysWork?.quotesAwaiting ?? 0} url="/quotes" />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
             <Card className="p-4">
               <h4 className="text-xs uppercase font-medium mb-3 text-[var(--ink-400)]">Recent Leads</h4>
-              {!action.recentLeads.length ? (
+              {!(action.recentLeads?.length) ? (
                 <div className="text-sm text-[var(--ink-400)]">No leads yet</div>
               ) : (
                 <div className="space-y-2.5">
@@ -118,7 +118,7 @@ export default function DashboardPage() {
 
             <Card className="p-4">
               <h4 className="text-xs uppercase font-medium mb-3 text-[var(--ink-400)]">Upcoming Tasks</h4>
-              {!action.upcomingTasks.length ? (
+              {!(action.upcomingTasks?.length) ? (
                 <div className="text-sm text-[var(--ink-400)]">Nothing scheduled</div>
               ) : (
                 <div className="space-y-2.5">
@@ -134,7 +134,7 @@ export default function DashboardPage() {
 
             <Card className="p-4">
               <h4 className="text-xs uppercase font-medium mb-3 text-[var(--ink-400)]">Recent Activity</h4>
-              {!action.recentActivity.length ? (
+              {!(action.recentActivity?.length) ? (
                 <div className="text-sm text-[var(--ink-400)]">Nothing logged yet</div>
               ) : (
                 <div className="space-y-2.5">
@@ -158,7 +158,7 @@ export default function DashboardPage() {
               <h4 className="text-xs uppercase font-medium mb-3 flex items-center gap-1.5 text-[var(--ink-400)]">
                 <Flame size={13} /> Opportunities at Risk
               </h4>
-              {!action.opportunitiesAtRisk?.length ? (
+              {!(action.opportunitiesAtRisk?.length) ? (
                 <div className="text-sm text-[var(--ink-400)]">No opportunities need attention</div>
               ) : (
                 <div className="space-y-2.5">

@@ -3,11 +3,11 @@ const prisma = new PrismaClient();
 
 async function run() {
   const users = await prisma.user.findMany({
-    include: { tenant: true },
+    include: { tenant: true, partner: true },
   });
   console.log("Registered Users in Database:");
   for (const u of users) {
-    console.log(`- Email: ${u.email} | Name: ${u.firstName} ${u.lastName} | Role: ${u.role} | Tenant: ${u.tenant?.name}`);
+    console.log(`- Email: ${u.email} | Name: ${u.firstName} ${u.lastName} | OrgRole: ${u.orgRole} | ReportsTo: ${u.partner ? `${u.partner.firstName} ${u.partner.lastName}` : "None"} | Tenant: ${u.tenant?.name}`);
   }
 }
 

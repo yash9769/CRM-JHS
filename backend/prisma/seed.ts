@@ -4,11 +4,10 @@ import argon2 from "argon2";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("Seeding started...");
+  console.log("Seeding CRM database with 1 year of realistic data...");
 
-  const email = "yashodhan.rajapkar@envistacyberdefence.com";
-  const password = "370HSSV0773H@";
-  const passwordHash = await argon2.hash(password);
+  const defaultPasswordHash = await argon2.hash("Password123!");
+  const seniorPasswordHash = await argon2.hash("370HSSV0773H@");
 
   // 1. Create or Find Tenant
   let tenant = await prisma.tenant.findFirst({
@@ -21,17 +20,17 @@ async function main() {
     });
   }
 
-  // 2. Create or Find User
-  let user = await prisma.user.findFirst({
-    where: { email },
+  // 2. Create Users for all 3 Org Roles
+  // A) SENIOR PARTNER
+  let seniorPartner = await prisma.user.findFirst({
+    where: { email: "yashodhan.rajapkar@envistacyberdefence.com" },
   });
-
-  if (!user) {
-    user = await prisma.user.create({
+  if (!seniorPartner) {
+    seniorPartner = await prisma.user.create({
       data: {
         tenantId: tenant.id,
-        email,
-        passwordHash,
+        email: "yashodhan.rajapkar@envistacyberdefence.com",
+        passwordHash: seniorPasswordHash,
         firstName: "Yashodhan",
         lastName: "Rajapkar",
         orgRole: "SENIOR_PARTNER",
@@ -40,7 +39,61 @@ async function main() {
     });
   }
 
-  // 3. Create Default Opportunity Pipeline if it doesn't exist
+  let sp2 = await prisma.user.findFirst({
+    where: { email: "senior.partner@crm.com" },
+  });
+  if (!sp2) {
+    sp2 = await prisma.user.create({
+      data: {
+        tenantId: tenant.id,
+        email: "senior.partner@crm.com",
+        passwordHash: defaultPasswordHash,
+        firstName: "Vikram",
+        lastName: "Mehta",
+        orgRole: "SENIOR_PARTNER",
+        active: true,
+      },
+    });
+  }
+
+  // B) PARTNER
+  let partner = await prisma.user.findFirst({
+    where: { email: "partner@crm.com" },
+  });
+  if (!partner) {
+    partner = await prisma.user.create({
+      data: {
+        tenantId: tenant.id,
+        email: "partner@crm.com",
+        passwordHash: defaultPasswordHash,
+        firstName: "Rajesh",
+        lastName: "Varma",
+        orgRole: "PARTNER",
+        active: true,
+      },
+    });
+  }
+
+  // C) MANAGER (Reports to Partner)
+  let manager = await prisma.user.findFirst({
+    where: { email: "manager@crm.com" },
+  });
+  if (!manager) {
+    manager = await prisma.user.create({
+      data: {
+        tenantId: tenant.id,
+        email: "manager@crm.com",
+        passwordHash: defaultPasswordHash,
+        firstName: "Priya",
+        lastName: "Sharma",
+        orgRole: "MANAGER",
+        partnerId: partner.id,
+        active: true,
+      },
+    });
+  }
+
+  // 3. Create Default Opportunity Pipeline
   let oppPipeline = await prisma.pipeline.findFirst({
     where: { tenantId: tenant.id, type: "OPPORTUNITY" },
     include: { stages: true },
@@ -77,14 +130,15 @@ async function main() {
     return acc;
   }, {});
 
-  // 3.5 Services
+  // 4. Services
   const servicesData = [
-    { name: "Professional Services", description: "Implementation, customization, and integration services" },
-    { name: "Software Licenses", description: "SaaS and enterprise software subscription licenses" },
-    { name: "Training & Enablement", description: "Admin and user training workshops" },
+    { name: "Cyber Security Consulting", description: "Vulnerability assessments, penetration testing, compliance audits" },
+    { name: "Cloud Infrastructure & Migration", description: "AWS/Azure secure cloud deployment and SOC migration" },
+    { name: "Software Licenses & Subscriptions", description: "Enterprise EDR, SIEM, and firewalls" },
+    { name: "Managed Security Operations (SOC)", description: "24/7 Managed Detection and Response" },
   ];
 
-  const services: Record<string, any> = {};
+  const servicesMap: Record<string, any> = {};
   for (const s of servicesData) {
     let service = await prisma.service.findFirst({
       where: { tenantId: tenant.id, name: s.name },
@@ -98,17 +152,19 @@ async function main() {
         },
       });
     }
-    services[s.name] = service;
+    servicesMap[s.name] = service;
   }
 
-  // 4. Products
+  // 5. Products
   const productsData = [
-    { name: "Custom Integration Support", sku: "SRV-INT-002", category: "Services", serviceName: "Professional Services", unitPrice: 5000 },
-    { name: "Enterprise Software License", sku: "LIC-ENT-001", category: "Software", serviceName: "Software Licenses", unitPrice: 12000 },
-    { name: "Premium Admin Training", sku: "SRV-TRN-003", category: "Services", serviceName: "Training & Enablement", unitPrice: 1500 },
+    { name: "24/7 Managed SOC Retainer", sku: "SOC-RET-001", category: "Services", serviceName: "Managed Security Operations (SOC)", unitPrice: 150000 },
+    { name: "Cloud Infrastructure Security Audit", sku: "SEC-AUD-002", category: "Consulting", serviceName: "Cloud Infrastructure & Migration", unitPrice: 250000 },
+    { name: "Vulnerability Assessment & Pen Testing", sku: "VAPT-ENT-003", category: "Services", serviceName: "Cyber Security Consulting", unitPrice: 180000 },
+    { name: "Enterprise Endpoint EDR License", sku: "EDR-LIC-004", category: "Software", serviceName: "Software Licenses & Subscriptions", unitPrice: 85000 },
+    { name: "ISO 27001 Compliance Consulting", sku: "ISO-CMP-005", category: "Consulting", serviceName: "Cyber Security Consulting", unitPrice: 320000 },
   ];
 
-  const products: any[] = [];
+  const productsMap: Record<string, any> = {};
   for (const prod of productsData) {
     let p = await prisma.product.findFirst({
       where: { tenantId: tenant.id, sku: prod.sku },
@@ -117,28 +173,35 @@ async function main() {
       p = await prisma.product.create({
         data: {
           tenantId: tenant.id,
-          serviceId: services[prod.serviceName].id,
+          serviceId: servicesMap[prod.serviceName].id,
           name: prod.name,
           sku: prod.sku,
           category: prod.category,
           unitPrice: prod.unitPrice,
           currency: "INR",
           active: true,
-          ownerId: user.id,
+          ownerId: seniorPartner.id,
         },
       });
     }
-    products.push(p);
+    productsMap[prod.sku] = p;
   }
 
-  // 5. Accounts
+  // 6. Accounts
   const accountsData = [
-    { name: "Acme Corp", domain: "acme.com", industry: "Manufacturing", employeeCount: 250, annualRevenue: 15000000, accountType: "PROSPECT" as const },
-    { name: "Tech Solutions Ltd", domain: "techsolutions.io", industry: "Technology", employeeCount: 45, annualRevenue: 3000000, accountType: "CUSTOMER" as const },
-    { name: "Global Industries", domain: "globalind.com", industry: "Logistics", employeeCount: 1200, annualRevenue: 85000000, accountType: "PROSPECT" as const },
+    { name: "Tata Consultancy Services", domain: "tcs.com", industry: "Technology", employeeCount: 500000, annualRevenue: 1900000000, accountType: "CUSTOMER" as const, ownerId: seniorPartner.id },
+    { name: "Infosys Technologies", domain: "infosys.com", industry: "Technology", employeeCount: 300000, annualRevenue: 1500000000, accountType: "CUSTOMER" as const, ownerId: partner.id },
+    { name: "Wipro Digital", domain: "wipro.com", industry: "Technology", employeeCount: 220000, annualRevenue: 1100000000, accountType: "CUSTOMER" as const, ownerId: manager.id },
+    { name: "Reliance Industries", domain: "ril.com", industry: "Energy & Telecom", employeeCount: 350000, annualRevenue: 9000000000, accountType: "CUSTOMER" as const, ownerId: seniorPartner.id },
+    { name: "HDFC Bank", domain: "hdfcbank.com", industry: "Financial Services", employeeCount: 150000, annualRevenue: 2500000000, accountType: "CUSTOMER" as const, ownerId: partner.id },
+    { name: "Acme Corp", domain: "acme.com", industry: "Manufacturing", employeeCount: 250, annualRevenue: 15000000, accountType: "PROSPECT" as const, ownerId: manager.id },
+    { name: "Tech Solutions Ltd", domain: "techsolutions.io", industry: "Technology", employeeCount: 45, annualRevenue: 3000000, accountType: "CUSTOMER" as const, ownerId: manager.id },
+    { name: "Global Industries", domain: "globalind.com", industry: "Logistics", employeeCount: 1200, annualRevenue: 85000000, accountType: "PROSPECT" as const, ownerId: partner.id },
+    { name: "ICICI Securities", domain: "icicisecurities.com", industry: "Financial Services", employeeCount: 12000, annualRevenue: 450000000, accountType: "PROSPECT" as const, ownerId: seniorPartner.id },
+    { name: "Mahindra Tech", domain: "techmahindra.com", industry: "Technology", employeeCount: 140000, annualRevenue: 600000000, accountType: "CUSTOMER" as const, ownerId: partner.id },
   ];
 
-  const accounts: any[] = [];
+  const accountsMap: Record<string, any> = {};
   for (const acc of accountsData) {
     let a = await prisma.account.findFirst({
       where: { tenantId: tenant.id, name: acc.name },
@@ -153,108 +216,133 @@ async function main() {
           employeeCount: acc.employeeCount,
           annualRevenue: acc.annualRevenue,
           accountType: acc.accountType,
-          ownerId: user.id,
+          ownerId: acc.ownerId,
         },
       });
     }
-    accounts.push(a);
+    accountsMap[acc.name] = a;
   }
 
-  const acmeAccount = accounts.find(a => a.name === "Acme Corp");
-  const techAccount = accounts.find(a => a.name === "Tech Solutions Ltd");
-  const globalAccount = accounts.find(a => a.name === "Global Industries");
-
-  // 6. Contacts
+  // 7. Contacts
   const contactsData = [
-    { firstName: "John", lastName: "Doe", email: "john@acme.com", phone: "+1-555-0199", jobTitle: "Purchasing Manager", accountId: acmeAccount.id, lifecycleStage: "LEAD" as const },
-    { firstName: "Jane", lastName: "Smith", email: "jane@techsolutions.io", phone: "+1-555-0145", jobTitle: "Chief Technology Officer", accountId: techAccount.id, lifecycleStage: "CUSTOMER" as const },
-    { firstName: "Bob", lastName: "Johnson", email: "bob@globalind.com", phone: "+1-555-0182", jobTitle: "Director of IT", accountId: globalAccount.id, lifecycleStage: "LEAD" as const },
+    { firstName: "Rohan", lastName: "Sharma", email: "rohan.sharma@tcs.com", phone: "+91-98765-43210", jobTitle: "VP Information Security", accountName: "Tata Consultancy Services", ownerId: seniorPartner.id },
+    { firstName: "Ananya", lastName: "Deshmukh", email: "ananya.d@infosys.com", phone: "+91-99887-76655", jobTitle: "Chief Information Security Officer", accountName: "Infosys Technologies", ownerId: partner.id },
+    { firstName: "Vikram", lastName: "Seth", email: "vikram.seth@hdfcbank.com", phone: "+91-91234-56789", jobTitle: "Head of Infrastructure", accountName: "HDFC Bank", ownerId: partner.id },
+    { firstName: "Siddharth", lastName: "Nair", email: "sid.nair@wipro.com", phone: "+91-98111-22334", jobTitle: "Director of IT Operations", accountName: "Wipro Digital", ownerId: manager.id },
+    { firstName: "Kavita", lastName: "Patel", email: "kavita.p@ril.com", phone: "+91-97222-33445", jobTitle: "Group IT Auditor", accountName: "Reliance Industries", ownerId: seniorPartner.id },
+    { firstName: "John", lastName: "Doe", email: "john@acme.com", phone: "+1-555-0199", jobTitle: "Purchasing Manager", accountName: "Acme Corp", ownerId: manager.id },
   ];
 
+  const contactsMap: Record<string, any> = {};
   for (const con of contactsData) {
-    const exists = await prisma.contact.findFirst({
+    let c = await prisma.contact.findFirst({
       where: { tenantId: tenant.id, email: con.email },
     });
-    if (!exists) {
-      await prisma.contact.create({
+    if (!c) {
+      c = await prisma.contact.create({
         data: {
           tenantId: tenant.id,
-          accountId: con.accountId,
+          accountId: accountsMap[con.accountName].id,
           firstName: con.firstName,
           lastName: con.lastName,
           email: con.email,
           phone: con.phone,
           jobTitle: con.jobTitle,
-          lifecycleStage: con.lifecycleStage,
-          ownerId: user.id,
+          lifecycleStage: "CUSTOMER",
+          ownerId: con.ownerId,
         },
       });
     }
+    contactsMap[con.email] = c;
   }
 
-  // 7. Opportunities
-  const oppsData = [
-    { name: "Acme Enterprise License Opportunity", accountId: acmeAccount.id, amount: 25000, stageId: oppStages["Scope Discussion"] || oppStages["Proposal Sent"], probability: 50, type: "NEW_BUSINESS" as const, forecastCategory: "PIPELINE" as const },
-    { name: "Global Industries Training Opportunity", accountId: globalAccount.id, amount: 15000, stageId: oppStages["Proposal Sent"] || oppStages["Scope Discussion"], probability: 65, type: "EXPANSION" as const, forecastCategory: "BEST_CASE" as const },
-    { name: "Tech Solutions Setup Opportunity", accountId: techAccount.id, amount: 50000, stageId: oppStages["Proposal Won"], probability: 100, type: "NEW_BUSINESS" as const, forecastCategory: "CLOSED_WON" as const },
+  // 8. 1 Year of Opportunities (Dated 2025–2026 across months)
+  const now = new Date();
+  const monthMs = 30 * 24 * 60 * 60 * 1000;
+
+  const past12MonthsOpps = [
+    { name: "TCS Global SOC Migration 2025", accountName: "Tata Consultancy Services", contactEmail: "rohan.sharma@tcs.com", amount: 4500000, stage: "Proposal Won", fc: "CLOSED_WON" as const, monthsAgo: 11, owner: seniorPartner },
+    { name: "HDFC Core Banking Security Audit", accountName: "HDFC Bank", contactEmail: "vikram.seth@hdfcbank.com", amount: 2800000, stage: "Proposal Won", fc: "CLOSED_WON" as const, monthsAgo: 9, owner: partner },
+    { name: "Reliance Jio ISO 27001 Certification", accountName: "Reliance Industries", contactEmail: "kavita.p@ril.com", amount: 3200000, stage: "Proposal Won", fc: "CLOSED_WON" as const, monthsAgo: 7, owner: seniorPartner },
+    { name: "Infosys Cloud Pen Testing Retainer", accountName: "Infosys Technologies", contactEmail: "ananya.d@infosys.com", amount: 1800000, stage: "Proposal Won", fc: "CLOSED_WON" as const, monthsAgo: 5, owner: partner },
+    { name: "Wipro EDR Deployment Phase 1", accountName: "Wipro Digital", contactEmail: "sid.nair@wipro.com", amount: 1500000, stage: "Proposal Won", fc: "CLOSED_WON" as const, monthsAgo: 3, owner: manager },
+    { name: "ICICI Securities Cloud Compliance 2026", accountName: "ICICI Securities", contactEmail: "vikram.seth@hdfcbank.com", amount: 2200000, stage: "Negotiation", fc: "COMMIT" as const, monthsAgo: 1, owner: seniorPartner },
+    { name: "TCS Managed Threat Detection Expansion", accountName: "Tata Consultancy Services", contactEmail: "rohan.sharma@tcs.com", amount: 6000000, stage: "Proposal Sent", fc: "BEST_CASE" as const, monthsAgo: 0, owner: seniorPartner },
+    { name: "Acme Corp Firewall Upgrade", accountName: "Acme Corp", contactEmail: "john@acme.com", amount: 850000, stage: "Scope Discussion", fc: "PIPELINE" as const, monthsAgo: 0, owner: manager },
+    { name: "Mahindra Tech Penetration Testing", accountName: "Mahindra Tech", contactEmail: "ananya.d@infosys.com", amount: 1200000, stage: "Negotiation", fc: "COMMIT" as const, monthsAgo: 0, owner: partner },
+    { name: "Global Industries Legacy SIEM Replacement", accountName: "Global Industries", contactEmail: "john@acme.com", amount: 950000, stage: "Proposal Lost", fc: "CLOSED_LOST" as const, monthsAgo: 4, owner: partner },
   ];
 
-  const opportunities: any[] = [];
-  for (const opp of oppsData) {
-    let o = await prisma.opportunity.findFirst({
-      where: { tenantId: tenant.id, name: opp.name },
+  for (const oppDef of past12MonthsOpps) {
+    const createdDate = new Date(now.getTime() - oppDef.monthsAgo * monthMs);
+    const closeDate = new Date(createdDate.getTime() + 45 * 24 * 60 * 60 * 1000);
+    const wonDate = oppDef.fc === "CLOSED_WON" ? closeDate : null;
+
+    const account = accountsMap[oppDef.accountName];
+    const contact = contactsMap[oppDef.contactEmail];
+
+    const exists = await prisma.opportunity.findFirst({
+      where: { tenantId: tenant.id, name: oppDef.name },
     });
-    if (!o) {
-      o = await prisma.opportunity.create({
+
+    if (!exists && account) {
+      await prisma.opportunity.create({
         data: {
           tenantId: tenant.id,
-          name: opp.name,
-          accountId: opp.accountId,
-          amount: opp.amount,
+          name: oppDef.name,
+          accountId: account.id,
+          contactId: contact?.id || null,
+          amount: oppDef.amount,
           pipelineId: oppPipeline.id,
-          stageId: opp.stageId,
-          probability: opp.probability,
-          ownerId: user.id,
-          opportunityType: opp.type,
-          forecastCategory: opp.forecastCategory,
-          expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          wonDate: opp.forecastCategory === "CLOSED_WON" ? new Date() : null,
+          stageId: oppStages[oppDef.stage] || oppStages["Scope Discussion"],
+          probability: oppDef.fc === "CLOSED_WON" ? 100 : oppDef.fc === "CLOSED_LOST" ? 0 : 75,
+          ownerId: oppDef.owner.id,
+          opportunityType: "NEW_BUSINESS",
+          forecastCategory: oppDef.fc,
+          createdAt: createdDate,
+          expectedCloseDate: closeDate,
+          actualCloseDate: wonDate,
+          wonDate: wonDate,
+          lostReason: oppDef.fc === "CLOSED_LOST" ? "Competitor price undercutting" : null,
+          description: `Strategic security engagement managed by ${oppDef.owner.firstName} ${oppDef.owner.lastName}.`,
         },
       });
     }
-    opportunities.push(o);
   }
 
-  const acmeOpp = opportunities.find(o => o.name === "Acme Enterprise License Opportunity");
-  const techOpp = opportunities.find(o => o.name === "Tech Solutions Setup Opportunity");
-
-  // 8. Quotes
-  const quotesData = [
-    { quoteNumber: "Q-00001", opportunityId: acmeOpp.id, accountId: acmeAccount.id, amount: 12000, status: "DRAFT" as const },
-    { quoteNumber: "Q-00002", opportunityId: techOpp.id, accountId: techAccount.id, amount: 50000, status: "ACCEPTED" as const },
+  // 9. Activities across the year
+  const activitiesData = [
+    { type: "MEETING" as const, subject: "Quarterly Cyber Risk Assessment with TCS Leadership", body: "Reviewed 24/7 SOC log telemetry and incident detection response rates.", owner: seniorPartner, account: accountsMap["Tata Consultancy Services"] },
+    { type: "CALL" as const, subject: "Proposal discussion call with Infosys CISO", body: "Agreed on scope for cloud vulnerability scanning.", owner: partner, account: accountsMap["Infosys Technologies"] },
+    { type: "DEMO" as const, subject: "Live EDR Threat Hunting Demo for HDFC Bank", body: "Demonstrated automated ransomware containment capability.", owner: partner, account: accountsMap["HDFC Bank"] },
+    { type: "TASK" as const, subject: "Follow up on ISO 27001 Audit documentation", body: "Send revised compliance checklist to Kavita Patel.", owner: seniorPartner, account: accountsMap["Reliance Industries"] },
+    { type: "NOTE" as const, subject: "Initial discovery notes for Acme Corp", body: "Client requested quote for perimeter firewall audit.", owner: manager, account: accountsMap["Acme Corp"] },
   ];
 
-  for (const q of quotesData) {
-    const exists = await prisma.quote.findFirst({
-      where: { tenantId: tenant.id, quoteNumber: q.quoteNumber },
-    });
-    if (!exists) {
-      await prisma.quote.create({
-        data: {
-          tenantId: tenant.id,
-          quoteNumber: q.quoteNumber,
-          opportunityId: q.opportunityId,
-          accountId: q.accountId,
-          amount: q.amount,
-          status: q.status,
-          ownerId: user.id,
-          currency: "INR",
-        },
+  for (const act of activitiesData) {
+    if (act.account) {
+      const exists = await prisma.activity.findFirst({
+        where: { tenantId: tenant.id, subject: act.subject },
       });
+      if (!exists) {
+        await prisma.activity.create({
+          data: {
+            tenantId: tenant.id,
+            type: act.type,
+            subject: act.subject,
+            body: act.body,
+            status: "COMPLETED",
+            ownerId: act.owner.id,
+            objectType: "ACCOUNT",
+            accountId: act.account.id,
+            createdAt: new Date(now.getTime() - Math.random() * 180 * 24 * 60 * 60 * 1000),
+          },
+        });
+      }
     }
   }
 
-  console.log("Seeding complete! Successfully populated CRM workspace data.");
+  console.log("Seeding complete! Successfully populated CRM workspace with 1 year of realistic data.");
 }
 
 main()
