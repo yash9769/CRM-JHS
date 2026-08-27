@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+:root {
+  /* Ledger CRM design tokens */
+  --ink-950: #14171a;
+  --ink-900: #1c2024;
+  --ink-800: #262b30;
+  --ink-700: #333a41;
+  --ink-600: #4a535c;
+  --ink-500: #667079;
+  --ink-400: #8b949c;
+  --ink-300: #b6bec4;
+  --ink-200: #d9dee1;
+  --ink-100: #eceff1;
+  --ink-50: #f6f7f8;
+  --paper: #fbfbfa;
+
+  --ledger-900: #0b3d2e;
+  --ledger-700: #0f6b4e;
+  --ledger-600: #12805e;
+  --ledger-500: #17976f;
+  --ledger-100: #e2f4ec;
+  --ledger-50: #f0faf5;
+
+  --amber-600: #b5730a;
+  --amber-100: #fdf0dc;
+  --rose-600: #b5423a;
+  --rose-100: #fbe7e5;
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--paper);
+  color: var(--ink-900);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-mono-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: var(--ledger-100);
+  color: var(--ledger-900);
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--ink-200); border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Kanban drag ghost */
+.kanban-card[data-dragging="true"] {
+  opacity: 0.4;
+}

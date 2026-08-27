@@ -1,0 +1,41 @@
+{
+  "projectId": "dd5ce4d3-37bb-4fbf-8cc9-a8dbe533ca32",
+  "type": "frontend",
+  "name": "Closed Lost Deal Exclusion Workflow",
+  "description": "Verify Opportunity -> Deal -> Closed Lost and check that Lost Deals NEVER appear in Won Deals",
+  "priority": "p0",
+  "planSteps": [
+    {
+      "type": "action",
+      "description": "Register user 'sprite_lost@example.com' for company 'Lost Deals Corp'"
+    },
+    {
+      "type": "action",
+      "description": "Navigate to /accounts and create account 'Lost Account Corp'"
+    },
+    {
+      "type": "action",
+      "description": "Navigate to /pipeline and create opportunity 'Cancelled Project Opp' for account 'Lost Account Corp' with amount 200000"
+    },
+    {
+      "type": "action",
+      "description": "Open Cancelled Project Opp detail page and click Convert to Deal button"
+    },
+    {
+      "type": "action",
+      "description": "Click Mark Lost button on the Deal Detail page"
+    },
+    {
+      "type": "assertion",
+      "description": "Verify Closed Lost badge appears"
+    },
+    {
+      "type": "action",
+      "description": "Navigate to /deals?won=true"
+    },
+    {
+      "type": "assertion",
+      "description": "Verify Cancelled Project Opp DOES NOT appear in the Won Deals table"
+    }
+  ]
+}

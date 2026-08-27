@@ -1,0 +1,29 @@
+{
+  "projectId": "dd5ce4d3-37bb-4fbf-8cc9-a8dbe533ca32",
+  "type": "frontend",
+  "name": "Accounts CRUD and Detail View Workflow",
+  "description": "Verify Account Creation, Search filtering, and Detail Page loading",
+  "priority": "p0",
+  "planSteps": [
+    {
+      "type": "action",
+      "description": "Navigate to /register and register a new company 'Accounts Test Corp' with user 'sprite_acc@example.com'"
+    },
+    {
+      "type": "action",
+      "description": "Navigate to /accounts, click New Account button, enter name 'Acme TestSprite Global', domain 'acmetestsprite.com', industry 'Software', and click Create Account"
+    },
+    {
+      "type": "assertion",
+      "description": "Verify Acme TestSprite Global appears in the accounts table list"
+    },
+    {
+      "type": "action",
+      "description": "Click on Acme TestSprite Global in the table"
+    },
+    {
+      "type": "assertion",
+      "description": "Verify redirection to /accounts/:id detail page with company title Acme TestSprite Global"
+    }
+  ]
+}
