@@ -173,7 +173,7 @@ export default function OpportunitiesPage() {
                 : "text-[var(--ink-500)] hover:text-[var(--ink-900)]"
             }`}
           >
-            Won 🎉
+            Won
           </button>
           <button
             onClick={() => setActiveTab("lost")}
