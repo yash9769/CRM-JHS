@@ -59,7 +59,7 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
     }
 
     if (!attachments.length) {
-      setError("An attachment (Letter of Engagement / Client Confirmation / PO Document) is required to mark this opportunity Closed Won.");
+      setError("An attachment (Purchase Order / LOE / Client Confirmation) is required to mark this opportunity Closed Won.");
       return;
     }
 
@@ -103,8 +103,8 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
             <div className="font-bold">Deal Close Requirements</div>
             <div>
               {isManager
-                ? "Upload the Letter of Engagement (LOE) or client confirmation and PO value to create a Stage Approval request for Partner sign-off."
-                : "Upload the Letter of Engagement (LOE) or client confirmation and PO value to mark this opportunity Closed Won."}
+                ? "Upload the Purchase Order (PO) or Letter of Engagement (LOE) / client confirmation and enter the PO value to create a Stage Approval request for Partner sign-off."
+                : "Upload the Purchase Order (PO) or Letter of Engagement (LOE) / client confirmation and enter the PO value to mark this opportunity Closed Won."}
             </div>
           </div>
         </div>
@@ -116,13 +116,13 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
           </div>
         )}
 
-        {/* Mandatory Attachment (LOE / Client Confirmation / PO) */}
+        {/* Mandatory Attachment (PO / LOE / Client Confirmation) */}
         <div>
           <label className="block text-xs font-semibold mb-1 text-[var(--ink-700)]">
-            Letter of Engagement (LOE) / Client Confirmation Attachment <span className="text-rose-500">*</span>
+            Purchase Order (PO) / Client Confirmation Attachment <span className="text-rose-500">*</span>
           </label>
           <p className="text-[11px] text-[var(--ink-500)] mb-1.5">
-            Supports LOE (Letter of Engagement), email confirmation screenshot, PDF, DOCX, or PO document from client.
+            Upload Purchase Order (PO). If PO is not yet received, upload Letter of Engagement (LOE), client email confirmation screenshot, PDF, DOCX, or image document.
           </p>
           <div className="p-3.5 border-2 border-dashed border-[var(--ink-200)] rounded-xl text-center hover:bg-[var(--ink-50)] transition-colors">
             <input
@@ -134,7 +134,7 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
             />
             <label htmlFor="close-won-file-upload" className="cursor-pointer flex flex-col items-center gap-1">
               <Upload size={20} className="text-[var(--ledger-600)]" />
-              <span className="text-xs font-semibold text-[var(--ledger-700)]">Click to upload LOE or Client Confirmation</span>
+              <span className="text-xs font-semibold text-[var(--ledger-700)]">Click to upload Purchase Order (PO) or LOE</span>
               <span className="text-[10px] text-[var(--ink-400)]">PDF, DOCX, Images, Email Confirmation</span>
             </label>
           </div>
