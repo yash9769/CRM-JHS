@@ -18,7 +18,7 @@ import { ApprovalReviewModal } from "../components/ApprovalReviewModal";
 import {
   ArrowRight, CheckCircle2, Building2, User, Pencil, UserPlus,
   FileText, Plus, Trash2, Download, Clock, ShieldAlert, RotateCcw,
-  DollarSign, Info, ArrowDown, StickyNote, FileCheck
+  IndianRupee, Info, ArrowDown, StickyNote, FileCheck
 } from "lucide-react";
 
 function Stepper({
@@ -167,7 +167,7 @@ export default function OpportunityDetailPage() {
         <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold uppercase tracking-wider text-[var(--ink-500)] flex items-center gap-1.5">
-              <DollarSign size={14} className="text-[var(--ledger-600)]" /> Pricing Details:
+              <IndianRupee size={14} className="text-[var(--ledger-600)]" /> Pricing Details:
             </span>
           </div>
 
@@ -493,7 +493,7 @@ export default function OpportunityDetailPage() {
             <Card className="p-4 md:p-5">
               <div className="flex items-center justify-between mb-4 pb-2 border-b border-[var(--ink-100)]">
                 <h3 className="text-sm font-semibold flex items-center gap-2 text-[var(--ink-800)]">
-                  <DollarSign size={16} className="text-[var(--ledger-700)]" /> Pricing Details
+                  <IndianRupee size={16} className="text-[var(--ledger-700)]" /> Pricing Details
                 </h3>
               </div>
 

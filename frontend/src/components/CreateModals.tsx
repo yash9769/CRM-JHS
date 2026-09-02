@@ -6,7 +6,7 @@ import { Modal, Field, Button, inputClass, inputStyle } from "./ui";
 import { RelationshipSelector, type RelationshipOption } from "./RelationshipSelector";
 import { fetchAccountOptions, fetchContactOptions, fetchOwnerOptions } from "../lib/pickers";
 import type { Pipeline, DuplicateLeadCandidate } from "../lib/types";
-import { Info, DollarSign } from "lucide-react";
+import { Info, IndianRupee } from "lucide-react";
 import { formatCurrency } from "../lib/format";
 
 function FieldError({ message }: { message?: string }) {
@@ -526,7 +526,7 @@ export function NewOpportunityModal({
           {/* FINANCIAL DETAILS SECTION */}
           <div className="p-4 rounded-xl border bg-[var(--ink-50)] border-[var(--ink-100)] space-y-3">
             <div className="flex items-center gap-2">
-              <DollarSign size={16} className="text-[var(--ledger-700)]" />
+              <IndianRupee size={16} className="text-[var(--ledger-700)]" />
               <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--ink-800)]">Financial Details</h4>
             </div>
 
