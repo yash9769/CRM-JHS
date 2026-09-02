@@ -1,5 +1,19 @@
 {
+  "name": "crm-jhs",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run",
+    "beta-test": "cypress run",
+    "beta-test:headed": "cypress run --headed",
+    "beta-test:api": "cypress run --spec \"tests/api/**/*.cy.ts\"",
+    "beta-test:e2e": "cypress run --spec \"tests/e2e/**/*.cy.ts\"",
+    "beta-test:stress": "cypress run --spec \"tests/api/**/*.cy.ts,tests/e2e/**/*.cy.ts\""
+  },
   "devDependencies": {
-    "@playwright/test": "^1.62.1"
+    "@playwright/test": "^1.62.1",
+    "cypress": "^16.0.0",
+    "typescript": "^7.0.2"
   }
 }
