@@ -30,7 +30,7 @@ describe("Account Flow E2E", () => {
       cy.contains("button", "Edit").click();
 
       const updatedName = `Updated ${acc.name}`;
-      cy.get("form input").first().clear().type(updatedName);
+      cy.get("input[required]").filter(":visible").first().clear().type(updatedName);
       cy.get('button[type="submit"]').click();
 
       cy.contains(updatedName).should("be.visible");
