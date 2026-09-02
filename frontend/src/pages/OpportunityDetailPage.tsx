@@ -147,14 +147,11 @@ export default function OpportunityDetailPage() {
     const sName = targetStage.name.toLowerCase().trim();
     const isWon = (targetStage.isClosed && targetStage.isWon) || sName.includes("closed won") || sName === "won";
     const isLost = (targetStage.isClosed && !targetStage.isWon) || sName.includes("closed lost") || sName === "dead";
-    const isApprovalStage = ["proposal", "quote", "negotiation", "closed won"].some((x) => sName.includes(x));
 
     if (isWon) {
       setClosedWonModalStageId(targetStage.id);
     } else if (isLost) {
       setClosedLostModalStageId(targetStage.id);
-    } else if (!isPartner && isApprovalStage) {
-      setRequestModalStage(targetStage);
     } else {
       stageMutation.mutate({ stageId: targetStage.id });
     }

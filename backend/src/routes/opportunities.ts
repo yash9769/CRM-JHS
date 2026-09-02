@@ -12,22 +12,7 @@ export function isApprovalRequiredStage(stageName: string, userRole: string = "M
     return false;
   }
   const s = stageName.toLowerCase().trim();
-  if (
-    s.includes("lead qualified") ||
-    s.includes("scope discussion") ||
-    s.includes("demo") ||
-    s.includes("closed lost") ||
-    s.includes("dead")
-  ) {
-    return false;
-  }
-  return (
-    s.includes("proposal") ||
-    s.includes("quote") ||
-    s.includes("negotiation") ||
-    s.includes("closed won") ||
-    s.includes("won")
-  );
+  return s.includes("closed won") || s === "won";
 }
 
 export function formatOppWithFinancials(opp: any) {

@@ -19,13 +19,13 @@ async function runRbacTests() {
   }
 
   // Test 1: Manager Demo -> Proposal
-  assert(isApprovalRequiredStage("Proposal", "MANAGER") === true, 1, "Manager Demo -> Proposal requires approval");
+  assert(isApprovalRequiredStage("Proposal", "MANAGER") === false, 1, "Manager Demo -> Proposal: direct change, NO approval");
 
   // Test 2: Manager Proposal -> Quote
-  assert(isApprovalRequiredStage("Quote", "MANAGER") === true, 2, "Manager Proposal -> Quote requires approval");
+  assert(isApprovalRequiredStage("Quote", "MANAGER") === false, 2, "Manager Proposal -> Quote: direct change, NO approval");
 
   // Test 3: Manager Quote -> Negotiation
-  assert(isApprovalRequiredStage("Negotiation", "MANAGER") === true, 3, "Manager Quote -> Negotiation requires approval");
+  assert(isApprovalRequiredStage("Negotiation", "MANAGER") === false, 3, "Manager Quote -> Negotiation: direct change, NO approval");
 
   // Test 4: Manager Negotiation -> Closed Won
   assert(isApprovalRequiredStage("Closed Won", "MANAGER") === true, 4, "Manager Negotiation -> Closed Won requires approval");
@@ -49,13 +49,13 @@ async function runRbacTests() {
   assert(isApprovalRequiredStage("Closed Won", "SENIOR_PARTNER") === false, 10, "Senior Partner Negotiation -> Closed Won: direct change, NO approval");
 
   // Test 11: Manager CSV Import -> Proposal
-  assert(isApprovalRequiredStage("Proposal", "MANAGER") === true, 11, "Manager CSV import -> Proposal requires pending approval");
+  assert(isApprovalRequiredStage("Proposal", "MANAGER") === false, 11, "Manager CSV import -> Proposal: direct import, NO approval");
 
   // Test 12: Partner CSV Import -> Proposal
   assert(isApprovalRequiredStage("Proposal", "PARTNER") === false, 12, "Partner CSV import -> Proposal direct import with NO approval");
 
   // Test 13: Manager Bulk -> Proposal
-  assert(isApprovalRequiredStage("Proposal", "MANAGER") === true, 13, "Manager bulk -> Proposal creates individual approval requests");
+  assert(isApprovalRequiredStage("Proposal", "MANAGER") === false, 13, "Manager bulk -> Proposal performs direct update with NO approval");
 
   // Test 14: Partner Bulk -> Proposal
   assert(isApprovalRequiredStage("Proposal", "PARTNER") === false, 14, "Partner bulk -> Proposal performs direct update with NO approval");

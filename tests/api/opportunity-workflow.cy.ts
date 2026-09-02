@@ -77,7 +77,7 @@ describe("API Opportunity Workflow & Lifecycle", () => {
         headers: { Authorization: `Bearer ${managerToken}` },
       }).then((pRes) => {
         const pipeline = pRes.body.data?.[0];
-        const targetStage = pipeline.stages[2] || pipeline.stages[1];
+        const targetStage = pipeline.stages.find((s: any) => s.isWon || s.name.toLowerCase().includes("won")) || pipeline.stages[pipeline.stages.length - 1];
 
         cy.request({
           method: "PATCH",
@@ -85,7 +85,8 @@ describe("API Opportunity Workflow & Lifecycle", () => {
           headers: { Authorization: `Bearer ${managerToken}` },
           body: {
             stageId: targetStage.id,
-            requesterComment: "Moving to proposal sent stage",
+            poValue: 500000,
+            requesterComment: "Submitting Closed Won for Partner sign-off",
           },
         }).then((res) => {
           expect(res.status).to.eq(200);
