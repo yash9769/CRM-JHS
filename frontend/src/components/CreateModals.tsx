@@ -8,7 +8,6 @@ import { fetchAccountOptions, fetchContactOptions, fetchOwnerOptions } from "../
 import type { Pipeline, DuplicateLeadCandidate } from "../lib/types";
 import { Info, DollarSign } from "lucide-react";
 import { formatCurrency } from "../lib/format";
-import { computeOpportunityFinancials } from "../lib/financial";
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -346,8 +345,7 @@ export function NewOpportunityModal({
   const todayStr = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({
     name: initialName || "",
-    expectedDealValue: initialAmount ? String(initialAmount) : "",
-    actualDealValue: "",
+    proposalSentValue: initialAmount ? String(initialAmount) : "",
     bottomLineCost: "",
     stageId: "",
     remarks: initialRemarks || "",
@@ -355,11 +353,10 @@ export function NewOpportunityModal({
     closeDate: "",
   });
 
-  const computedFinancials = computeOpportunityFinancials({
-    expectedDealValue: form.expectedDealValue,
-    actualDealValue: form.actualDealValue,
-    bottomLineCost: form.bottomLineCost,
-  });
+  const proposalSentVal = form.proposalSentValue ? Number(form.proposalSentValue) : null;
+  const costVal = form.bottomLineCost ? Number(form.bottomLineCost) : null;
+  const marginVal = proposalSentVal !== null && costVal !== null ? (proposalSentVal - costVal) : (proposalSentVal !== null ? proposalSentVal : null);
+  const marginPct = marginVal !== null && proposalSentVal && proposalSentVal > 0 ? (marginVal / proposalSentVal) * 100 : null;
 
   const [clientError, setClientError] = useState<string | null>(null);
   const effectiveStageId = form.stageId || oppPipeline?.stages[0]?.id || "";
@@ -395,21 +392,19 @@ export function NewOpportunityModal({
         throw new Error("Please assign the opportunity to a user");
       }
 
-      const expected = form.expectedDealValue ? Number(form.expectedDealValue) : null;
-      const actual = form.actualDealValue ? Number(form.actualDealValue) : null;
+      const proposalSent = form.proposalSentValue ? Number(form.proposalSentValue) : null;
       const cost = form.bottomLineCost ? Number(form.bottomLineCost) : null;
 
-      if (expected !== null && expected < 0) throw new Error("Expected Deal Value must be non-negative");
-      if (actual !== null && actual < 0) throw new Error("Actual Deal Value must be non-negative");
-      if (cost !== null && cost < 0) throw new Error("Bottom Line Cost must be non-negative");
+      if (proposalSent !== null && proposalSent < 0) throw new Error("Proposal Sent Value must be non-negative");
+      if (cost !== null && cost < 0) throw new Error("Cost Incurred to Company must be non-negative");
 
       return api.post("/opportunities", {
         name: form.name,
         accountId: accountId,
         contactId: contactId || null,
-        amount: expected ?? 0,
-        expectedDealValue: expected,
-        actualDealValue: actual,
+        amount: proposalSent ?? 0,
+        expectedDealValue: proposalSent,
+        actualDealValue: proposalSent,
         bottomLineCost: cost,
         pipelineId: oppPipeline!.id,
         stageId: effectiveStageId,
@@ -535,16 +530,17 @@ export function NewOpportunityModal({
               <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--ink-800)]">Financial Details</h4>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field
                 label={
                   <div className="flex items-center gap-1">
-                    <span>Expected Deal Value</span>
-                    <span title="Expected Deal Value is the revenue amount you expect this opportunity to generate. It represents the expected commercial value before the deal is finally closed." className="cursor-help text-[var(--ink-400)] hover:text-[var(--ledger-700)]">
+                    <span>Proposal Sent Value</span>
+                    <span title="Proposal Sent Value is the total commercial proposal value for this opportunity." className="cursor-help text-[var(--ink-400)] hover:text-[var(--ledger-700)]">
                       <Info size={13} />
                     </span>
                   </div>
                 }
+                required
               >
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 font-semibold text-[var(--ink-500)]">₹</span>
@@ -552,47 +548,22 @@ export function NewOpportunityModal({
                     type="number"
                     min="0"
                     step="0.01"
-                    value={form.expectedDealValue}
-                    onChange={(e) => setForm({ ...form, expectedDealValue: e.target.value })}
+                    required
+                    value={form.proposalSentValue}
+                    onChange={(e) => setForm({ ...form, proposalSentValue: e.target.value })}
                     className={`${inputClass} pl-8 font-mono-num`}
                     style={inputStyle}
-                    placeholder="12,00,000"
+                    placeholder="10,00,000"
                   />
                 </div>
-                <FieldError message={fieldErrors.expectedDealValue} />
+                <FieldError message={fieldErrors.amount || fieldErrors.actualDealValue || fieldErrors.expectedDealValue} />
               </Field>
 
               <Field
                 label={
                   <div className="flex items-center gap-1">
-                    <span>Actual Deal Value</span>
-                    <span title="Actual Deal Value is the final amount agreed with the customer. Enter it when the final commercial value is known or when the opportunity is closed." className="cursor-help text-[var(--ink-400)] hover:text-[var(--ledger-700)]">
-                      <Info size={13} />
-                    </span>
-                  </div>
-                }
-              >
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-semibold text-[var(--ink-500)]">₹</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.actualDealValue}
-                    onChange={(e) => setForm({ ...form, actualDealValue: e.target.value })}
-                    className={`${inputClass} pl-8 font-mono-num`}
-                    style={inputStyle}
-                    placeholder="Optional until agreed"
-                  />
-                </div>
-                <FieldError message={fieldErrors.actualDealValue} />
-              </Field>
-
-              <Field
-                label={
-                  <div className="flex items-center gap-1">
-                    <span>Bottom Line Cost</span>
-                    <span title="Bottom Line Cost is the cost associated with delivering this opportunity. It is used to calculate Gross Margin." className="cursor-help text-[var(--ink-400)] hover:text-[var(--ledger-700)]">
+                    <span>Cost Incurred to Company</span>
+                    <span title="Cost Incurred to Company is the internal cost associated with delivering this opportunity." className="cursor-help text-[var(--ink-400)] hover:text-[var(--ledger-700)]">
                       <Info size={13} />
                     </span>
                   </div>
@@ -615,35 +586,25 @@ export function NewOpportunityModal({
               </Field>
             </div>
 
-            {/* Calculated Margins Indicator */}
-            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[var(--ink-200)] text-xs">
-              <div className="p-2 rounded-lg bg-white border border-[var(--ink-100)]">
-                <div className="flex items-center gap-1 text-[11px] text-[var(--ink-500)] font-medium">
-                  <span>Expected Margin</span>
-                  <span title="Expected Margin = Expected Deal Value - Bottom Line Cost" className="cursor-help"><Info size={11} /></span>
+            {/* Auto-Calculated Output Margins Bar */}
+            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[var(--ink-200)] text-xs">
+              <div className="p-3 rounded-lg bg-white border border-[var(--ink-100)] flex flex-col justify-between">
+                <div className="flex items-center gap-1 text-[11px] text-[var(--ink-500)] font-medium mb-1">
+                  <span>Margin Value (Auto-Calculated)</span>
+                  <span title="Margin Value = Proposal Sent Value - Cost Incurred to Company" className="cursor-help text-[var(--ink-400)]"><Info size={11} /></span>
                 </div>
-                <div className="font-mono-num font-bold text-slate-800">
-                  {computedFinancials.expectedMargin !== null ? formatCurrency(computedFinancials.expectedMargin) : "—"}
-                </div>
-              </div>
-
-              <div className="p-2 rounded-lg bg-white border border-[var(--ink-100)]">
-                <div className="flex items-center gap-1 text-[11px] text-[var(--ink-500)] font-medium">
-                  <span>Gross Margin</span>
-                  <span title="Gross Margin is the Actual Deal Value minus the Bottom Line Cost." className="cursor-help"><Info size={11} /></span>
-                </div>
-                <div className={`font-mono-num font-bold ${computedFinancials.grossMargin !== null && computedFinancials.grossMargin < 0 ? "text-rose-600" : "text-emerald-700"}`}>
-                  {computedFinancials.grossMargin !== null ? formatCurrency(computedFinancials.grossMargin) : "—"}
+                <div className={`font-mono-num text-base font-bold ${marginVal !== null ? (marginVal > 0 ? "text-emerald-700" : marginVal < 0 ? "text-rose-600" : "text-slate-700") : "text-slate-400"}`}>
+                  {marginVal !== null ? formatCurrency(marginVal) : "—"}
                 </div>
               </div>
 
-              <div className="p-2 rounded-lg bg-white border border-[var(--ink-100)]">
-                <div className="flex items-center gap-1 text-[11px] text-[var(--ink-500)] font-medium">
-                  <span>Margin Loss</span>
-                  <span title="Margin Loss shows how much the final Actual Deal Value is below the original Expected Deal Value." className="cursor-help"><Info size={11} /></span>
+              <div className="p-3 rounded-lg bg-white border border-[var(--ink-100)] flex flex-col justify-between">
+                <div className="flex items-center gap-1 text-[11px] text-[var(--ink-500)] font-medium mb-1">
+                  <span>Margin Percentage (Auto-Calculated)</span>
+                  <span title="Margin % = (Margin Value / Proposal Sent Value) * 100" className="cursor-help text-[var(--ink-400)]"><Info size={11} /></span>
                 </div>
-                <div className="font-mono-num font-bold text-amber-700">
-                  {computedFinancials.marginLoss !== null ? formatCurrency(computedFinancials.marginLoss) : "—"}
+                <div className={`font-mono-num text-base font-bold ${marginPct !== null ? (marginPct > 0 ? "text-emerald-700" : marginPct < 0 ? "text-rose-600" : "text-slate-700") : "text-slate-400"}`}>
+                  {marginPct !== null ? `${marginPct.toFixed(1)}%` : "—"}
                 </div>
               </div>
             </div>
