@@ -179,7 +179,7 @@ export default function OpportunityDetailPage() {
             </div>
 
             <div>
-              <span className="text-[var(--ink-400)] font-medium mr-1.5">Topline Value:</span>
+              <span className="text-[var(--ink-400)] font-medium mr-1.5">Proposal Sent Value:</span>
               <span className="font-mono-num font-bold text-slate-900">
                 {financials.actualDealValue !== null ? formatCurrency(financials.actualDealValue) : "—"}
               </span>
@@ -527,8 +527,8 @@ export default function OpportunityDetailPage() {
                 <div className="p-3 rounded-xl bg-[var(--ink-50)] border border-[var(--ink-100)] flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-1 text-xs font-semibold text-[var(--ink-700)]">
-                      <span>Topline Value</span>
-                      <span title="Topline Value is the actual revenue realized or agreed upon closing." className="cursor-help text-[var(--ink-400)]"><Info size={12} /></span>
+                      <span>Proposal Sent Value</span>
+                      <span title="Proposal Sent Value is the actual revenue realized or agreed upon closing." className="cursor-help text-[var(--ink-400)]"><Info size={12} /></span>
                     </div>
                     <div className="text-[11px] text-[var(--ink-400)]">Final agreed commercial revenue</div>
                   </div>

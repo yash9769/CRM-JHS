@@ -15,10 +15,21 @@ export default async function forecastingRoutes(app: FastifyInstance) {
     const { period, ownerId } = req.query as any;
     const targetPeriod = period || new Date().toISOString().slice(0, 7); // YYYY-MM
 
-    // Period start/end
-    const [year, month] = targetPeriod.split("-").map(Number);
-    const periodStart = new Date(year, month - 1, 1);
-    const periodEnd = new Date(year, month, 0, 23, 59, 59, 999);
+    // Period start/end (supports YYYY-MM or YYYY)
+    let periodStart: Date;
+    let periodEnd: Date;
+    let targetPeriodFilter: any = targetPeriod;
+
+    if (/^\d{4}$/.test(targetPeriod)) {
+      const y = Number(targetPeriod);
+      periodStart = new Date(y, 0, 1);
+      periodEnd = new Date(y, 11, 31, 23, 59, 59, 999);
+      targetPeriodFilter = { startsWith: targetPeriod };
+    } else {
+      const [year, month] = targetPeriod.split("-").map(Number);
+      periodStart = new Date(year, month - 1, 1);
+      periodEnd = new Date(year, month, 0, 23, 59, 59, 999);
+    }
 
     const tenantId = req.authUser.tenantId;
     const ownerFilter = ownerId ? { ownerId } : {};
@@ -26,7 +37,7 @@ export default async function forecastingRoutes(app: FastifyInstance) {
 
     // Get forecast targets
     const targets = await prisma.forecastTarget.findMany({
-      where: { tenantId, period: targetPeriod, ...(ownerId ? { ownerId } : {}) },
+      where: { tenantId, period: targetPeriodFilter, ...(ownerId ? { ownerId } : {}) },
     });
 
     // Get opportunities

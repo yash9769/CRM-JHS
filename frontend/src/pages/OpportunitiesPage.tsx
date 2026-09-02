@@ -22,8 +22,7 @@ const OPPORTUNITY_COLUMNS: ColumnDef[] = [
   { key: "account", label: "Account Name" },
   { key: "contact", label: "Contact Person" },
   { key: "stage", label: "Stage" },
-  { key: "forecastCategory", label: "Forecast" },
-  { key: "actualDealValue", label: "Topline Value" },
+  { key: "actualDealValue", label: "Proposal Sent Value" },
   { key: "bottomLineCost", label: "Cost Incurred to Company" },
   { key: "marginValue", label: "Margin Value" },
   { key: "marginPercentage", label: "Margin Percentage" },
@@ -270,75 +269,70 @@ export default function OpportunitiesPage() {
           ) : (
             <>
               {/* Desktop Table View */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left border-b border-[var(--ink-100)]">
-                      <th className="px-4 py-2.5 w-8">
+              <div className="hidden md:block overflow-x-auto max-h-[calc(100vh-250px)]">
+                <table className="w-full text-sm border-separate border-spacing-0">
+                  <thead className="sticky top-0 z-10 bg-white">
+                    <tr className="text-left border-b border-[var(--ink-100)] bg-white">
+                      <th className="px-4 py-2.5 w-8 border-b border-[var(--ink-100)] bg-white">
                         <SelectAllCheckbox checked={allChecked} indeterminate={!!someChecked} onChange={toggleAll} />
                       </th>
                       {isVisible("name") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
+                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
                           Opportunity Name
                         </th>
                       )}
                       {isVisible("account") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
+                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
                           Account Name
                         </th>
                       )}
                       {isVisible("contact") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
+                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
                           Contact Person
                         </th>
                       )}
                       {isVisible("stage") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
+                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
                           Stage
                         </th>
                       )}
-                      {isVisible("forecastCategory") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
-                          Forecast
-                        </th>
-                      )}
                       {isVisible("actualDealValue") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
-                          Topline Value
+                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
+                          Proposal Sent Value
                         </th>
                       )}
                       {isVisible("bottomLineCost") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
+                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
                           Cost Incurred to Company
                         </th>
                       )}
                       {isVisible("marginValue") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
+                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
                           Margin Value
                         </th>
                       )}
                       {isVisible("marginPercentage") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
+                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
                           Margin Percentage
                         </th>
                       )}
                       {isVisible("owner") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
+                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
                           Assigned To
                         </th>
                       )}
                       {isVisible("createdAt") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
+                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
                           Created Date
                         </th>
                       )}
                       {isVisible("closeDate") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
+                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
                           Close Date
                         </th>
                       )}
                       {isVisible("remarks") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
+                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
                           Remarks
                         </th>
                       )}

@@ -50,13 +50,17 @@ function SetTargetModal({ period, users, onClose }: { period: string; users: any
 }
 
 export default function ForecastingPage() {
-  const [period, setPeriod] = useState(currentPeriod());
+  const [viewType, setViewType] = useState<"MONTHLY" | "YEARLY">("MONTHLY");
+  const [monthlyPeriod, setMonthlyPeriod] = useState(currentPeriod());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [showTarget, setShowTarget] = useState(false);
   const qc = useQueryClient();
 
+  const activePeriod = viewType === "YEARLY" ? selectedYear : monthlyPeriod;
+
   const { data: forecast } = useQuery<any>({
-    queryKey: ["forecast", period],
-    queryFn: async () => (await api.get("/forecast", { params: { period } })).data,
+    queryKey: ["forecast", activePeriod],
+    queryFn: async () => (await api.get("/forecast", { params: { period: activePeriod } })).data,
   });
 
   const { data: trend } = useQuery<any>({
@@ -81,9 +85,38 @@ export default function ForecastingPage() {
 
       <div className="px-8 pb-10 space-y-6">
         {/* Period picker */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm" style={{ color: "var(--ink-500)" }}>Period:</span>
-          <input type="month" value={period} onChange={(e) => setPeriod(e.target.value)} className="text-sm px-2 py-1 rounded-md border" style={{ borderColor: "var(--ink-200)" }} />
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium" style={{ color: "var(--ink-500)" }}>View Mode:</span>
+          <select
+            value={viewType}
+            onChange={(e) => setViewType(e.target.value as "MONTHLY" | "YEARLY")}
+            className="text-sm px-2.5 py-1 rounded-md border font-medium bg-white"
+            style={{ borderColor: "var(--ink-200)" }}
+          >
+            <option value="MONTHLY">Monthly View</option>
+            <option value="YEARLY">Yearly View</option>
+          </select>
+
+          {viewType === "MONTHLY" ? (
+            <input
+              type="month"
+              value={monthlyPeriod}
+              onChange={(e) => setMonthlyPeriod(e.target.value)}
+              className="text-sm px-2.5 py-1 rounded-md border bg-white font-medium"
+              style={{ borderColor: "var(--ink-200)" }}
+            />
+          ) : (
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="text-sm px-2.5 py-1 rounded-md border bg-white font-medium"
+              style={{ borderColor: "var(--ink-200)" }}
+            >
+              {[2026, 2025, 2024, 2023].map((y) => (
+                <option key={y} value={y.toString()}>{y} (Full Year)</option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* Summary KPIs */}
@@ -188,7 +221,7 @@ export default function ForecastingPage() {
         )}
       </div>
 
-      {showTarget && <SetTargetModal period={period} users={users?.data || []} onClose={() => { setShowTarget(false); qc.invalidateQueries({ queryKey: ["forecast"] }); }} />}
+      {showTarget && <SetTargetModal period={activePeriod} users={users?.data || []} onClose={() => { setShowTarget(false); qc.invalidateQueries({ queryKey: ["forecast"] }); }} />}
     </div>
   );
 }

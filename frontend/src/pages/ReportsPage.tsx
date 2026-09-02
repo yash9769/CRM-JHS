@@ -7,8 +7,9 @@ import { downloadCsvExport } from "../lib/exportCsv";
 import { RoleBadge, BirdsEyeModal } from "./OrgChartPage";
 import { Download, Eye } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
+import { useAuth } from "../hooks/useAuth";
 
-const TABS = ["Pipeline Health", "Owner Performance", "Win / Loss", "Conversion Funnel"] as const;
+const TABS = ["Pipeline Health", "Owner Performance", "Win / Loss"] as const;
 type Tab = typeof TABS[number];
 
 function PipelineHealthTab() {
@@ -178,54 +179,28 @@ function WinLossTab() {
   );
 }
 
-function ConversionFunnelTab() {
-  const { data } = useQuery<any>({ queryKey: ["report-funnel"], queryFn: async () => (await api.get("/reports/conversion-funnel")).data });
-  if (!data?.data?.length) return <div className="text-sm py-8 text-center" style={{ color: "var(--ink-400)" }}>No data yet.</div>;
-  const max = Math.max(...data.data.map((s: any) => s.count), 1);
-  return (
-    <Card className="p-6">
-      <h3 className="text-sm font-semibold mb-5" style={{ color: "var(--ink-800)" }}>Opportunity funnel by stage</h3>
-      <div className="space-y-3">
-        {data.data.map((row: any, i: number) => {
-          const pct = (row.count / max) * 100;
-          return (
-            <div key={row.stage.id}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm">{row.stage.name}</span>
-                <div className="flex items-center gap-3">
-                  <span className="font-mono-num text-sm">{formatCurrency(row.amount)}</span>
-                  <span className="font-mono-num text-sm w-8 text-right" style={{ color: "var(--ink-500)" }}>{row.count}</span>
-                </div>
-              </div>
-              <div className="h-2 rounded-full" style={{ background: "var(--ink-100)" }}>
-                <div className="h-2 rounded-full transition-all" style={{ width: `${pct}%`, background: `var(--ledger-${Math.max(400, 700 - i * 50)})` }} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </Card>
-  );
-}
-
 export default function ReportsPage() {
+  const { user } = useAuth();
+  const visibleTabs = TABS.filter(t => t !== "Owner Performance" || user?.orgRole !== "MANAGER");
   const [tab, setTab] = useState<Tab>("Pipeline Health");
+
+  const activeTab = visibleTabs.includes(tab) ? tab : "Pipeline Health";
+
   return (
     <div>
       <PageHeader title="Reports" subtitle="Pipeline health, rep performance, and win/loss trends." />
       <div className="px-8 pb-10">
         <div className="flex gap-1 mb-6 border-b" style={{ borderColor: "var(--ink-100)" }}>
-          {TABS.map(t => (
+          {visibleTabs.map(t => (
             <button key={t} onClick={() => setTab(t)} className="px-3.5 py-2.5 text-sm font-medium border-b-2 -mb-px whitespace-nowrap"
-              style={{ borderColor: tab === t ? "var(--ledger-600)" : "transparent", color: tab === t ? "var(--ledger-700)" : "var(--ink-500)" }}>
+              style={{ borderColor: activeTab === t ? "var(--ledger-600)" : "transparent", color: activeTab === t ? "var(--ledger-700)" : "var(--ink-500)" }}>
               {t}
             </button>
           ))}
         </div>
-        {tab === "Pipeline Health"     && <PipelineHealthTab />}
-        {tab === "Owner Performance"   && <OwnerPerformanceTab />}
-        {tab === "Win / Loss"          && <WinLossTab />}
-        {tab === "Conversion Funnel"   && <ConversionFunnelTab />}
+        {activeTab === "Pipeline Health" && <PipelineHealthTab />}
+        {activeTab === "Owner Performance" && user?.orgRole !== "MANAGER" && <OwnerPerformanceTab />}
+        {activeTab === "Win / Loss" && <WinLossTab />}
       </div>
     </div>
   );

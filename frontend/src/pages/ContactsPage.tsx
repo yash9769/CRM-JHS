@@ -13,17 +13,20 @@ import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../co
 import type { Contact, Paginated } from "../lib/types";
 import { Plus, Search, Download, UploadCloud } from "lucide-react";
 
+import { useAuth } from "../hooks/useAuth";
+
 const CONTACT_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Name", permanent: true },
   { key: "designation", label: "Designation" },
   { key: "account", label: "Account" },
   { key: "email", label: "Email" },
   { key: "phone", label: "Phone Number" },
-  { key: "owner", label: "Owner" },
+  { key: "owner", label: "Created By" },
   { key: "createdAt", label: "Created Date" },
 ];
 
 export default function ContactsPage() {
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -71,9 +74,11 @@ export default function ContactsPage() {
             <Button variant="secondary" onClick={() => setShowImport(true)}>
               <UploadCloud size={14} /> Import CSV
             </Button>
-            <Button variant="secondary" onClick={exportCsv}>
-              <Download size={14} /> Export CSV
-            </Button>
+            {user?.orgRole !== "MANAGER" && (
+              <Button variant="secondary" onClick={exportCsv}>
+                <Download size={14} /> Export CSV
+              </Button>
+            )}
             <Button onClick={() => setShowNew(true)}>
               <Plus size={15} /> New Contact
             </Button>
@@ -146,7 +151,7 @@ export default function ContactsPage() {
                   )}
                   {isVisible("owner") && (
                     <th className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      Owner
+                      Created By
                     </th>
                   )}
                   {isVisible("createdAt") && (

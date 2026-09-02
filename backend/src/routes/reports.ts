@@ -37,8 +37,11 @@ export default async function reportRoutes(app: FastifyInstance) {
     return { data: stageData.filter(s => !stages.find(st => st.id === s.stage.id)?.isClosed) };
   });
 
-  // Owner performance report
-  app.get("/api/v1/reports/owner-performance", { preHandler: [app.authenticate] }, async (req: any) => {
+  // Owner performance report (Restricted for Managers)
+  app.get("/api/v1/reports/owner-performance", { preHandler: [app.authenticate] }, async (req: any, reply: any) => {
+    if (req.authUser.orgRole === "MANAGER") {
+      return reply.status(403).send({ error: "Forbidden: Owner performance report is restricted to leadership" });
+    }
     const tenantId = req.authUser.tenantId;
     const { period } = req.query as any;
 

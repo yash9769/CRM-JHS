@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { PageHeader, Card, Button, Badge, inputClass, inputStyle, EmptyState } from "../components/ui";
+import { PageHeader, Card, Button, inputClass, inputStyle, EmptyState } from "../components/ui";
 import { NewAccountModal } from "../components/CreateModals";
 import { CsvImportModal } from "../components/CsvImportModal";
 import { downloadCsvExport } from "../lib/exportCsv";
@@ -15,19 +15,11 @@ import { Plus, Search, Building2, Download, UploadCloud } from "lucide-react";
 
 import { useAuth } from "../hooks/useAuth";
 
-const typeTone: Record<string, "neutral" | "green" | "amber"> = {
-  PROSPECT: "amber",
-  CUSTOMER: "green",
-  PARTNER: "neutral",
-  FORMER_CUSTOMER: "neutral",
-};
-
 const TYPES = ["ALL", "PROSPECT", "CUSTOMER", "PARTNER", "FORMER_CUSTOMER"] as const;
 
 const ACCOUNT_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Account Name", permanent: true },
   { key: "industry", label: "Industry" },
-  { key: "type", label: "Type" },
   { key: "createdBy", label: "Created By" },
   { key: "assignedTo", label: "Assigned To" },
   { key: "contacts", label: "Contacts" },
@@ -153,22 +145,18 @@ export default function AccountsPage() {
               action={<Button onClick={() => setShowNew(true)}><Plus size={15} /> New Account</Button>}
             />
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b" style={{ borderColor: "var(--ink-100)" }}>
-                  {isVisible("name") && (
-                    <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: "var(--ink-400)" }}>
-                      Account Name
-                    </th>
-                  )}
+            <div className="overflow-x-auto max-h-[calc(100vh-250px)]">
+              <table className="w-full text-sm border-separate border-spacing-0">
+                <thead className="sticky top-0 z-10 bg-white">
+                  <tr className="text-left border-b bg-white" style={{ borderColor: "var(--ink-100)" }}>
+                    {isVisible("name") && (
+                      <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide border-b bg-white" style={{ color: "var(--ink-400)", borderColor: "var(--ink-100)" }}>
+                        Account Name
+                      </th>
+                    )}
                   {isVisible("industry") && (
                     <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: "var(--ink-400)" }}>
                       Industry
-                    </th>
-                  )}
-                  {isVisible("type") && (
-                    <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: "var(--ink-400)" }}>
-                      Type
                     </th>
                   )}
                   {isVisible("createdBy") && (
@@ -216,11 +204,6 @@ export default function AccountsPage() {
                         {a.industry || "—"}
                       </td>
                     )}
-                    {isVisible("type") && (
-                      <td className="px-4 py-3">
-                        <Badge tone={typeTone[a.accountType]}>{a.accountType?.replace("_", " ") || "PROSPECT"}</Badge>
-                      </td>
-                    )}
                     {isVisible("createdBy") && (
                       <td className="px-4 py-3 text-xs" style={{ color: "var(--ink-600)" }}>
                         {a.createdBy ? `${a.createdBy.firstName} ${a.createdBy.lastName}` : "—"}
@@ -250,6 +233,7 @@ export default function AccountsPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </Card>
       </div>

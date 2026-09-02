@@ -7,7 +7,7 @@ export interface FinancialsInput {
 
 export interface ComputedFinancials {
   expectedDealValue: number | null;
-  actualDealValue: number | null; // Topline Value
+  actualDealValue: number | null; // Proposal Sent Value
   bottomLineCost: number | null;  // Cost Incurred to Company
   expectedMargin: number | null;
   grossMargin: number | null;
