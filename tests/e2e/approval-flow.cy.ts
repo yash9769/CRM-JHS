@@ -30,4 +30,14 @@ describe("Approval Flow E2E", () => {
     cy.visit(`/opportunities/${oppId}`);
     cy.contains("Stage Change Approvals & History").should("be.visible");
   });
+
+  it("All roles can click any audit log entry to view full log details modal", () => {
+    cy.loginAsSeniorPartner();
+    cy.visit(`/opportunities/${oppId}`);
+    cy.contains("Opportunity Activity Logs & Audit Trail").should("be.visible");
+    cy.get("div.group").first().click();
+    cy.contains("Audit Log Entry Details").should("be.visible");
+    cy.contains("Performed By").should("be.visible");
+    cy.contains("Target Record").should("be.visible");
+  });
 });

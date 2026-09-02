@@ -1,16 +1,9 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { relativeTime } from "../lib/format";
-import { History } from "lucide-react";
-
-interface AuditEntry {
-  id: string;
-  action: string;
-  oldValues?: Record<string, any> | null;
-  newValues?: Record<string, any> | null;
-  createdAt: string;
-  user?: { id: string; firstName: string; lastName: string; orgRole?: string } | null;
-}
+import { History, ExternalLink } from "lucide-react";
+import { AuditLogDetailModal, type AuditEntry } from "./AuditLogDetailModal";
 
 const TRACKED_FIELDS = ["stageId", "stage", "ownerId", "amount", "actualDealValue", "bottomLineCost", "poNumber", "poValue", "loeValue", "remarks"];
 
@@ -50,6 +43,8 @@ function describeChange(entry: AuditEntry): string {
 }
 
 export function HistoryPanel({ objectType, recordId, fallbackHistory }: { objectType: string; recordId: string; fallbackHistory?: any[] }) {
+  const [selectedEntry, setSelectedEntry] = useState<AuditEntry | null>(null);
+
   const { data, isLoading } = useQuery<{ data: AuditEntry[] }>({
     queryKey: ["audit-log", objectType, recordId],
     queryFn: async () => (await api.get("/audit-log", { params: { objectType, recordId } })).data,
@@ -63,6 +58,8 @@ export function HistoryPanel({ objectType, recordId, fallbackHistory }: { object
         ? fallbackHistory.map((h: any) => ({
             id: h.id || Math.random().toString(),
             action: "STAGE_CHANGED",
+            objectType: objectType,
+            recordId: recordId,
             newValues: { fromStageName: h.fromStage?.name, toStageName: h.toStage?.name },
             createdAt: h.changedAt || h.createdAt || new Date().toISOString(),
             user: h.user || h.changedBy || null,
@@ -76,29 +73,45 @@ export function HistoryPanel({ objectType, recordId, fallbackHistory }: { object
       {entries.map((entry) => {
         const roleLabel = entry.user?.orgRole?.replace("_", " ") || "";
         return (
-          <div key={entry.id} className="flex items-start gap-2.5 text-xs p-2.5 rounded-lg bg-[var(--ink-50)]/70 border border-[var(--ink-100)]">
-            <History size={14} className="mt-0.5 shrink-0 text-[var(--ledger-600)]" />
+          <div
+            key={entry.id}
+            onClick={() => setSelectedEntry({ ...entry, objectType, recordId })}
+            className="flex items-start gap-2.5 text-xs p-2.5 rounded-lg bg-[var(--ink-50)]/70 border border-[var(--ink-100)] cursor-pointer hover:bg-slate-100 hover:border-[var(--ledger-400)] shadow-none hover:shadow-sm transition-all group relative"
+            title="Click to view full audit log details"
+          >
+            <History size={14} className="mt-0.5 shrink-0 text-[var(--ledger-600)] group-hover:scale-110 transition-transform" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2 flex-wrap mb-0.5">
-                <span className="font-semibold text-[var(--ink-900)]">
+                <span className="font-semibold text-[var(--ink-900)] group-hover:text-[var(--ledger-700)] transition-colors">
                   {entry.user ? `${entry.user.firstName} ${entry.user.lastName}` : "System Action"}
                 </span>
-                {roleLabel && (
-                  <span className="text-[10px] uppercase font-bold text-[var(--ledger-700)] bg-[var(--ledger-50)] px-1.5 py-0.5 rounded border border-[var(--ledger-200)]">
-                    {roleLabel}
-                  </span>
-                )}
+                <div className="flex items-center gap-1.5">
+                  {roleLabel && (
+                    <span className="text-[10px] uppercase font-bold text-[var(--ledger-700)] bg-[var(--ledger-50)] px-1.5 py-0.5 rounded border border-[var(--ledger-200)]">
+                      {roleLabel}
+                    </span>
+                  )}
+                  <ExternalLink size={12} className="text-[var(--ink-400)] group-hover:text-[var(--ledger-600)] opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
               </div>
               <div className="text-[var(--ink-600)] font-medium">
                 {describeChange(entry)}
               </div>
-              <div className="text-[10px] text-[var(--ink-400)] mt-1">
-                {relativeTime(entry.createdAt)}
+              <div className="flex items-center justify-between mt-1 text-[10px] text-[var(--ink-400)]">
+                <span>{relativeTime(entry.createdAt)}</span>
+                <span className="text-[var(--ledger-600)] font-semibold group-hover:underline">Click for log details ➔</span>
               </div>
             </div>
           </div>
         );
       })}
+
+      {selectedEntry && (
+        <AuditLogDetailModal
+          entry={selectedEntry}
+          onClose={() => setSelectedEntry(null)}
+        />
+      )}
     </div>
   );
 }
