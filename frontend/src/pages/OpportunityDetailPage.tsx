@@ -8,6 +8,7 @@ import { ClosedWonModal } from "../components/ClosedWonModal";
 import { ClosedLostModal } from "../components/ClosedLostModal";
 import { NewContactModal, LogActivityModal, NewQuoteModal, AddLineItemModal } from "../components/CreateModals";
 import { EditOpportunityModal, ArchiveConfirmModal } from "../components/EditModals";
+import { HistoryPanel } from "../components/HistoryPanel";
 import { formatCurrency, formatDate } from "../lib/format";
 import { computeOpportunityFinancials } from "../lib/financial";
 import type { Opportunity, Pipeline } from "../lib/types";
@@ -681,6 +682,16 @@ export default function OpportunityDetailPage() {
                   })}
                 </div>
               )}
+            </Card>
+
+            {/* OPPORTUNITY AUDIT LOGS & ACTIVITY HISTORY */}
+            <Card className="p-4 md:p-5">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-[var(--ink-100)]">
+                <h3 className="text-sm font-semibold text-[var(--ink-800)] flex items-center gap-2">
+                  <FileCheck size={16} className="text-[var(--ledger-600)]" /> Opportunity Activity Logs & Audit Trail
+                </h3>
+              </div>
+              <HistoryPanel objectType="OPPORTUNITY" recordId={opp.id} />
             </Card>
 
             {/* LINE ITEMS & PRODUCTS */}

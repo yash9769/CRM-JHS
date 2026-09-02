@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { PageHeader, Card } from "../components/ui";
-import { formatCurrency, formatDate, relativeTime } from "../lib/format";
+import { formatCurrency, relativeTime } from "../lib/format";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { TrendingUp, Target, Trophy, Percent, Wallet, Timer, CalendarClock, Flame, ShieldAlert } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
@@ -14,13 +14,6 @@ interface ActionCenterData {
   upcomingTasks: { id: string; subject: string; dueDate: string | null; accountId?: string | null; contactId?: string | null; opportunityId?: string | null; leadId?: string | null }[];
   recentActivity: { id: string; type: string; subject: string; createdAt: string; owner?: { firstName: string; lastName: string } | null; account?: { id: string; name: string } | null; opportunity?: { id: string; name: string } | null; lead?: { id: string; firstName: string; lastName: string } | null }[];
   opportunitiesAtRisk: { id: string; name: string; amount: number; reason: string; account?: { id: string; name: string } | null }[];
-}
-
-function taskLink(t: ActionCenterData["upcomingTasks"][number]) {
-  if (t.accountId) return `/accounts/${t.accountId}`;
-  if (t.contactId) return `/contacts/${t.contactId}`;
-  if (t.opportunityId) return `/opportunities/${t.opportunityId}`;
-  return "/pipeline";
 }
 
 function activityRelated(a: ActionCenterData["recentActivity"][number]) {
@@ -79,7 +72,6 @@ export default function DashboardPage() {
   const greeting = greetingHour < 12 ? "Good morning" : greetingHour < 18 ? "Good afternoon" : "Good evening";
 
   const recentLeads = action?.recentLeads || [];
-  const upcomingTasks = action?.upcomingTasks || [];
   const recentActivity = action?.recentActivity || [];
   const opportunitiesAtRisk = action?.opportunitiesAtRisk || [];
 
@@ -113,45 +105,12 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* 1. UPCOMING TASKS */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold flex items-center gap-2 text-[var(--ink-800)]">
-              <CalendarClock size={16} className="text-[var(--ledger-600)]" />
-              1. Upcoming Tasks
-            </h3>
-            <Link to="/pipeline" className="text-xs text-[var(--ledger-700)] hover:underline font-medium">View Pipeline & Tasks</Link>
-          </div>
-          <Card className="p-4">
-            {!upcomingTasks.length ? (
-              <div className="py-6 text-center text-sm text-[var(--ink-400)]">No upcoming tasks scheduled</div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {upcomingTasks.map((t) => (
-                  <Link
-                    key={t.id}
-                    to={taskLink(t)}
-                    className="p-3 rounded-lg border border-[var(--ink-100)] hover:border-[var(--ledger-300)] hover:bg-[var(--ledger-50)]/30 transition-all block"
-                  >
-                    <div className="font-medium text-sm text-[var(--ink-900)] truncate">{t.subject}</div>
-                    <div className="text-xs text-[var(--ink-500)] mt-1 flex items-center justify-between">
-                      <span>{t.dueDate ? formatDate(t.dueDate) : "No due date"}</span>
-                      {t.opportunityId && <span className="text-[var(--ledger-700)] font-medium">Opportunity</span>}
-                      {t.accountId && !t.opportunityId && <span className="text-[var(--ink-600)]">Account</span>}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </Card>
-        </div>
-
-        {/* 2. RECENT ACTIVITY */}
+        {/* 1. RECENT ACTIVITY */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold flex items-center gap-2 text-[var(--ink-800)]">
               <Timer size={16} className="text-[var(--ledger-600)]" />
-              2. Recent Activity
+              1. Recent Activity
             </h3>
             <span className="text-xs text-[var(--ink-400)]">Latest updates</span>
           </div>
@@ -186,12 +145,12 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* 3. OPPORTUNITIES AT RISK */}
+        {/* 2. OPPORTUNITIES AT RISK */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold flex items-center gap-2 text-[var(--rose-700)]">
               <Flame size={16} className="text-[var(--rose-600)]" />
-              3. Opportunities at Risk
+              2. Opportunities at Risk
             </h3>
             <Link to="/opportunities" className="text-xs text-[var(--rose-600)] hover:underline font-medium">Review All Deals</Link>
           </div>
@@ -218,12 +177,12 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* 4. RECENT LEADS */}
+        {/* 3. RECENT LEADS */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold flex items-center gap-2 text-[var(--ink-800)]">
               <Target size={16} className="text-[var(--ledger-600)]" />
-              4. Recent Leads
+              3. Recent Leads
             </h3>
             <Link to="/contacts" className="text-xs text-[var(--ledger-700)] hover:underline font-medium">View Contacts</Link>
           </div>
