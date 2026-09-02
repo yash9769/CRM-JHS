@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate, Link } from "react-router-dom";
+import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, KanbanSquare, Target, Package, Building2, Users,
   Search, ChevronDown, LogOut, FileText, TrendingUp, BarChart2,
@@ -10,47 +10,20 @@ import { useState, useEffect } from "react";
 import { api } from "../lib/api";
 import { QuickCreateButton } from "./QuickCreate";
 import { StageApprovalsWidget } from "./StageApprovalsWidget";
+import { StickyNotesWidget } from "./StickyNotesWidget";
 
-const salesCrmNav = [
-  { to: "/accounts",       label: "Accounts",       icon: Building2 },
-  { to: "/contacts",       label: "Contacts",       icon: Users },
-  { to: "/opportunities",  label: "Opportunities",  icon: Target },
-  { to: "/pipeline",       label: "Pipeline",       icon: KanbanSquare },
-  { to: "/quotes",         label: "Quotes",         icon: FileText },
-  { to: "/services",       label: "Services",       icon: Layers },
-  { to: "/products",       label: "Products",       icon: Package },
+const navigationItems = [
+  { to: "/",              label: "Dashboard",     icon: LayoutDashboard, exact: true },
+  { to: "/pipeline",       label: "Pipeline",      icon: KanbanSquare },
+  { to: "/accounts",       label: "Accounts",      icon: Building2 },
+  { to: "/opportunities",  label: "Opportunities", icon: Target },
+  { to: "/contacts",       label: "Contacts",      icon: Users },
+  { to: "/services",       label: "Services",      icon: Layers },
+  { to: "/products",       label: "Products",      icon: Package },
+  { to: "/quotes",         label: "Quotes",        icon: FileText },
+  { to: "/forecasting",    label: "Forecast",      icon: TrendingUp },
+  { to: "/reports",        label: "Reports",       icon: BarChart2 },
 ];
-
-const analyticsNav = [
-  { to: "/forecasting", label: "Forecasting", icon: TrendingUp },
-  { to: "/reports",     label: "Reports",     icon: BarChart2 },
-];
-
-function NavSection({ title, items, onItemClick }: { title: string; items: { to: string; label: string; icon: any }[]; onItemClick?: () => void }) {
-  return (
-    <div className="mb-4">
-      <div className="px-3 mb-1.5 text-[10px] font-semibold tracking-wider uppercase text-[var(--ink-500)]">{title}</div>
-      <div className="space-y-0.5">
-        {items.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end
-            onClick={onItemClick}
-            className="flex items-center gap-2.5 px-3 py-2 md:py-1.5 rounded-md text-sm font-medium transition-colors"
-            style={({ isActive }) => ({
-              backgroundColor: isActive ? "var(--ledger-700)" : "transparent",
-              color: isActive ? "white" : "var(--ink-300)",
-            })}
-          >
-            <item.icon size={16} strokeWidth={2} />
-            {item.label}
-          </NavLink>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function NotificationBell() {
   const [count, setCount] = useState(0);
@@ -111,6 +84,7 @@ function NotificationBell() {
 export default function AppShell() {
   const { user, tenant, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -137,51 +111,61 @@ export default function AppShell() {
         )}
       </div>
 
-      <NavLink
-        to="/"
-        end
-        onClick={onItemClick}
-        className="flex items-center gap-2.5 px-3 py-2 md:py-1.5 mb-4 rounded-md text-sm font-medium transition-colors"
-        style={({ isActive }) => ({
-          backgroundColor: isActive ? "var(--ledger-700)" : "transparent",
-          color: isActive ? "white" : "var(--ink-300)",
-        })}
-      >
-        <LayoutDashboard size={16} /> Dashboard
-      </NavLink>
+      {/* Navigation items in strictly required order */}
+      <div className="space-y-0.5 mb-4">
+        {navigationItems.map((item) => {
+          const isActive = item.exact
+            ? location.pathname === item.to
+            : (location.pathname === item.to || location.pathname.startsWith(item.to + "/"));
 
-      <NavSection title="Sales / CRM" items={salesCrmNav} onItemClick={onItemClick} />
-      <NavSection title="Analytics" items={analyticsNav} onItemClick={onItemClick} />
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              onClick={onItemClick}
+              className="flex items-center gap-2.5 px-3 py-2 md:py-1.5 rounded-md text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: isActive ? "var(--ledger-700)" : "transparent",
+                color: isActive ? "white" : "var(--ink-300)",
+              }}
+            >
+              <item.icon size={16} strokeWidth={2} />
+              {item.label}
+            </Link>
+          );
+        })}
+      </div>
 
       {canViewOrgChart(user) && (
         <div className="mb-4">
           <div className="px-3 mb-1.5 text-[10px] font-semibold tracking-wider uppercase text-[var(--ink-500)]">Team</div>
-          <NavLink
+          <Link
             to="/org-chart"
             onClick={onItemClick}
             className="flex items-center gap-2.5 px-3 py-2 md:py-1.5 rounded-md text-sm font-medium transition-colors"
-            style={({ isActive }) => ({
-              backgroundColor: isActive ? "var(--ledger-700)" : "transparent",
-              color: isActive ? "white" : "var(--ink-300)",
-            })}
+            style={{
+              backgroundColor: location.pathname.startsWith("/org-chart") ? "var(--ledger-700)" : "transparent",
+              color: location.pathname.startsWith("/org-chart") ? "white" : "var(--ink-300)",
+            }}
           >
             <GitBranch size={16} strokeWidth={2} /> Org Chart
-          </NavLink>
+          </Link>
         </div>
       )}
 
+      {/* Settings at the bottom of sidebar */}
       <div className="mt-auto pt-3 border-t border-[var(--ink-800)]">
-        <NavLink
+        <Link
           to="/settings"
           onClick={onItemClick}
-          className="flex items-center gap-2.5 px-3 py-2 md:py-1.5 rounded-md text-sm font-medium mb-1"
-          style={({ isActive }) => ({
-            backgroundColor: isActive ? "var(--ledger-700)" : "transparent",
-            color: isActive ? "white" : "var(--ink-400)",
-          })}
+          className="flex items-center gap-2.5 px-3 py-2 md:py-1.5 rounded-md text-sm font-medium mb-1 transition-colors"
+          style={{
+            backgroundColor: location.pathname.startsWith("/settings") ? "var(--ledger-700)" : "transparent",
+            color: location.pathname.startsWith("/settings") ? "white" : "var(--ink-400)",
+          }}
         >
           <Settings size={15} /> Settings
-        </NavLink>
+        </Link>
         <div className="px-3 text-[10px] text-[var(--ink-600)]">{tenant?.name}</div>
       </div>
     </div>
@@ -205,7 +189,7 @@ export default function AppShell() {
       )}
 
       {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <header className="h-14 shrink-0 flex items-center justify-between px-3 md:px-5 border-b border-[var(--ink-100)] bg-white">
           <div className="flex items-center gap-2 flex-1 max-w-lg">
             <button
@@ -262,7 +246,11 @@ export default function AppShell() {
         <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
+
+        {/* Global Sticky Notes Widget */}
+        <StickyNotesWidget />
       </div>
     </div>
   );
 }
+

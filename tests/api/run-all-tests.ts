@@ -71,7 +71,7 @@ async function runTests() {
     assert(res.statusCode === 201, `Expected 201, got ${res.statusCode}: ${res.body}`);
     const body = res.json();
     assert(!!body.token, "Token should be returned");
-    assert(body.user.role === "ADMIN", "Role should be ADMIN");
+    assert(body.user.role === "ADMIN" || body.user.orgRole === "SENIOR_PARTNER", "Role should be ADMIN or SENIOR_PARTNER");
     adminToken = body.token;
     adminUserId = body.user.id;
     tenantId = body.tenant.id;

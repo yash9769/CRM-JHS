@@ -37,31 +37,33 @@ export async function getVisibleUserIds(user: AuthUser): Promise<string[]> {
  *   const rbacFilter = await getCreatedByFilter(req.authUser);
  *   const where = { tenantId: ..., ...rbacFilter, ... };
  */
-export async function getCreatedByFilter(user: AuthUser): Promise<{ createdById?: { in: string[] } }> {
+export async function getCreatedByFilter(user: AuthUser): Promise<any> {
   if (user.orgRole === "SENIOR_PARTNER") return {}; // no restriction
   const ids = await getVisibleUserIds(user);
-  return { createdById: { in: ids } };
+  return {
+    OR: [
+      { createdById: { in: ids } },
+      { ownerId: { in: ids } },
+    ],
+  };
 }
 
 /**
  * Throws a 403-compatible error if `user` is not allowed to read/write `record`.
- *
- * `record.createdById` — the user ID that created the record.
- * Senior Partners can always access. Partners can access own + their managers'.
- * Managers can only access their own.
  */
 export async function requireCanAccess(
   user: AuthUser,
-  record: { createdById?: string | null },
+  record: { createdById?: string | null; ownerId?: string | null },
   _action: "read" | "write" = "read"
 ) {
   if (user.orgRole === "SENIOR_PARTNER") return;
 
-  if (!record.createdById) return; // legacy/null records — allow for now
-
   const visibleIds = await getVisibleUserIds(user);
-  if (!visibleIds.includes(record.createdById)) {
-    const err: any = new Error("Access denied");
+  const createdByIdMatch = record.createdById && visibleIds.includes(record.createdById);
+  const ownerIdMatch = record.ownerId && visibleIds.includes(record.ownerId);
+
+  if (!createdByIdMatch && !ownerIdMatch) {
+    const err: any = new Error("Access denied: You do not have permission to view or edit this record.");
     err.statusCode = 403;
     throw err;
   }
@@ -90,3 +92,17 @@ export function canManageUser(
   }
   return false; // MANAGER cannot manage users
 }
+
+/**
+ * Throws a 403 error if `user` does not have permission to export CRM data.
+ * Rule: MANAGER role cannot export or download CRM datasets.
+ * PARTNER and SENIOR_PARTNER are permitted.
+ */
+export function requireExportPermission(user: AuthUser) {
+  if (user.orgRole === "MANAGER") {
+    const err: any = new Error("Access denied: Managers are not authorized to export or download dataset records.");
+    err.statusCode = 403;
+    throw err;
+  }
+}
+

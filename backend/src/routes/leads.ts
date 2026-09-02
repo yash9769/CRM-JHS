@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { logAudit, notify } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
-import { getCreatedByFilter } from "../lib/rbac.js";
+import { getCreatedByFilter, requireExportPermission } from "../lib/rbac.js";
 
 const LEAD_STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "NURTURING", "UNQUALIFIED", "CONVERTED"] as const;
 
@@ -127,6 +127,8 @@ export default async function leadRoutes(app: FastifyInstance) {
 
   // EXPORT — CSV of leads matching current filters
   app.get("/api/v1/leads/export", { preHandler: app.authenticate }, async (req, reply) => {
+    requireExportPermission(req.authUser);
+
     const q = req.query as { search?: string; status?: string; source?: string; ownerId?: string; includeArchived?: string };
     const where = {
       tenantId: req.authUser.tenantId,

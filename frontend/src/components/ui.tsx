@@ -106,7 +106,7 @@ export function Modal({ title, onClose, children, width = "480px" }: { title: st
   );
 }
 
-export function Field({ label, children, required }: { label: string; children: ReactNode; required?: boolean }) {
+export function Field({ label, children, required }: { label: ReactNode; children: ReactNode; required?: boolean }) {
   return (
     <label className="block mb-3.5">
       <div className="text-xs font-medium mb-1.5" style={{ color: "var(--ink-600)" }}>

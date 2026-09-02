@@ -1,18 +1,23 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { PageHeader, Button } from "../components/ui";
+import { PageHeader, Button, inputClass, inputStyle } from "../components/ui";
 import { KanbanBoard } from "../components/Kanban";
 import { NewOpportunityModal } from "../components/CreateModals";
+import { RelationshipSelector } from "../components/RelationshipSelector";
+import { fetchOwnerOptions } from "../lib/pickers";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
 import type { Opportunity, Pipeline, Paginated } from "../lib/types";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 
 export default function PipelinePage() {
   const qc = useQueryClient();
   const [showNew, setShowNew] = useState(false);
+  const [search, setSearch] = useState("");
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [ownerLabel, setOwnerLabel] = useState<string | null>(null);
 
-  const { data: pipelines } = useQuery<{ data: Pipeline[] }>({
+  const { data: pipelines, isLoading: isPipelinesLoading } = useQuery<{ data: Pipeline[] }>({
     queryKey: ["pipelines", "OPPORTUNITY"],
     queryFn: async () => (await api.get("/pipelines", { params: { type: "OPPORTUNITY" } })).data,
   });
@@ -31,12 +36,17 @@ export default function PipelinePage() {
     stageColumns
   );
 
-  const { data: opps } = useQuery<Paginated<Opportunity>>({
-    queryKey: ["opportunities", "kanban", pipeline?.id],
+  const { data: opps, isLoading: isOppsLoading } = useQuery<Paginated<Opportunity>>({
+    queryKey: ["opportunities", "kanban", pipeline?.id, search, ownerId],
     queryFn: async () =>
       (
         await api.get("/opportunities", {
-          params: { pipelineId: pipeline!.id, pageSize: 1000 },
+          params: {
+            pipelineId: pipeline!.id,
+            pageSize: 1000,
+            ...(search ? { search } : {}),
+            ...(ownerId ? { ownerId } : {}),
+          },
         })
       ).data,
     enabled: !!pipeline,
@@ -45,10 +55,17 @@ export default function PipelinePage() {
   const moveMutation = useMutation({
     mutationFn: ({ id, stageId }: { id: string; stageId: string }) =>
       api.patch(`/opportunities/${id}`, { stageId, pipelineId: pipeline!.id }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["opportunities", "kanban"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["opportunities"] });
+      qc.invalidateQueries({ queryKey: ["opportunity"] });
+    },
   });
 
-  if (!pipeline) return <div className="p-8 text-sm text-[var(--ink-400)]">Loading pipeline…</div>;
+  if (isPipelinesLoading || !pipeline) {
+    return <div className="p-8 text-sm text-[var(--ink-400)]">Loading pipeline…</div>;
+  }
+
+  const items = opps?.data || [];
 
   return (
     <div className="pb-24 md:pb-8">
@@ -71,15 +88,50 @@ export default function PipelinePage() {
           </div>
         }
       />
-      <div className="px-4 md:px-8 pb-8">
-        <KanbanBoard
-          stages={pipeline.stages}
-          items={opps?.data || []}
-          basePath="/opportunities"
-          onMove={(item, stageId) => moveMutation.mutate({ id: item.id, stageId })}
-          visibleStageIds={visibleKeys}
-        />
+
+      <div className="px-4 md:px-8 pb-3">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <div className="relative w-72">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-400)]"
+            />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search pipeline deals…"
+              className={`${inputClass} pl-8`}
+              style={inputStyle}
+            />
+          </div>
+
+          <div className="w-56">
+            <RelationshipSelector
+              value={ownerId}
+              valueLabel={ownerLabel}
+              onChange={(id, opt) => {
+                setOwnerId(id);
+                setOwnerLabel(opt?.label || null);
+              }}
+              fetchOptions={fetchOwnerOptions}
+              placeholder="Filter by owner…"
+            />
+          </div>
+        </div>
+
+        {isOppsLoading ? (
+          <div className="p-8 text-sm text-[var(--ink-400)]">Loading pipeline deals…</div>
+        ) : (
+          <KanbanBoard
+            stages={pipeline.stages}
+            items={items}
+            basePath="/opportunities"
+            onMove={(item, stageId) => moveMutation.mutate({ id: item.id, stageId })}
+            visibleStageIds={visibleKeys}
+          />
+        )}
       </div>
+
       {showNew && <NewOpportunityModal onClose={() => setShowNew(false)} />}
     </div>
   );

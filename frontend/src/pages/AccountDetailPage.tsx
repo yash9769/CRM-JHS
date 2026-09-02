@@ -152,14 +152,18 @@ export default function AccountDetailPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="text-left border-b border-[var(--ink-100)]">
-                  {["Name", "Amount", "Stage", "Close Date"].map((h) => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">{h}</th>)}
+                  {["Opportunity", "Stage", "Expected Value", "Actual Value", "Margin", "Close Date"].map((h) => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">{h}</th>)}
                 </tr></thead>
                 <tbody>
                   {account.opportunities.map((o) => (
                     <tr key={o.id} className="border-b last:border-0 hover:bg-[var(--ink-50)] border-[var(--ink-100)]">
                       <td className="px-4 py-3"><Link to={`/opportunities/${o.id}`} className="font-medium hover:underline text-[var(--ledger-700)]">{o.name}</Link></td>
-                      <td className="px-4 py-3 font-mono-num">{formatCurrency(o.amount)}</td>
                       <td className="px-4 py-3"><StageBadge stage={o.stage as any} /></td>
+                      <td className="px-4 py-3 font-mono-num font-semibold text-slate-800">{o.expectedDealValue !== null && o.expectedDealValue !== undefined ? formatCurrency(o.expectedDealValue) : formatCurrency(o.amount)}</td>
+                      <td className="px-4 py-3 font-mono-num font-semibold text-slate-900">{o.actualDealValue !== null && o.actualDealValue !== undefined ? formatCurrency(o.actualDealValue) : "—"}</td>
+                      <td className={`px-4 py-3 font-mono-num font-bold ${o.grossMargin !== null && o.grossMargin !== undefined && Number(o.grossMargin) < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                        {o.grossMargin !== null && o.grossMargin !== undefined ? formatCurrency(o.grossMargin) : (o.expectedMargin !== null && o.expectedMargin !== undefined ? formatCurrency(o.expectedMargin) : "—")}
+                      </td>
                       <td className="px-4 py-3 text-[var(--ink-500)]">{formatDate(o.expectedCloseDate)}</td>
                     </tr>
                   ))}

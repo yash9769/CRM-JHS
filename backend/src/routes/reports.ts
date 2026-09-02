@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
-import { getCreatedByFilter } from "../lib/rbac.js";
+import { getCreatedByFilter, requireExportPermission } from "../lib/rbac.js";
 import { toCsv } from "../lib/csv.js";
 
 export default async function reportRoutes(app: FastifyInstance) {
@@ -95,6 +95,7 @@ export default async function reportRoutes(app: FastifyInstance) {
 
   // Owner performance export CSV
   app.get("/api/v1/reports/owner-performance/export", { preHandler: [app.authenticate] }, async (req: any, reply) => {
+    requireExportPermission(req.authUser);
     const tenantId = req.authUser.tenantId;
     const users = await prisma.user.findMany({
       where: { tenantId },

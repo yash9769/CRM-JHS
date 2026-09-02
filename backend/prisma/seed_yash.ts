@@ -22,7 +22,7 @@ async function seedTenant(tenant: any, mainUser: any) {
         passwordHash,
         firstName: "System",
         lastName: "Admin",
-        role: "ADMIN",
+        orgRole: "SENIOR_PARTNER",
         active: true,
       },
     });
@@ -45,7 +45,7 @@ async function seedTenant(tenant: any, mainUser: any) {
           passwordHash,
           firstName: "Yashodhan",
           lastName: "Rajapkar",
-          role: "ADMIN",
+          orgRole: "SENIOR_PARTNER",
           active: true,
         },
       });
@@ -57,9 +57,9 @@ async function seedTenant(tenant: any, mainUser: any) {
 
   // 1. Team Members
   const teamMembers = [
-    { email: `alex.${tenant.id.slice(0, 4)}@crm.com`, firstName: "Alex", lastName: "Morgan", role: "SALES_MANAGER" as const },
-    { email: `sarah.${tenant.id.slice(0, 4)}@crm.com`, firstName: "Sarah", lastName: "Jenkins", role: "SALES_REP" as const },
-    { email: `mike.${tenant.id.slice(0, 4)}@crm.com`, firstName: "Mike", lastName: "Ross", role: "SALES_REP" as const },
+    { email: `alex.${tenant.id.slice(0, 4)}@crm.com`, firstName: "Alex", lastName: "Morgan", orgRole: "MANAGER" as const },
+    { email: `sarah.${tenant.id.slice(0, 4)}@crm.com`, firstName: "Sarah", lastName: "Jenkins", orgRole: "MANAGER" as const },
+    { email: `mike.${tenant.id.slice(0, 4)}@crm.com`, firstName: "Mike", lastName: "Ross", orgRole: "MANAGER" as const },
   ];
 
   const createdTeam: Record<string, string> = { [user.email]: user.id };
@@ -73,7 +73,7 @@ async function seedTenant(tenant: any, mainUser: any) {
           passwordHash,
           firstName: tm.firstName,
           lastName: tm.lastName,
-          role: tm.role,
+          orgRole: tm.orgRole,
           active: true,
         },
       });
@@ -103,8 +103,8 @@ async function seedTenant(tenant: any, mainUser: any) {
             { name: "Scope Discussion", order: 5, probability: 50, isClosed: false, isWon: false },
             { name: "Proposal Sent", order: 6, probability: 65, isClosed: false, isWon: false },
             { name: "Negotiation", order: 7, probability: 80, isClosed: false, isWon: false },
-            { name: "Proposal Won", order: 8, probability: 100, isClosed: true, isWon: true },
-            { name: "Proposal Lost", order: 9, probability: 0, isClosed: true, isWon: false },
+            { name: "Closed Won", order: 8, probability: 100, isClosed: true, isWon: true },
+            { name: "Closed Lost", order: 9, probability: 0, isClosed: true, isWon: false },
             { name: "Opportunity Dead", order: 10, probability: 0, isClosed: true, isWon: false },
           ],
         },
@@ -134,8 +134,8 @@ async function seedTenant(tenant: any, mainUser: any) {
             { name: "Scope Discussion", order: 5, probability: 50, isClosed: false, isWon: false },
             { name: "Proposal Sent", order: 6, probability: 65, isClosed: false, isWon: false },
             { name: "Negotiation", order: 7, probability: 80, isClosed: false, isWon: false },
-            { name: "Proposal Won", order: 8, probability: 100, isClosed: true, isWon: true },
-            { name: "Proposal Lost", order: 9, probability: 0, isClosed: true, isWon: false },
+            { name: "Closed Won", order: 8, probability: 100, isClosed: true, isWon: true },
+            { name: "Closed Lost", order: 9, probability: 0, isClosed: true, isWon: false },
             { name: "Opportunity Dead", order: 10, probability: 0, isClosed: true, isWon: false },
           ],
         },

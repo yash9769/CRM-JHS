@@ -6,6 +6,9 @@ import { RelationshipSelector, type RelationshipOption } from "./RelationshipSel
 import { fetchAccountOptions, fetchContactOptions, fetchOwnerOptions } from "../lib/pickers";
 import { NewAccountModal, NewContactModal } from "./CreateModals";
 import type { Account, Contact, Opportunity, Lead, Pipeline } from "../lib/types";
+import { Info, DollarSign } from "lucide-react";
+import { formatCurrency } from "../lib/format";
+import { computeOpportunityFinancials } from "../lib/financial";
 
 export function ArchiveConfirmModal({
   title, impactUrl, onConfirm, onClose, isPending,
@@ -190,11 +193,19 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
 
   const [form, setForm] = useState({
     name: opp.name,
-    amount: String(opp.amount),
+    expectedDealValue: opp.expectedDealValue !== undefined && opp.expectedDealValue !== null ? String(opp.expectedDealValue) : String(opp.amount || ""),
+    actualDealValue: opp.actualDealValue !== undefined && opp.actualDealValue !== null ? String(opp.actualDealValue) : "",
+    bottomLineCost: opp.bottomLineCost !== undefined && opp.bottomLineCost !== null ? String(opp.bottomLineCost) : "",
     stageId: opp.stageId,
     createdDate: opp.createdAt ? opp.createdAt.slice(0, 10) : "",
     expectedCloseDate: opp.expectedCloseDate ? opp.expectedCloseDate.slice(0, 10) : "",
     remarks: opp.description || "",
+  });
+
+  const computedFinancials = computeOpportunityFinancials({
+    expectedDealValue: form.expectedDealValue,
+    actualDealValue: form.actualDealValue,
+    bottomLineCost: form.bottomLineCost,
   });
 
   const [clientError, setClientError] = useState<string | null>(null);
@@ -215,9 +226,6 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
           throw new Error("Close Date cannot be earlier than Created Date");
         }
       }
-      if (Number(form.amount) < 0) {
-        throw new Error("Value must be non-negative");
-      }
       if (!accountId) {
         throw new Error("Account is required");
       }
@@ -225,11 +233,22 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
         throw new Error("Assigned To is required");
       }
 
+      const expected = form.expectedDealValue ? Number(form.expectedDealValue) : null;
+      const actual = form.actualDealValue ? Number(form.actualDealValue) : null;
+      const cost = form.bottomLineCost ? Number(form.bottomLineCost) : null;
+
+      if (expected !== null && expected < 0) throw new Error("Expected Deal Value must be non-negative");
+      if (actual !== null && actual < 0) throw new Error("Actual Deal Value must be non-negative");
+      if (cost !== null && cost < 0) throw new Error("Bottom Line Cost must be non-negative");
+
       return api.patch(`/opportunities/${opp.id}`, {
         name: form.name,
         accountId: accountId,
         contactId: contactId || null,
-        amount: Number(form.amount),
+        amount: expected ?? Number(opp.amount),
+        expectedDealValue: expected,
+        actualDealValue: actual,
+        bottomLineCost: cost,
         stageId: form.stageId,
         ownerId: ownerId,
         createdAt: form.createdDate ? new Date(form.createdDate).toISOString() : undefined,
@@ -320,42 +339,141 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
             <FieldError message={fieldErrors.name} />
           </Field>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Opportunity Stage" required>
-              <select
-                value={form.stageId}
-                onChange={(e) => setForm({ ...form, stageId: e.target.value })}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {(oppPipeline?.stages || []).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              <FieldError message={fieldErrors.stageId} />
-            </Field>
+          <Field label="Opportunity Stage" required>
+            <select
+              value={form.stageId}
+              onChange={(e) => setForm({ ...form, stageId: e.target.value })}
+              className={inputClass}
+              style={inputStyle}
+            >
+              {(oppPipeline?.stages || []).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            <FieldError message={fieldErrors.stageId} />
+          </Field>
 
-            <Field label="Opportunity Value" required>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-medium text-[var(--ink-500)]">
-                  ₹
-                </span>
-                <input
-                  required
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  className={`${inputClass} pl-8`}
-                  style={inputStyle}
-                  placeholder="12,00,000"
-                />
+          {/* FINANCIAL DETAILS SECTION */}
+          <div className="p-4 rounded-xl border bg-[var(--ink-50)] border-[var(--ink-100)] space-y-3">
+            <div className="flex items-center gap-2">
+              <DollarSign size={16} className="text-[var(--ledger-700)]" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--ink-800)]">Financial Details</h4>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Field
+                label={
+                  <div className="flex items-center gap-1">
+                    <span>Expected Deal Value</span>
+                    <span title="Expected Deal Value is the revenue amount you expect this opportunity to generate. It represents the expected commercial value before the deal is finally closed." className="cursor-help text-[var(--ink-400)] hover:text-[var(--ledger-700)]">
+                      <Info size={13} />
+                    </span>
+                  </div>
+                }
+              >
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-semibold text-[var(--ink-500)]">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.expectedDealValue}
+                    onChange={(e) => setForm({ ...form, expectedDealValue: e.target.value })}
+                    className={`${inputClass} pl-8 font-mono-num`}
+                    style={inputStyle}
+                    placeholder="12,00,000"
+                  />
+                </div>
+                <FieldError message={fieldErrors.expectedDealValue} />
+              </Field>
+
+              <Field
+                label={
+                  <div className="flex items-center gap-1">
+                    <span>Actual Deal Value</span>
+                    <span title="Actual Deal Value is the final amount agreed with the customer. Enter it when the final commercial value is known or when the opportunity is closed." className="cursor-help text-[var(--ink-400)] hover:text-[var(--ledger-700)]">
+                      <Info size={13} />
+                    </span>
+                  </div>
+                }
+              >
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-semibold text-[var(--ink-500)]">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.actualDealValue}
+                    onChange={(e) => setForm({ ...form, actualDealValue: e.target.value })}
+                    className={`${inputClass} pl-8 font-mono-num`}
+                    style={inputStyle}
+                    placeholder="Optional until agreed"
+                  />
+                </div>
+                <FieldError message={fieldErrors.actualDealValue} />
+              </Field>
+
+              <Field
+                label={
+                  <div className="flex items-center gap-1">
+                    <span>Bottom Line Cost</span>
+                    <span title="Bottom Line Cost is the cost associated with delivering this opportunity. It is used to calculate Gross Margin." className="cursor-help text-[var(--ink-400)] hover:text-[var(--ledger-700)]">
+                      <Info size={13} />
+                    </span>
+                  </div>
+                }
+              >
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-semibold text-[var(--ink-500)]">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.bottomLineCost}
+                    onChange={(e) => setForm({ ...form, bottomLineCost: e.target.value })}
+                    className={`${inputClass} pl-8 font-mono-num`}
+                    style={inputStyle}
+                    placeholder="7,00,000"
+                  />
+                </div>
+                <FieldError message={fieldErrors.bottomLineCost} />
+              </Field>
+            </div>
+
+            {/* Calculated Margins Indicator */}
+            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[var(--ink-200)] text-xs">
+              <div className="p-2 rounded-lg bg-white border border-[var(--ink-100)]">
+                <div className="flex items-center gap-1 text-[11px] text-[var(--ink-500)] font-medium">
+                  <span>Expected Margin</span>
+                  <span title="Expected Margin = Expected Deal Value - Bottom Line Cost" className="cursor-help"><Info size={11} /></span>
+                </div>
+                <div className="font-mono-num font-bold text-slate-800">
+                  {computedFinancials.expectedMargin !== null ? formatCurrency(computedFinancials.expectedMargin) : "—"}
+                </div>
               </div>
-              <FieldError message={fieldErrors.amount} />
-            </Field>
+
+              <div className="p-2 rounded-lg bg-white border border-[var(--ink-100)]">
+                <div className="flex items-center gap-1 text-[11px] text-[var(--ink-500)] font-medium">
+                  <span>Gross Margin</span>
+                  <span title="Gross Margin is the Actual Deal Value minus the Bottom Line Cost." className="cursor-help"><Info size={11} /></span>
+                </div>
+                <div className={`font-mono-num font-bold ${computedFinancials.grossMargin !== null && computedFinancials.grossMargin < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                  {computedFinancials.grossMargin !== null ? formatCurrency(computedFinancials.grossMargin) : "—"}
+                </div>
+              </div>
+
+              <div className="p-2 rounded-lg bg-white border border-[var(--ink-100)]">
+                <div className="flex items-center gap-1 text-[11px] text-[var(--ink-500)] font-medium">
+                  <span>Margin Loss</span>
+                  <span title="Margin Loss shows how much the final Actual Deal Value is below the original Expected Deal Value." className="cursor-help"><Info size={11} /></span>
+                </div>
+                <div className="font-mono-num font-bold text-amber-700">
+                  {computedFinancials.marginLoss !== null ? formatCurrency(computedFinancials.marginLoss) : "—"}
+                </div>
+              </div>
+            </div>
           </div>
 
           <Field label="Remarks">

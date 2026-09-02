@@ -3,7 +3,60 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { logAudit, notify } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
-import { getCreatedByFilter, requireCanAccess } from "../lib/rbac.js";
+import { getCreatedByFilter, requireCanAccess, requireExportPermission } from "../lib/rbac.js";
+import { computeOpportunityFinancials } from "../lib/financial.js";
+
+export function isApprovalRequiredStage(stageName: string, userRole: string = "MANAGER"): boolean {
+  if (!stageName) return false;
+  if (userRole === "SENIOR_PARTNER" || userRole === "PARTNER") {
+    return false;
+  }
+  const s = stageName.toLowerCase().trim();
+  if (
+    s.includes("lead qualified") ||
+    s.includes("scope discussion") ||
+    s.includes("demo") ||
+    s.includes("closed lost") ||
+    s.includes("dead")
+  ) {
+    return false;
+  }
+  return (
+    s.includes("proposal") ||
+    s.includes("quote") ||
+    s.includes("negotiation") ||
+    s.includes("closed won") ||
+    s.includes("won")
+  );
+}
+
+export function formatOppWithFinancials(opp: any) {
+  if (!opp) return opp;
+  const financials = computeOpportunityFinancials({
+    expectedDealValue: opp.expectedDealValue !== null && opp.expectedDealValue !== undefined ? Number(opp.expectedDealValue) : (opp.amount !== null && opp.amount !== undefined ? Number(opp.amount) : null),
+    actualDealValue: opp.actualDealValue !== null && opp.actualDealValue !== undefined ? Number(opp.actualDealValue) : null,
+    bottomLineCost: opp.bottomLineCost !== null && opp.bottomLineCost !== undefined ? Number(opp.bottomLineCost) : null,
+    amount: Number(opp.amount || 0),
+  });
+
+  const isClosedWon = opp.stage ? (opp.stage.isClosed && opp.stage.isWon) : (opp.forecastCategory === "CLOSED_WON");
+  const hasMissingActualValue = isClosedWon && (opp.actualDealValue === null || opp.actualDealValue === undefined);
+
+  return {
+    ...opp,
+    amount: financials.expectedDealValue ?? opp.amount,
+    expectedDealValue: financials.expectedDealValue,
+    actualDealValue: financials.actualDealValue,
+    bottomLineCost: financials.bottomLineCost,
+    expectedMargin: financials.expectedMargin,
+    grossMargin: financials.grossMargin,
+    marginLoss: financials.marginLoss,
+    topLineRevenue: financials.topLineRevenue,
+    marginValue: financials.marginValue,
+    marginPercentage: financials.marginPercentage,
+    hasMissingActualValue,
+  };
+}
 
 const newAccountSchema = z.object({
   name: z.string().min(1),
@@ -18,7 +71,7 @@ const newContactSchema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   email: z.string().email().optional().nullable().or(z.literal("")),
-  phone: z.string().optional().nullable(),
+  phone: z.string().regex(/^\d+$/, "Phone number must contain only numeric digits").optional().nullable().or(z.literal("")),
   jobTitle: z.string().optional().nullable(),
 });
 
@@ -28,7 +81,14 @@ const opportunitySchema = z.object({
   newAccount: newAccountSchema.optional(),
   contactId: z.string().uuid().optional().nullable(),
   newContact: newContactSchema.optional(),
-  amount: z.number({ invalid_type_error: "Opportunity value must be a number" }).nonnegative("Opportunity value must be non-negative"),
+  amount: z.number({ invalid_type_error: "Opportunity value must be a number" }).nonnegative("Opportunity value must be non-negative").optional(),
+  expectedDealValue: z.number({ invalid_type_error: "Expected Deal Value must be a number" }).nonnegative("Expected Deal Value must be non-negative").optional().nullable(),
+  actualDealValue: z.number({ invalid_type_error: "Topline Value must be a number" }).nonnegative("Topline Value must be non-negative").optional().nullable(),
+  bottomLineCost: z.number({ invalid_type_error: "Cost Incurred to Company must be a number" }).nonnegative("Cost Incurred to Company must be non-negative").optional().nullable(),
+  loeValue: z.string().optional().nullable(),
+  loeUnit: z.string().optional().nullable(),
+  poNumber: z.string().optional().nullable(),
+  poValue: z.number().nonnegative().optional().nullable(),
   pipelineId: z.string().uuid(),
   stageId: z.string().uuid("Opportunity Stage is required"),
   probability: z.number().int().min(0).max(100).optional(),
@@ -133,11 +193,13 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       }),
     ]);
 
-    return { data, pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } };
+    return { data: data.map(formatOppWithFinancials), pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } };
   });
 
-  // EXPORT — CSV of opportunities matching current filters
+  // EXPORT — CSV of opportunities matching current filters (restricted for Manager)
   app.get("/api/v1/opportunities/export", { preHandler: app.authenticate }, async (req, reply) => {
+    requireExportPermission(req.authUser);
+
     const q = req.query as { search?: string; accountId?: string; ownerId?: string; stageId?: string; includeArchived?: string; won?: string };
     const where = {
       tenantId: req.authUser.tenantId,
@@ -149,7 +211,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         ? {
             OR: [
               { stage: { isWon: true } },
-              { stage: { name: { in: ["Proposal Won", "Closed Won", "Won"], mode: "insensitive" as const } } },
+              { stage: { name: { in: ["Closed Won", "Won"], mode: "insensitive" as const } } },
               { forecastCategory: "CLOSED_WON" as const },
             ],
           }
@@ -166,38 +228,100 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       },
       orderBy: { updatedAt: "desc" },
     });
-    const rows = opps.map((o) => ({
-      accountOwner: o.account?.owner ? `${o.account.owner.firstName} ${o.account.owner.lastName}` : "",
-      account: o.account?.name || "",
-      contactPerson: o.contact ? `${o.contact.firstName} ${o.contact.lastName}` : "",
-      name: o.name,
-      stage: o.stage.name,
-      amount: Number(o.amount),
-      dealType: o.dealType || o.opportunityType || "NEW_BUSINESS",
-      forecastCategory: o.forecastCategory,
-      remarks: o.description || "",
-      assignedTo: o.owner ? `${o.owner.firstName} ${o.owner.lastName}` : "",
-      createdDate: o.createdAt ? o.createdAt.toISOString().slice(0, 10) : "",
-      closeDate: o.expectedCloseDate ? o.expectedCloseDate.toISOString().slice(0, 10) : "",
-      actualCloseDate: o.actualCloseDate ? o.actualCloseDate.toISOString().slice(0, 10) : "",
-    }));
+    const rows = opps.map((o) => {
+      const f = formatOppWithFinancials(o);
+      return {
+        name: o.name,
+        account: o.account?.name || "",
+        accountOwner: o.account?.owner ? `${o.account.owner.firstName} ${o.account.owner.lastName}` : "",
+        contactPerson: o.contact ? `${o.contact.firstName} ${o.contact.lastName}` : "",
+        stage: o.stage.name,
+        dealType: o.dealType || o.opportunityType || "NEW_BUSINESS",
+        assignedTo: o.owner ? `${o.owner.firstName} ${o.owner.lastName}` : "",
+        expectedDealValue: f.expectedDealValue ?? "",
+        toplineValue: f.actualDealValue ?? "",
+        costIncurred: f.bottomLineCost ?? "",
+        marginValue: f.marginValue ?? "",
+        marginPercentage: f.marginPercentage ?? "",
+        remarks: o.description || "",
+        createdDate: o.createdAt ? o.createdAt.toISOString().slice(0, 10) : "",
+        closeDate: o.expectedCloseDate ? o.expectedCloseDate.toISOString().slice(0, 10) : "",
+        lostReason: o.lostReason || "",
+        loe: o.loeValue ? `${o.loeValue} ${o.loeUnit || "Hours"}` : "",
+        poNumber: o.poNumber || "",
+        poValue: o.poValue ? Number(o.poValue) : "",
+      };
+    });
     const csv = toCsv(rows, [
-      { key: "accountOwner", label: "Account Owner" },
-      { key: "account", label: "Account" },
-      { key: "contactPerson", label: "Contact Person" },
       { key: "name", label: "Opportunity Name" },
-      { key: "stage", label: "Stage" },
-      { key: "amount", label: "Opportunity Value" },
-      { key: "dealType", label: "Type" },
-      { key: "forecastCategory", label: "Forecast Category" },
-      { key: "remarks", label: "Remarks" },
+      { key: "account", label: "Account Name" },
+      { key: "accountOwner", label: "Account Owner" },
+      { key: "contactPerson", label: "Contact Person" },
+      { key: "stage", label: "Opportunity Stage" },
+      { key: "dealType", label: "Deal Stage" },
       { key: "assignedTo", label: "Assigned To" },
+      { key: "expectedDealValue", label: "Expected Deal Value" },
+      { key: "toplineValue", label: "Topline Value" },
+      { key: "costIncurred", label: "Cost Incurred to Company" },
+      { key: "marginValue", label: "Margin Value" },
+      { key: "marginPercentage", label: "Margin Percentage" },
+      { key: "remarks", label: "Remarks" },
       { key: "createdDate", label: "Created Date" },
-      { key: "closeDate", label: "Expected Close Date" },
-      { key: "actualCloseDate", label: "Actual Close Date" },
+      { key: "closeDate", label: "Close Date" },
+      { key: "lostReason", label: "Closed Lost Reason" },
+      { key: "loe", label: "LOE" },
+      { key: "poNumber", label: "PO Number" },
+      { key: "poValue", label: "PO Value" },
     ]);
     reply.header("Content-Type", "text/csv");
     reply.header("Content-Disposition", 'attachment; filename="opportunities.csv"');
+    return reply.send(csv);
+  });
+
+  // SAMPLE TEMPLATE — Download valid Opportunity CSV template (available to all roles)
+  app.get("/api/v1/opportunities/sample-template", { preHandler: app.authenticate }, async (_req, reply) => {
+    const sampleRows = [
+      {
+        name: "Enterprise Security Audit",
+        account: "Acme Corporation",
+        accountOwner: "John Doe",
+        contactPerson: "Jane Smith",
+        stage: "Lead Qualified",
+        dealType: "NEW_BUSINESS",
+        assignedTo: "John Doe",
+        expectedDealValue: "500000",
+        toplineValue: "520000",
+        costIncurred: "350000",
+        remarks: "Scope covers cloud infrastructure penetration testing",
+        createdDate: new Date().toISOString().slice(0, 10),
+        closeDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+        lostReason: "",
+        loe: "160 Hours",
+        poNumber: "PO-2026-001",
+        poValue: "520000",
+      },
+    ];
+    const csv = toCsv(sampleRows, [
+      { key: "name", label: "Opportunity Name" },
+      { key: "account", label: "Account" },
+      { key: "accountOwner", label: "Account Owner" },
+      { key: "contactPerson", label: "Contact Person" },
+      { key: "stage", label: "Opportunity Stage" },
+      { key: "dealType", label: "Deal Stage" },
+      { key: "assignedTo", label: "Assigned To" },
+      { key: "expectedDealValue", label: "Expected Deal Value" },
+      { key: "toplineValue", label: "Topline Value" },
+      { key: "costIncurred", label: "Cost Incurred to Company" },
+      { key: "remarks", label: "Remarks" },
+      { key: "createdDate", label: "Created Date" },
+      { key: "closeDate", label: "Close Date" },
+      { key: "lostReason", label: "Closed Lost Reason" },
+      { key: "loe", label: "LOE" },
+      { key: "poNumber", label: "PO Number" },
+      { key: "poValue", label: "PO Value" },
+    ]);
+    reply.header("Content-Type", "text/csv");
+    reply.header("Content-Disposition", 'attachment; filename="opportunity_sample_template.csv"');
     return reply.send(csv);
   });
 
@@ -238,6 +362,12 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       data?: any;
     }[] = [];
 
+    let importedCount = 0;
+    let pendingApprovalCount = 0;
+    let skippedCount = 0;
+
+    const initialStage = oppPipeline.stages[0];
+
     for (let i = 0; i < body.rows.length; i++) {
       const raw = body.rows[i];
       const mapped: Record<string, string> = {};
@@ -246,8 +376,10 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       }
 
       const oppName = mapped.name || mapped.opportunityName || mapped.dealName;
-      const accountName = mapped.account || mapped.companyName || mapped.company;
-      const amountStr = mapped.amount || mapped.dealValue || mapped.value;
+      const accountName = mapped.account || mapped.accountName || mapped.companyName || mapped.company;
+      const amountStr = mapped.amount || mapped.expectedDealValue || mapped.dealValue || mapped.value;
+      const toplineValueStr = mapped.toplineValue || mapped.actualDealValue;
+      const costIncurredStr = mapped.costIncurred || mapped.bottomLineCost;
       const oppStageName = mapped.opportunityStage || mapped.stage || mapped.dealStage;
       const contactPersonName = mapped.contactPerson || mapped.contact;
       const accountOwnerName = mapped.accountOwner;
@@ -255,6 +387,10 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       const remarks = mapped.remarks || mapped.description || "";
       const createdDateStr = mapped.createdDate || mapped.createdAt;
       const closeDateStr = mapped.closeDate || mapped.expectedCloseDate;
+      const lostReasonStr = mapped.closedLostReason || mapped.lostReason || "";
+      const loeStr = mapped.loe || mapped.loeValue || "";
+      const poNumberStr = mapped.poNumber || "";
+      const poValueStr = mapped.poValue || "";
 
       if (!oppName) {
         results.push({ row: i, status: "error", error: "Opportunity Name is required" });
@@ -275,7 +411,25 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         }
       }
 
-      let stage = oppPipeline.stages[0];
+      let parsedTopline: number | null = null;
+      if (toplineValueStr) {
+        const clean = Number(toplineValueStr.replace(/[^0-9.-]+/g, ""));
+        if (!isNaN(clean) && clean >= 0) parsedTopline = clean;
+      }
+
+      let parsedCost: number | null = null;
+      if (costIncurredStr) {
+        const clean = Number(costIncurredStr.replace(/[^0-9.-]+/g, ""));
+        if (!isNaN(clean) && clean >= 0) parsedCost = clean;
+      }
+
+      let parsedPoValue: number | null = null;
+      if (poValueStr) {
+        const clean = Number(poValueStr.replace(/[^0-9.-]+/g, ""));
+        if (!isNaN(clean) && clean >= 0) parsedPoValue = clean;
+      }
+
+      let stage = initialStage;
       if (oppStageName) {
         const matched = oppStageMap.get(oppStageName.toLowerCase().trim());
         if (!matched) {
@@ -287,6 +441,30 @@ export default async function opportunityRoutes(app: FastifyInstance) {
           continue;
         }
         stage = matched;
+      }
+
+      // Mandatory Closed Lost reason validation in CSV
+      const isClosedLost = stage.isClosed && !stage.isWon;
+      if (isClosedLost && (!lostReasonStr || !lostReasonStr.trim())) {
+        results.push({ row: i, status: "error", error: `Closed Lost Reason is mandatory for opportunity "${oppName}" in Closed Lost stage.` });
+        continue;
+      }
+
+      // Mandatory Closed Won validation in CSV
+      const isClosedWon = stage.isClosed && stage.isWon;
+      if (isClosedWon) {
+        if (!loeStr || !loeStr.trim()) {
+          results.push({ row: i, status: "error", error: `LOE is mandatory for opportunity "${oppName}" in Closed Won stage.` });
+          continue;
+        }
+        if (!poNumberStr || !poNumberStr.trim()) {
+          results.push({ row: i, status: "error", error: `PO Number is mandatory for opportunity "${oppName}" in Closed Won stage.` });
+          continue;
+        }
+        if (parsedPoValue === null || parsedPoValue <= 0) {
+          results.push({ row: i, status: "error", error: `Valid positive PO Value is mandatory for opportunity "${oppName}" in Closed Won stage.` });
+          continue;
+        }
       }
 
       let createdAt = new Date();
@@ -320,8 +498,8 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         if (found) assignedUser = found;
       }
 
-      let accountOwner = assignedUser;
-      if (accountOwnerName) {
+      let accountOwner = req.authUser.orgRole === "MANAGER" ? (users.find(u => u.id === req.authUser.id) || assignedUser) : assignedUser;
+      if (req.authUser.orgRole !== "MANAGER" && accountOwnerName) {
         const found = users.find(
           (u) =>
             u.email.toLowerCase() === accountOwnerName.toLowerCase() ||
@@ -347,16 +525,27 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       });
 
       const isDuplicate = !!existingOpp;
+      const stageReqApproval = isApprovalRequiredStage(stage.name, req.authUser.orgRole);
+      const effectiveStage = stageReqApproval ? initialStage : stage;
+
       const previewData = {
         name: oppName,
         accountName,
         accountOwner: `${accountOwner.firstName} ${accountOwner.lastName}`,
         contactPerson: contactPersonName || "—",
         amount: parsedAmount,
-        stage: stage.name,
+        toplineValue: parsedTopline,
+        costIncurred: parsedCost,
+        stage: effectiveStage.name,
+        requestedStage: stageReqApproval ? stage.name : undefined,
+        pendingApproval: stageReqApproval,
         assignedTo: `${assignedUser.firstName} ${assignedUser.lastName}`,
         createdDate: createdAt.toISOString().slice(0, 10),
         closeDate: closeDate ? closeDate.toISOString().slice(0, 10) : "—",
+        lostReason: lostReasonStr || undefined,
+        loe: loeStr || undefined,
+        poNumber: poNumberStr || undefined,
+        poValue: parsedPoValue,
         remarks,
       };
 
@@ -377,6 +566,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       }
 
       if (isDuplicate && body.commit && decision === "skip") {
+        skippedCount++;
         results.push({ row: i, status: "duplicate", data: previewData });
         continue;
       }
@@ -389,6 +579,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
               tenantId,
               name: accountName,
               ownerId: accountOwner.id,
+              createdById: req.authUser.id,
             },
           });
           accounts.push(newAcc);
@@ -414,6 +605,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
                 firstName,
                 lastName,
                 ownerId: assignedUser.id,
+                createdById: req.authUser.id,
               },
             });
             contacts.push(existingContact);
@@ -421,36 +613,84 @@ export default async function opportunityRoutes(app: FastifyInstance) {
           if (existingContact) contactId = existingContact.id;
         }
 
+        let createdOrUpdatedOppId: string;
+
         if (isDuplicate && decision === "update_existing" && existingOpp) {
-          await prisma.opportunity.update({
+          const updated = await prisma.opportunity.update({
             where: { id: existingOpp.id },
             data: {
               amount: parsedAmount,
-              stageId: stage.id,
-              probability: stage.probability,
+              expectedDealValue: parsedAmount,
+              actualDealValue: parsedTopline ?? undefined,
+              bottomLineCost: parsedCost ?? undefined,
+              stageId: stageReqApproval ? existingOpp.stageId : stage.id,
+              probability: stageReqApproval ? existingOpp.probability : stage.probability,
               expectedCloseDate: closeDate,
               ownerId: assignedUser.id,
               contactId: contactId || undefined,
+              lostReason: isClosedLost ? lostReasonStr : undefined,
+              loeValue: isClosedWon && !stageReqApproval ? loeStr : undefined,
+              poNumber: isClosedWon && !stageReqApproval ? poNumberStr : undefined,
+              poValue: isClosedWon && !stageReqApproval ? parsedPoValue : undefined,
               description: remarks || undefined,
             },
           });
+          createdOrUpdatedOppId = updated.id;
+          importedCount++;
         } else {
-          await prisma.opportunity.create({
+          const created = await prisma.opportunity.create({
             data: {
               tenantId,
               pipelineId: oppPipeline.id,
-              stageId: stage.id,
+              stageId: effectiveStage.id,
               accountId: accountId!,
               contactId,
               ownerId: assignedUser.id,
+              createdById: req.authUser.id,
               name: oppName,
               amount: parsedAmount,
-              probability: stage.probability,
+              expectedDealValue: parsedAmount,
+              actualDealValue: parsedTopline ?? (isClosedWon && !stageReqApproval ? parsedPoValue : null),
+              bottomLineCost: parsedCost ?? null,
+              probability: effectiveStage.probability,
               expectedCloseDate: closeDate,
+              lostReason: isClosedLost ? lostReasonStr : null,
+              loeValue: isClosedWon && !stageReqApproval ? loeStr : null,
+              poNumber: isClosedWon && !stageReqApproval ? poNumberStr : null,
+              poValue: isClosedWon && !stageReqApproval ? parsedPoValue : null,
+              forecastCategory: isClosedWon && !stageReqApproval ? "CLOSED_WON" : isClosedLost ? "CLOSED_LOST" : "PIPELINE",
+              wonDate: isClosedWon && !stageReqApproval ? new Date() : null,
+              actualCloseDate: isClosedWon && !stageReqApproval ? new Date() : null,
               description: remarks || null,
               createdAt,
             },
           });
+          createdOrUpdatedOppId = created.id;
+          importedCount++;
+        }
+
+        // If stage requires approval (e.g. Manager importing Closed Won or Proposal), create StageApproval
+        if (stageReqApproval) {
+          pendingApprovalCount++;
+          const existingPending = await prisma.stageApproval.findFirst({
+            where: { tenantId, opportunityId: createdOrUpdatedOppId, status: "PENDING" },
+          });
+          if (!existingPending) {
+            await prisma.stageApproval.create({
+              data: {
+                tenantId,
+                opportunityId: createdOrUpdatedOppId,
+                requestedById: req.authUser.id,
+                fromStageId: effectiveStage.id,
+                toStageId: stage.id,
+                status: "PENDING",
+                loeValue: isClosedWon ? loeStr : null,
+                poNumber: isClosedWon ? poNumberStr : null,
+                poValue: isClosedWon ? parsedPoValue : null,
+                requesterComment: `Requested stage "${stage.name}" via CSV import`,
+              },
+            });
+          }
         }
       }
 
@@ -462,6 +702,9 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       valid: results.filter((r) => r.status === "valid").length,
       duplicates: results.filter((r) => r.status === "duplicate").length,
       errors: results.filter((r) => r.status === "error").length,
+      imported: importedCount,
+      pendingApproval: pendingApprovalCount,
+      skipped: skippedCount,
       committed: body.commit,
     };
 
@@ -476,20 +719,57 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: "Account is required — select an existing account or create a new one" });
     }
 
+    // Auto-select Account Owner as current Manager if Manager creates
+    if (req.authUser.orgRole === "MANAGER") {
+      body.ownerId = req.authUser.id;
+      if (body.newAccount) {
+        body.newAccount.ownerId = req.authUser.id;
+      }
+    }
+
     if (body.createdAt && body.expectedCloseDate) {
       if (new Date(body.expectedCloseDate) < new Date(body.createdAt)) {
         return reply.code(400).send({ error: "Close Date cannot be earlier than Created Date" });
       }
     }
 
-    const [account, stage] = await Promise.all([
+    const [account, stage, oppPipeline] = await Promise.all([
       body.accountId ? prisma.account.findFirst({ where: { id: body.accountId, tenantId } }) : Promise.resolve(null),
       prisma.pipelineStage.findFirst({
         where: { id: body.stageId, pipelineId: body.pipelineId, pipeline: { tenantId } },
       }),
+      prisma.pipeline.findFirst({
+        where: { id: body.pipelineId, tenantId },
+        include: { stages: { orderBy: { order: "asc" } } },
+      }),
     ]);
     if (body.accountId && !account) return reply.code(400).send({ error: "Account not found for this tenant" });
     if (!stage) return reply.code(400).send({ error: "Stage does not belong to the specified pipeline" });
+
+    const isClosingWon = stage.isClosed && stage.isWon;
+    const isClosingLost = stage.isClosed && !stage.isWon;
+
+    // Closed Lost validation
+    if (isClosingLost && (!body.lostReason || !body.lostReason.trim())) {
+      return reply.code(400).send({ error: "A valid Closed Lost reason is mandatory when moving an opportunity to Closed Lost." });
+    }
+
+    // Closed Won validation
+    if (isClosingWon) {
+      if (!body.loeValue || !body.loeValue.trim()) {
+        return reply.code(400).send({ error: "LOE (Level of Effort) is mandatory when moving an opportunity to Closed Won." });
+      }
+      if (!body.poNumber || !body.poNumber.trim()) {
+        return reply.code(400).send({ error: "PO Number is mandatory when moving an opportunity to Closed Won." });
+      }
+      if (body.poValue === undefined || body.poValue === null || Number(body.poValue) <= 0) {
+        return reply.code(400).send({ error: "A valid positive PO Value is mandatory when moving an opportunity to Closed Won." });
+      }
+    }
+
+    const stageReqApproval = isApprovalRequiredStage(stage.name, req.authUser.orgRole);
+    const initialStage = oppPipeline?.stages[0] || stage;
+    const effectiveStage = stageReqApproval ? initialStage : stage;
 
     const opportunity = await prisma.$transaction(async (tx) => {
       let accountId = body.accountId;
@@ -502,7 +782,8 @@ export default async function opportunityRoutes(app: FastifyInstance) {
             industry: body.newAccount.industry || null,
             phone: body.newAccount.phone || null,
             website: body.newAccount.website || null,
-            ownerId: body.newAccount.ownerId || body.ownerId,
+            ownerId: req.authUser.orgRole === "MANAGER" ? req.authUser.id : (body.newAccount.ownerId || body.ownerId),
+            createdById: req.authUser.id,
           },
         });
         accountId = newAcc.id;
@@ -520,6 +801,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
             phone: body.newContact.phone || null,
             jobTitle: body.newContact.jobTitle || null,
             ownerId: body.ownerId,
+            createdById: req.authUser.id,
           },
         });
         contactId = newCt.id;
@@ -529,8 +811,11 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       if (contactId) allContactIds.add(contactId);
       if (body.contactIds) body.contactIds.forEach((id) => allContactIds.add(id));
 
-      const isClosingWon = stage.isClosed && stage.isWon;
-      const isClosingLost = stage.isClosed && !stage.isWon;
+      const expectedDealValue = body.expectedDealValue !== undefined && body.expectedDealValue !== null
+        ? body.expectedDealValue
+        : (body.amount ?? 0);
+      const actualDealValue = isClosingWon && !stageReqApproval ? (body.poValue ? Number(body.poValue) : body.actualDealValue ?? null) : (body.actualDealValue ?? null);
+      const bottomLineCost = body.bottomLineCost ?? null;
 
       const opp = await tx.opportunity.create({
         data: {
@@ -538,17 +823,24 @@ export default async function opportunityRoutes(app: FastifyInstance) {
           name: body.name,
           accountId: accountId!,
           contactId: contactId || null,
-          amount: body.amount,
+          amount: expectedDealValue,
+          expectedDealValue,
+          actualDealValue,
+          bottomLineCost,
           pipelineId: body.pipelineId,
-          stageId: body.stageId,
-          probability: body.probability ?? stage.probability,
+          stageId: effectiveStage.id,
+          probability: effectiveStage.probability,
           createdAt: body.createdAt ? new Date(body.createdAt) : undefined,
           expectedCloseDate: body.expectedCloseDate ? new Date(body.expectedCloseDate) : null,
-          actualCloseDate: body.actualCloseDate ? new Date(body.actualCloseDate) : (isClosingWon ? new Date() : null),
-          wonDate: body.wonDate ? new Date(body.wonDate) : (isClosingWon ? new Date() : null),
-          lostReason: body.lostReason || null,
+          actualCloseDate: isClosingWon && !stageReqApproval ? new Date() : null,
+          wonDate: isClosingWon && !stageReqApproval ? new Date() : null,
+          lostReason: isClosingLost ? body.lostReason : null,
+          loeValue: isClosingWon && !stageReqApproval ? body.loeValue : null,
+          loeUnit: isClosingWon && !stageReqApproval ? (body.loeUnit || "Hours") : "Hours",
+          poNumber: isClosingWon && !stageReqApproval ? body.poNumber : null,
+          poValue: isClosingWon && !stageReqApproval ? body.poValue : null,
           dealType: body.dealType || null,
-          forecastCategory: isClosingWon ? "CLOSED_WON" : isClosingLost ? "CLOSED_LOST" : (body.forecastCategory || "PIPELINE"),
+          forecastCategory: isClosingWon && !stageReqApproval ? "CLOSED_WON" : isClosingLost ? "CLOSED_LOST" : (body.forecastCategory || "PIPELINE"),
           ownerId: body.ownerId,
           createdById: req.authUser.id,
           opportunityType: body.opportunityType || "NEW_BUSINESS",
@@ -562,17 +854,41 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       });
 
       await tx.opportunityStageHistory.create({
-        data: { opportunityId: opp.id, toStageId: body.stageId, changedById: req.authUser.id },
+        data: { opportunityId: opp.id, toStageId: effectiveStage.id, changedById: req.authUser.id },
       });
 
-      if (isClosingWon) {
+      if (stageReqApproval) {
+        let partnerId = req.authUser.partnerId;
+        if (!partnerId) {
+          const partnerUser = await tx.user.findFirst({
+            where: { tenantId, orgRole: { in: ["PARTNER", "SENIOR_PARTNER"] }, active: true, id: { not: req.authUser.id } },
+          });
+          partnerId = partnerUser?.id || null;
+        }
+        await tx.stageApproval.create({
+          data: {
+            tenantId,
+            opportunityId: opp.id,
+            requestedById: req.authUser.id,
+            approverId: partnerId,
+            fromStageId: effectiveStage.id,
+            toStageId: stage.id,
+            status: "PENDING",
+            loeValue: isClosingWon ? body.loeValue : null,
+            loeUnit: isClosingWon ? (body.loeUnit || "Hours") : "Hours",
+            poNumber: isClosingWon ? body.poNumber : null,
+            poValue: isClosingWon ? body.poValue : null,
+            requesterComment: body.remarks || body.description || `Requested stage "${stage.name}"`,
+          },
+        });
+      } else if (isClosingWon) {
         const acct = await tx.account.findUnique({ where: { id: accountId! } });
         if (acct) {
           const currentRev = Number(acct.annualRevenue || 0);
-          const newRev = currentRev + Number(opp.amount);
+          const addVal = body.poValue ? Number(body.poValue) : Number(opp.amount);
           await tx.account.update({
             where: { id: accountId! },
-            data: { annualRevenue: newRev },
+            data: { annualRevenue: currentRev + addVal },
           });
         }
       }
@@ -593,10 +909,11 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         stage: true,
         pipeline: true,
         owner: { select: { id: true, firstName: true, lastName: true } },
+        attachments: { include: { uploadedBy: { select: { id: true, firstName: true, lastName: true } } } },
       },
     });
 
-    return reply.code(201).send(fullOpp);
+    return reply.code(201).send(formatOppWithFinancials(fullOpp));
   });
 
   app.get("/api/v1/opportunities/:id", { preHandler: app.authenticate }, async (req, reply) => {
@@ -616,6 +933,10 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         contacts: { include: { contact: true } },
         lineItems: { include: { product: true } },
         quotes: true,
+        attachments: {
+          include: { uploadedBy: { select: { id: true, firstName: true, lastName: true } } },
+          orderBy: { createdAt: "desc" },
+        },
         activities: { orderBy: { createdAt: "desc" } },
         notes: { include: { author: { select: { id: true, firstName: true, lastName: true } } }, orderBy: { createdAt: "desc" } },
         stageHistory: { orderBy: { changedAt: "desc" } },
@@ -624,15 +945,19 @@ export default async function opportunityRoutes(app: FastifyInstance) {
           include: {
             requestedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
             approver: { select: { id: true, firstName: true, lastName: true } },
+            reviewedBy: { select: { id: true, firstName: true, lastName: true } },
             fromStage: true,
             toStage: true,
+            attachments: {
+              include: { uploadedBy: { select: { id: true, firstName: true, lastName: true } } },
+            },
           },
         },
       },
     });
     if (!opp) return reply.code(404).send({ error: "Opportunity not found" });
     await requireCanAccess(req.authUser, opp, "read");
-    return opp;
+    return formatOppWithFinancials(opp);
   });
 
   app.patch("/api/v1/opportunities/:id", { preHandler: app.authenticate }, async (req, reply) => {
@@ -655,72 +980,90 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         where: { id: body.stageId, pipelineId: body.pipelineId ?? existing.pipelineId },
       });
       if (!targetStage) return reply.code(400).send({ error: "Invalid stage for this pipeline" });
+    }
 
-      if (targetStage.isClosed && targetStage.isWon) {
-        const amount = body.amount ?? existing.amount;
-        if (!amount || Number(amount) <= 0) {
-          return reply.code(400).send({ error: "A valid amount is required to mark an opportunity Closed Won" });
-        }
+    const isMovingToClosedWon = targetStage ? (targetStage.isClosed && targetStage.isWon) : (body.forecastCategory === "CLOSED_WON");
+    const isMovingToClosedLost = targetStage ? (targetStage.isClosed && !targetStage.isWon) : (body.forecastCategory === "CLOSED_LOST");
+
+    // Closed Lost validation
+    if (isMovingToClosedLost) {
+      const candidateReason = body.lostReason !== undefined ? body.lostReason : existing.lostReason;
+      if (!candidateReason || !candidateReason.trim()) {
+        return reply.code(400).send({ error: "A valid Closed Lost reason is mandatory when moving an opportunity to Closed Lost." });
+      }
+    }
+
+    // Closed Won validation
+    if (isMovingToClosedWon) {
+      if (!body.loeValue || !body.loeValue.trim()) {
+        return reply.code(400).send({ error: "LOE (Level of Effort) is mandatory when moving an opportunity to Closed Won." });
+      }
+      if (!body.poNumber || !body.poNumber.trim()) {
+        return reply.code(400).send({ error: "PO Number is mandatory when moving an opportunity to Closed Won." });
+      }
+      if (body.poValue === undefined || body.poValue === null || Number(body.poValue) <= 0) {
+        return reply.code(400).send({ error: "A valid positive PO Value is mandatory when moving an opportunity to Closed Won." });
       }
     }
 
     let isApprovalRequired = false;
     let pendingApprovalRecord: any = null;
 
-    if (stageChanged) {
-      if (req.authUser.orgRole === "MANAGER") {
+    if (stageChanged && targetStage) {
+      const targetRequiresApproval = isApprovalRequiredStage(targetStage.name, req.authUser.orgRole);
+
+      if (targetRequiresApproval) {
         isApprovalRequired = true;
 
         let partnerId = req.authUser.partnerId;
         if (!partnerId) {
           const partnerUser = await prisma.user.findFirst({
-            where: { tenantId: req.authUser.tenantId, orgRole: { in: ["PARTNER", "SENIOR_PARTNER"] }, active: true },
+            where: { tenantId: req.authUser.tenantId, orgRole: { in: ["PARTNER", "SENIOR_PARTNER"] }, active: true, id: { not: req.authUser.id } },
           });
           partnerId = partnerUser?.id || null;
         }
 
-        const existingApproval = await prisma.stageApproval.findFirst({
+        const activePending = await prisma.stageApproval.findFirst({
           where: { tenantId: req.authUser.tenantId, opportunityId: id, status: "PENDING" },
         });
 
-        if (existingApproval) {
-          pendingApprovalRecord = await prisma.stageApproval.update({
-            where: { id: existingApproval.id },
-            data: {
-              fromStageId: existing.stageId,
-              toStageId: body.stageId!,
-              approverId: partnerId,
-            },
-            include: { toStage: true, fromStage: true },
-          });
-        } else {
-          pendingApprovalRecord = await prisma.stageApproval.create({
-            data: {
-              tenantId: req.authUser.tenantId,
-              opportunityId: id,
-              requestedById: req.authUser.id,
-              approverId: partnerId,
-              fromStageId: existing.stageId,
-              toStageId: body.stageId!,
-              status: "PENDING",
-            },
-            include: { toStage: true, fromStage: true },
+        if (activePending) {
+          return reply.code(400).send({
+            error: "An active pending approval request already exists for this opportunity. Please wait for review or cancel the current request before submitting a new one.",
           });
         }
 
-        if (partnerId) {
+        pendingApprovalRecord = await prisma.stageApproval.create({
+          data: {
+            tenantId: req.authUser.tenantId,
+            opportunityId: id,
+            requestedById: req.authUser.id,
+            approverId: partnerId,
+            fromStageId: existing.stageId,
+            toStageId: body.stageId!,
+            status: "PENDING",
+            loeValue: isMovingToClosedWon ? body.loeValue : null,
+            loeUnit: isMovingToClosedWon ? (body.loeUnit || "Hours") : "Hours",
+            poNumber: isMovingToClosedWon ? body.poNumber : null,
+            poValue: isMovingToClosedWon ? body.poValue : null,
+            requesterComment: body.remarks || body.description || null,
+          },
+          include: { toStage: true, fromStage: true },
+        });
+
+        const partnersToNotify = await prisma.user.findMany({
+          where: { tenantId: req.authUser.tenantId, orgRole: { in: ["PARTNER", "SENIOR_PARTNER"] }, active: true, id: { not: req.authUser.id } },
+          select: { id: true },
+        });
+
+        for (const p of partnersToNotify) {
           await notify({
             tenantId: req.authUser.tenantId,
-            userId: partnerId,
-            message: `Stage Change Requested: Manager ${req.authUser.firstName} ${req.authUser.lastName} requested moving "${existing.name}" to "${targetStage.name}"`,
+            userId: p.id,
+            message: `Stage Change Requested: "${existing.name}" → "${targetStage.name}" requested by ${req.authUser.firstName} ${req.authUser.lastName}`,
             link: `/opportunities/${id}`,
           });
         }
-      } else {
-        await prisma.stageApproval.updateMany({
-          where: { tenantId: req.authUser.tenantId, opportunityId: id, status: "PENDING" },
-          data: { status: "APPROVED", approverId: req.authUser.id },
-        });
       }
     }
 
@@ -728,6 +1071,9 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     if (isApprovalRequired) {
       delete rest.stageId;
     }
+
+    const updatedExpectedDealValue = rest.expectedDealValue !== undefined ? rest.expectedDealValue : (rest.amount !== undefined ? rest.amount : undefined);
+    const updatedAmount = updatedExpectedDealValue !== undefined ? (updatedExpectedDealValue ?? existing.amount) : undefined;
 
     const opportunity = await prisma.$transaction(async (tx) => {
       const isClosingWon = !isApprovalRequired && !!targetStage?.isClosed && targetStage.isWon;
@@ -741,6 +1087,13 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         where: { id },
         data: {
           ...rest,
+          ...(updatedAmount !== undefined ? { amount: updatedAmount } : {}),
+          ...(updatedExpectedDealValue !== undefined ? { expectedDealValue: updatedExpectedDealValue } : {}),
+          actualDealValue: isClosingWon ? (rest.poValue ? Number(rest.poValue) : (rest.actualDealValue ?? existing.actualDealValue)) : rest.actualDealValue,
+          loeValue: isClosingWon ? rest.loeValue : (rest.loeValue !== undefined ? rest.loeValue : undefined),
+          loeUnit: isClosingWon ? (rest.loeUnit || "Hours") : (rest.loeUnit !== undefined ? rest.loeUnit : undefined),
+          poNumber: isClosingWon ? rest.poNumber : (rest.poNumber !== undefined ? rest.poNumber : undefined),
+          poValue: isClosingWon ? rest.poValue : (rest.poValue !== undefined ? rest.poValue : undefined),
           probability: (!isApprovalRequired && stageChanged && targetStage) ? targetStage.probability : rest.probability,
           forecastCategory: isClosingWon ? "CLOSED_WON" : isClosingLost ? "CLOSED_LOST" : rest.forecastCategory,
           wonDate: isClosingWon ? (existing.wonDate ?? new Date()) : undefined,
@@ -780,10 +1133,10 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         const acct = await tx.account.findUnique({ where: { id: updated.accountId } });
         if (acct) {
           const currentRev = Number(acct.annualRevenue || 0);
-          const newRev = currentRev + Number(updated.amount);
+          const addVal = updated.poValue ? Number(updated.poValue) : Number(updated.amount);
           await tx.account.update({
             where: { id: updated.accountId },
-            data: { annualRevenue: newRev },
+            data: { annualRevenue: currentRev + addVal },
           });
         }
       }
@@ -813,11 +1166,13 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         stage: true,
         pipeline: { include: { stages: { orderBy: { order: "asc" } } } },
         owner: { select: { id: true, firstName: true, lastName: true } },
+        attachments: { include: { uploadedBy: { select: { id: true, firstName: true, lastName: true } } } },
         stageApprovals: {
           orderBy: { createdAt: "desc" },
           include: {
             requestedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
             approver: { select: { id: true, firstName: true, lastName: true } },
+            reviewedBy: { select: { id: true, firstName: true, lastName: true } },
             fromStage: true,
             toStage: true,
           },
@@ -825,16 +1180,60 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       },
     });
 
+    const formatted = formatOppWithFinancials(fullOpp);
+
     if (isApprovalRequired) {
       return {
-        ...fullOpp,
+        ...formatted,
         pendingApproval: true,
         message: `Stage change to "${targetStage?.name}" submitted for Partner approval.`,
         approval: pendingApprovalRecord,
       };
     }
 
-    return fullOpp;
+    return formatted;
+  });
+
+  // ATTACHMENTS — Metadata endpoint for Opportunity attachments
+  app.post("/api/v1/opportunities/:id/attachments", { preHandler: app.authenticate }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const attachSchema = z.object({
+      originalFilename: z.string().min(1),
+      mimeType: z.string().min(1),
+      size: z.number().int().positive(),
+      storageKey: z.string().optional().nullable(),
+      stageApprovalId: z.string().uuid().optional().nullable(),
+    });
+    const body = attachSchema.parse(req.body);
+    const opp = await prisma.opportunity.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
+    if (!opp) return reply.code(404).send({ error: "Opportunity not found" });
+
+    const attachment = await prisma.opportunityAttachment.create({
+      data: {
+        tenantId: req.authUser.tenantId,
+        opportunityId: id,
+        stageApprovalId: body.stageApprovalId || null,
+        originalFilename: body.originalFilename,
+        mimeType: body.mimeType,
+        size: body.size,
+        storageKey: body.storageKey || `staged/${Date.now()}-${body.originalFilename}`,
+        uploadedById: req.authUser.id,
+      },
+      include: { uploadedBy: { select: { id: true, firstName: true, lastName: true } } },
+    });
+
+    return reply.code(201).send({ data: attachment });
+  });
+
+  app.delete("/api/v1/opportunities/:id/attachments/:attachmentId", { preHandler: app.authenticate }, async (req, reply) => {
+    const { id, attachmentId } = req.params as { id: string; attachmentId: string };
+    const attachment = await prisma.opportunityAttachment.findFirst({
+      where: { id: attachmentId, opportunityId: id, tenantId: req.authUser.tenantId },
+    });
+    if (!attachment) return reply.code(404).send({ error: "Attachment not found" });
+
+    await prisma.opportunityAttachment.delete({ where: { id: attachmentId } });
+    return reply.code(204).send();
   });
 
   app.delete("/api/v1/opportunities/:id", { preHandler: app.authenticate }, async (req, reply) => {
@@ -879,7 +1278,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
 
     const items = await prisma.lineItem.findMany({ where: { opportunityId: id } });
     const newAmount = items.reduce((sum, li) => sum + Number(li.total), 0);
-    await prisma.opportunity.update({ where: { id }, data: { amount: newAmount } });
+    await prisma.opportunity.update({ where: { id }, data: { amount: newAmount, expectedDealValue: newAmount } });
 
     return reply.code(201).send(lineItem);
   });
@@ -891,7 +1290,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     await prisma.lineItem.delete({ where: { id: lineItemId } });
     const items = await prisma.lineItem.findMany({ where: { opportunityId } });
     const newAmount = items.reduce((sum, li) => sum + Number(li.total), 0);
-    await prisma.opportunity.update({ where: { id: opportunityId }, data: { amount: newAmount } });
+    await prisma.opportunity.update({ where: { id: opportunityId }, data: { amount: newAmount, expectedDealValue: newAmount } });
     return reply.code(204).send();
   });
 
@@ -910,6 +1309,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       action: z.enum(["assignOwner", "changeStage", "archive"]),
       ownerId: z.string().uuid().optional(),
       stageId: z.string().uuid().optional(),
+      lostReason: z.string().optional(),
     }).parse(req.body);
 
     const tenantId = req.authUser.tenantId;
@@ -926,14 +1326,26 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       const stage = await prisma.pipelineStage.findFirst({ where: { id: body.stageId, pipeline: { tenantId } } });
       if (!stage) return reply.code(400).send({ error: "Invalid stage" });
 
-      if (req.authUser.orgRole === "MANAGER") {
+      if (stage.isClosed && !stage.isWon) {
+        if (!body.lostReason || !body.lostReason.trim()) {
+          return reply.code(400).send({ error: "A valid Closed Lost reason is required when moving opportunities to Closed Lost." });
+        }
+        data.lostReason = body.lostReason.trim();
+        data.forecastCategory = "CLOSED_LOST";
+      }
+
+      const targetRequiresApproval = isApprovalRequiredStage(stage.name, req.authUser.orgRole);
+
+      if (targetRequiresApproval) {
         let partnerId = req.authUser.partnerId;
         if (!partnerId) {
           const partnerUser = await prisma.user.findFirst({
-            where: { tenantId, orgRole: { in: ["PARTNER", "SENIOR_PARTNER"] }, active: true },
+            where: { tenantId, orgRole: { in: ["PARTNER", "SENIOR_PARTNER"] }, active: true, id: { not: req.authUser.id } },
           });
           partnerId = partnerUser?.id || null;
         }
+
+        let pendingCount = 0;
 
         for (const oppId of ids) {
           const opp = await prisma.opportunity.findUnique({ where: { id: oppId } });
@@ -942,12 +1354,8 @@ export default async function opportunityRoutes(app: FastifyInstance) {
           const existingApproval = await prisma.stageApproval.findFirst({
             where: { tenantId, opportunityId: oppId, status: "PENDING" },
           });
-          if (existingApproval) {
-            await prisma.stageApproval.update({
-              where: { id: existingApproval.id },
-              data: { toStageId: body.stageId, fromStageId: opp.stageId, approverId: partnerId },
-            });
-          } else {
+
+          if (!existingApproval) {
             await prisma.stageApproval.create({
               data: {
                 tenantId,
@@ -957,24 +1365,31 @@ export default async function opportunityRoutes(app: FastifyInstance) {
                 fromStageId: opp.stageId,
                 toStageId: body.stageId,
                 status: "PENDING",
+                requesterComment: `Bulk stage change requested to "${stage.name}"`,
               },
             });
+            pendingCount++;
           }
         }
 
-        if (partnerId) {
+        const partnersToNotify = await prisma.user.findMany({
+          where: { tenantId, orgRole: { in: ["PARTNER", "SENIOR_PARTNER"] }, active: true, id: { not: req.authUser.id } },
+          select: { id: true },
+        });
+
+        for (const p of partnersToNotify) {
           await notify({
             tenantId,
-            userId: partnerId,
-            message: `Bulk Stage Change Requested: Manager ${req.authUser.firstName} ${req.authUser.lastName} requested stage change for ${ids.length} opportunities to "${stage.name}"`,
+            userId: p.id,
+            message: `Bulk Stage Change Requested: ${pendingCount} opportunities requested to move to "${stage.name}" by ${req.authUser.firstName} ${req.authUser.lastName}`,
             link: "/opportunities",
           });
         }
 
-        return { updated: ids.length, pendingApproval: true, message: `Stage change submitted to Partner for approval` };
+        return { updated: 0, pendingApproval: pendingCount, message: `${pendingCount} stage approval request(s) submitted to Partner for approval` };
       }
 
-      data = { stageId: body.stageId, probability: stage.probability };
+      data = { ...data, stageId: body.stageId, probability: stage.probability };
     } else if (body.action === "archive") {
       data = { archived: true };
     }

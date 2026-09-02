@@ -10,8 +10,8 @@ export const CANONICAL_OPPORTUNITY_STAGES = [
   { name: "Scope Discussion", order: 5, probability: 50, isClosed: false, isWon: false },
   { name: "Proposal Sent", order: 6, probability: 65, isClosed: false, isWon: false },
   { name: "Negotiation", order: 7, probability: 80, isClosed: false, isWon: false },
-  { name: "Proposal Won", order: 8, probability: 100, isClosed: true, isWon: true },
-  { name: "Proposal Lost", order: 9, probability: 0, isClosed: true, isWon: false },
+  { name: "Closed Won", order: 8, probability: 100, isClosed: true, isWon: true },
+  { name: "Closed Lost", order: 9, probability: 0, isClosed: true, isWon: false },
   { name: "Opportunity Dead", order: 10, probability: 0, isClosed: true, isWon: false },
 ];
 
@@ -51,16 +51,16 @@ const STAGE_NAME_MAP: Record<string, string> = {
   "contract review": "Negotiation",
   "legal & security review": "Negotiation",
 
-  // 8. Proposal Won
-  "proposal won": "Proposal Won",
-  "closed won": "Proposal Won",
-  won: "Proposal Won",
-  "converted to deal": "Proposal Won",
+  // 8. Closed Won
+  "proposal won": "Closed Won",
+  "closed won": "Closed Won",
+  won: "Closed Won",
+  "converted to deal": "Closed Won",
 
-  // 9. Proposal Lost
-  "proposal lost": "Proposal Lost",
-  "closed lost": "Proposal Lost",
-  lost: "Proposal Lost",
+  // 9. Closed Lost
+  "proposal lost": "Closed Lost",
+  "closed lost": "Closed Lost",
+  lost: "Closed Lost",
 
   // 10. Opportunity Dead
   "opportunity dead": "Opportunity Dead",

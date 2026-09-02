@@ -13,6 +13,8 @@ import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../co
 import type { Account, Paginated } from "../lib/types";
 import { Plus, Search, Building2, Download, UploadCloud } from "lucide-react";
 
+import { useAuth } from "../hooks/useAuth";
+
 const typeTone: Record<string, "neutral" | "green" | "amber"> = {
   PROSPECT: "amber",
   CUSTOMER: "green",
@@ -23,16 +25,18 @@ const typeTone: Record<string, "neutral" | "green" | "amber"> = {
 const TYPES = ["ALL", "PROSPECT", "CUSTOMER", "PARTNER", "FORMER_CUSTOMER"] as const;
 
 const ACCOUNT_COLUMNS: ColumnDef[] = [
-  { key: "name", label: "Account", permanent: true },
+  { key: "name", label: "Account Name", permanent: true },
   { key: "industry", label: "Industry" },
   { key: "type", label: "Type" },
-  { key: "owner", label: "Owner" },
+  { key: "createdBy", label: "Created By" },
+  { key: "assignedTo", label: "Assigned To" },
   { key: "contacts", label: "Contacts" },
   { key: "opportunities", label: "Open Opps" },
   { key: "updatedAt", label: "Updated" },
 ];
 
 export default function AccountsPage() {
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -45,7 +49,7 @@ export default function AccountsPage() {
     ACCOUNT_COLUMNS
   );
 
-  const { data, isLoading } = useQuery<Paginated<Account>>({
+  const { data, isLoading } = useQuery<Paginated<Account & { createdBy?: { firstName: string; lastName: string } }>>({
     queryKey: ["accounts", search, accountType, ownerId],
     queryFn: async () =>
       (
@@ -86,9 +90,11 @@ export default function AccountsPage() {
             <Button variant="secondary" onClick={() => setShowImport(true)}>
               <UploadCloud size={14} /> Import CSV
             </Button>
-            <Button variant="secondary" onClick={exportCsv}>
-              <Download size={14} /> Export CSV
-            </Button>
+            {user?.orgRole !== "MANAGER" && (
+              <Button variant="secondary" onClick={exportCsv}>
+                <Download size={14} /> Export CSV
+              </Button>
+            )}
             <Button onClick={() => setShowNew(true)}>
               <Plus size={15} /> New Account
             </Button>
@@ -152,7 +158,7 @@ export default function AccountsPage() {
                 <tr className="text-left border-b" style={{ borderColor: "var(--ink-100)" }}>
                   {isVisible("name") && (
                     <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: "var(--ink-400)" }}>
-                      Account
+                      Account Name
                     </th>
                   )}
                   {isVisible("industry") && (
@@ -165,9 +171,14 @@ export default function AccountsPage() {
                       Type
                     </th>
                   )}
-                  {isVisible("owner") && (
+                  {isVisible("createdBy") && (
                     <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: "var(--ink-400)" }}>
-                      Owner
+                      Created By
+                    </th>
+                  )}
+                  {isVisible("assignedTo") && (
+                    <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: "var(--ink-400)" }}>
+                      Assigned To
                     </th>
                   )}
                   {isVisible("contacts") && (
@@ -188,7 +199,7 @@ export default function AccountsPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.data.map((a) => (
+                {data.data.map((a: any) => (
                   <tr key={a.id} className="border-b last:border-0 hover:bg-[var(--ink-50)]" style={{ borderColor: "var(--ink-100)" }}>
                     {isVisible("name") && (
                       <td className="px-4 py-3">
@@ -207,11 +218,16 @@ export default function AccountsPage() {
                     )}
                     {isVisible("type") && (
                       <td className="px-4 py-3">
-                        <Badge tone={typeTone[a.accountType]}>{a.accountType.replace("_", " ")}</Badge>
+                        <Badge tone={typeTone[a.accountType]}>{a.accountType?.replace("_", " ") || "PROSPECT"}</Badge>
                       </td>
                     )}
-                    {isVisible("owner") && (
-                      <td className="px-4 py-3" style={{ color: "var(--ink-600)" }}>
+                    {isVisible("createdBy") && (
+                      <td className="px-4 py-3 text-xs" style={{ color: "var(--ink-600)" }}>
+                        {a.createdBy ? `${a.createdBy.firstName} ${a.createdBy.lastName}` : "—"}
+                      </td>
+                    )}
+                    {isVisible("assignedTo") && (
+                      <td className="px-4 py-3 font-medium text-xs" style={{ color: "var(--ink-700)" }}>
                         {a.owner ? `${a.owner.firstName} ${a.owner.lastName}` : "—"}
                       </td>
                     )}

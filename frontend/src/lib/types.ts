@@ -100,8 +100,8 @@ export const CANONICAL_STAGES = [
   "Scope Discussion",
   "Proposal Sent",
   "Negotiation",
-  "Proposal Won",
-  "Proposal Lost",
+  "Closed Won",
+  "Closed Lost",
   "Opportunity Dead",
 ] as const;
 
@@ -125,6 +125,19 @@ export interface Pipeline {
   stages: PipelineStage[];
 }
 
+export interface OpportunityAttachment {
+  id: string;
+  opportunityId: string;
+  stageApprovalId?: string | null;
+  originalFilename: string;
+  storageKey?: string;
+  mimeType?: string;
+  size: number;
+  uploadedById: string;
+  uploadedBy?: { id: string; firstName: string; lastName: string };
+  createdAt: string;
+}
+
 export interface StageApproval {
   id: string;
   tenantId: string;
@@ -133,17 +146,31 @@ export interface StageApproval {
   requestedBy?: { id: string; firstName: string; lastName: string; email?: string };
   approverId?: string | null;
   approver?: { id: string; firstName: string; lastName: string };
+  reviewedById?: string | null;
+  reviewedBy?: { id: string; firstName: string; lastName: string };
   fromStageId: string;
   fromStage?: PipelineStage;
   toStageId: string;
   toStage?: PipelineStage;
-  status: "PENDING" | "APPROVED" | "REJECTED";
+  status: "PENDING" | "APPROVED" | "DISAPPROVED" | "CANCELLED";
   comments?: string | null;
+  requesterComment?: string | null;
+  approverComment?: string | null;
+  loeValue?: string | null;
+  loeUnit?: string | null;
+  poNumber?: string | null;
+  poValue?: number | string | null;
+  attachments?: OpportunityAttachment[];
   createdAt: string;
+  updatedAt?: string;
+  reviewedAt?: string | null;
   opportunity?: {
     id: string;
     name: string;
+    amount?: string | number;
+    expectedCloseDate?: string | null;
     account?: { id: string; name: string };
+    contact?: { id: string; firstName: string; lastName: string };
     owner?: { id: string; firstName: string; lastName: string };
   };
 }
@@ -156,6 +183,14 @@ export interface Opportunity {
   contactId?: string | null;
   contact?: Contact | null;
   amount: string;
+  expectedDealValue?: string | number | null;
+  actualDealValue?: string | number | null;
+  bottomLineCost?: string | number | null;
+  expectedMargin?: string | number | null;
+  grossMargin?: string | number | null;
+  marginLoss?: string | number | null;
+  topLineRevenue?: string | number | null;
+  hasMissingActualValue?: boolean;
   pipelineId: string;
   pipeline?: Pipeline;
   stageId: string;
@@ -165,6 +200,10 @@ export interface Opportunity {
   actualCloseDate?: string | null;
   wonDate?: string | null;
   lostReason?: string | null;
+  loeValue?: string | null;
+  loeUnit?: string | null;
+  poNumber?: string | null;
+  poValue?: number | string | null;
   dealType?: string | null;
   forecastCategory?: string;
   ownerId: string;
@@ -179,8 +218,29 @@ export interface Opportunity {
   quotes?: any[];
   activities?: Activity[];
   notes?: Note[];
-  stageHistory?: any[];
   stageApprovals?: StageApproval[];
+  attachments?: OpportunityAttachment[];
+}
+
+export interface DashboardMetrics {
+  kpis: {
+    totalPipeline: number;
+    weightedPipeline: number;
+    openOpportunities: number;
+    closedWonRevenue: number;
+    winRate: number;
+    avgOpportunitySize: number;
+    oppsClosingThisMonth: number;
+    totalExpectedMargin?: number;
+    totalGrossMargin?: number;
+    totalMarginLoss?: number;
+    totalBottomLineCost?: number;
+  };
+  charts: {
+    pipelineByStage: { stageName: string; count: number; amount: number }[];
+    revenueByMonth: { month: string; revenue: number }[];
+    oppsByOwner: { owner: string; count: number; amount: number }[];
+  };
 }
 
 export interface Service {

@@ -3,14 +3,14 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
-import { getCreatedByFilter, requireCanAccess } from "../lib/rbac.js";
+import { getCreatedByFilter, requireCanAccess, requireExportPermission } from "../lib/rbac.js";
 
 const contactSchema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   email: z.string().email().optional().nullable().or(z.literal("")),
-  phone: z.string().optional().nullable(),
-  phoneNumber: z.string().optional().nullable(),
+  phone: z.string().regex(/^\d+$/, "Phone number must contain only numeric digits").optional().nullable().or(z.literal("")),
+  phoneNumber: z.string().regex(/^\d+$/, "Phone number must contain only numeric digits").optional().nullable().or(z.literal("")),
   jobTitle: z.string().optional().nullable(),
   designation: z.string().optional().nullable(),
   lifecycleStage: z
@@ -96,6 +96,8 @@ export default async function contactRoutes(app: FastifyInstance) {
 
   // EXPORT — CSV of contacts matching current filters
   app.get("/api/v1/contacts/export", { preHandler: app.authenticate }, async (req, reply) => {
+    requireExportPermission(req.authUser);
+
     const q = req.query as { search?: string; accountId?: string; ownerId?: string; lifecycleStage?: string; includeArchived?: string };
     const where = {
       tenantId: req.authUser.tenantId,

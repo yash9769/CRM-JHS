@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
+import { requireExportPermission } from "../lib/rbac.js";
 
 const activitySchema = z.object({
   type: z.enum(["CALL", "EMAIL", "MEETING", "TASK", "NOTE", "FOLLOW_UP", "DEMO", "PROPOSAL", "OTHER"]),
@@ -59,6 +60,7 @@ export default async function activityRoutes(app: FastifyInstance) {
 
   // EXPORT — CSV of activities/tasks matching filters
   app.get("/api/v1/activities/export", { preHandler: app.authenticate }, async (req, reply) => {
+    requireExportPermission(req.authUser);
     const q = req.query as {
       type?: string;
       status?: string;

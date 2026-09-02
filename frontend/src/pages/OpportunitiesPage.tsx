@@ -11,17 +11,22 @@ import { BulkActionBar, SelectAllCheckbox, RowCheckbox } from "../components/Bul
 import { SavedViewsBar } from "../components/SavedViewsBar";
 import { fetchOwnerOptions } from "../lib/pickers";
 import { formatCurrency, formatDate } from "../lib/format";
+import { computeOpportunityFinancials } from "../lib/financial";
+import { useAuth } from "../hooks/useAuth";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
 import type { Opportunity, Pipeline, Paginated } from "../lib/types";
-import { Plus, Search, Archive, Download, UploadCloud, Building2, User } from "lucide-react";
+import { Plus, Search, Archive, Download, UploadCloud, Building2, User, FileSpreadsheet } from "lucide-react";
 
 const OPPORTUNITY_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Opportunity Name", permanent: true },
-  { key: "account", label: "Account" },
+  { key: "account", label: "Account Name" },
   { key: "contact", label: "Contact Person" },
   { key: "stage", label: "Stage" },
-  { key: "forecastCategory", label: "Forecast Category" },
-  { key: "amount", label: "Value" },
+  { key: "forecastCategory", label: "Forecast" },
+  { key: "actualDealValue", label: "Topline Value" },
+  { key: "bottomLineCost", label: "Cost Incurred to Company" },
+  { key: "marginValue", label: "Margin Value" },
+  { key: "marginPercentage", label: "Margin Percentage" },
   { key: "owner", label: "Assigned To" },
   { key: "createdAt", label: "Created Date" },
   { key: "closeDate", label: "Close Date" },
@@ -29,6 +34,7 @@ const OPPORTUNITY_COLUMNS: ColumnDef[] = [
 ];
 
 export default function OpportunitiesPage() {
+  const { user } = useAuth();
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<"all" | "open" | "won" | "lost">("all");
   const [showNew, setShowNew] = useState(false);
@@ -100,6 +106,14 @@ export default function OpportunitiesPage() {
     );
   }
 
+  async function downloadSampleTemplate() {
+    await downloadCsvExport(
+      "/opportunities/sample-template",
+      {},
+      "opportunity_sample_template.csv"
+    );
+  }
+
   function toggleAll(checked: boolean) {
     setSelected(checked ? new Set(filteredData.map((o) => o.id)) : new Set());
   }
@@ -129,14 +143,19 @@ export default function OpportunitiesPage() {
               onReset={reset}
               label="Columns"
             />
+            <Button variant="secondary" onClick={downloadSampleTemplate}>
+              <FileSpreadsheet size={14} /> Download Sample Format
+            </Button>
             <Button variant="secondary" onClick={() => setShowImport(true)}>
               <UploadCloud size={14} /> Import CSV
             </Button>
-            <Button variant="secondary" onClick={exportCsv}>
-              <Download size={14} /> Export CSV
-            </Button>
+            {user?.orgRole !== "MANAGER" && (
+              <Button variant="secondary" onClick={exportCsv}>
+                <Download size={14} /> Export CSV
+              </Button>
+            )}
             <Button onClick={() => setShowNew(true)}>
-              <Plus size={15} /> New Opportunity
+              <Plus size={15} /> Create Opportunity
             </Button>
           </div>
         }
@@ -265,7 +284,7 @@ export default function OpportunitiesPage() {
                       )}
                       {isVisible("account") && (
                         <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
-                          Account
+                          Account Name
                         </th>
                       )}
                       {isVisible("contact") && (
@@ -283,9 +302,24 @@ export default function OpportunitiesPage() {
                           Forecast
                         </th>
                       )}
-                      {isVisible("amount") && (
+                      {isVisible("actualDealValue") && (
                         <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
-                          Value
+                          Topline Value
+                        </th>
+                      )}
+                      {isVisible("bottomLineCost") && (
+                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
+                          Cost Incurred to Company
+                        </th>
+                      )}
+                      {isVisible("marginValue") && (
+                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
+                          Margin Value
+                        </th>
+                      )}
+                      {isVisible("marginPercentage") && (
+                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)]">
+                          Margin Percentage
                         </th>
                       )}
                       {isVisible("owner") && (
@@ -312,11 +346,18 @@ export default function OpportunitiesPage() {
                   </thead>
                   <tbody>
                     {filteredData.map((o) => {
+                      const financials = computeOpportunityFinancials(o);
                       const contactName = o.contact
                         ? `${o.contact.firstName} ${o.contact.lastName}`
                         : o.contacts && o.contacts[0]?.contact
                         ? `${o.contacts[0].contact.firstName} ${o.contacts[0].contact.lastName}`
                         : "—";
+
+                      const mv = financials.marginValue;
+                      const mp = financials.marginPercentage;
+                      const marginColorClass = mv !== null
+                        ? (mv > 0 ? "text-emerald-600 font-bold" : mv < 0 ? "text-rose-600 font-bold" : "text-slate-600 font-medium")
+                        : "text-slate-400";
 
                       return (
                         <tr key={o.id} className="border-b last:border-0 hover:bg-[var(--ink-50)] border-[var(--ink-100)]">
@@ -352,8 +393,25 @@ export default function OpportunitiesPage() {
                               </Badge>
                             </td>
                           )}
-                          {isVisible("amount") && (
-                            <td className="px-4 py-3 font-mono-num font-semibold">{formatCurrency(o.amount)}</td>
+                          {isVisible("actualDealValue") && (
+                            <td className="px-4 py-3 font-mono-num font-semibold text-slate-900">
+                              {financials.actualDealValue !== null ? formatCurrency(financials.actualDealValue) : "—"}
+                            </td>
+                          )}
+                          {isVisible("bottomLineCost") && (
+                            <td className="px-4 py-3 font-mono-num font-medium text-slate-600">
+                              {financials.bottomLineCost !== null ? formatCurrency(financials.bottomLineCost) : "—"}
+                            </td>
+                          )}
+                          {isVisible("marginValue") && (
+                            <td className={`px-4 py-3 font-mono-num ${marginColorClass}`}>
+                              {mv !== null ? formatCurrency(mv) : "—"}
+                            </td>
+                          )}
+                          {isVisible("marginPercentage") && (
+                            <td className={`px-4 py-3 font-mono-num ${marginColorClass}`}>
+                              {mp !== null ? `${mp.toFixed(1)}%` : "—"}
+                            </td>
                           )}
                           {isVisible("owner") && (
                             <td className="px-4 py-3 text-[var(--ink-600)]">

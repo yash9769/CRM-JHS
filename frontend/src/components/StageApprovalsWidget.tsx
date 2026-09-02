@@ -4,12 +4,14 @@ import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";
 import { Button, Badge } from "./ui";
 import type { StageApproval } from "../lib/types";
-import { Clock, CheckCircle2, XCircle, ChevronDown, ShieldAlert } from "lucide-react";
+import { ApprovalReviewModal } from "./ApprovalReviewModal";
+import { Clock, ChevronDown, ShieldAlert, Eye } from "lucide-react";
 
 export function StageApprovalsWidget() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [selectedApproval, setSelectedApproval] = useState<StageApproval | null>(null);
 
   const { data } = useQuery<{ data: StageApproval[] }>({
     queryKey: ["stage-approvals", "pending"],
@@ -29,8 +31,9 @@ export function StageApprovalsWidget() {
     },
   });
 
-  const rejectMutation = useMutation({
-    mutationFn: (id: string) => api.post(`/opportunities/approvals/${id}/reject`),
+  const disapproveMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      api.post(`/opportunities/approvals/${id}/disapprove`, { approverComment: reason }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["opportunities"] });
       qc.invalidateQueries({ queryKey: ["opportunity"] });
@@ -99,34 +102,34 @@ export function StageApprovalsWidget() {
                     <span className="font-bold text-[var(--ledger-700)]">{appr.toStage?.name || "Target Stage"}</span>
                   </div>
 
-                  {isPartner ? (
-                    <div className="flex items-center justify-end gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={rejectMutation.isPending}
-                        onClick={() => rejectMutation.mutate(appr.id)}
-                      >
-                        <XCircle size={13} className="text-rose-600" /> Reject
-                      </Button>
-                      <Button
-                        size="sm"
-                        disabled={approveMutation.isPending}
-                        onClick={() => approveMutation.mutate(appr.id)}
-                      >
-                        <CheckCircle2 size={13} /> Approve
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="text-[11px] italic text-[var(--ink-400)] text-right">
-                      Waiting for Partner approval
-                    </div>
-                  )}
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setSelectedApproval(appr)}
+                    >
+                      <Eye size={13} /> Review Request
+                    </Button>
+                  </div>
                 </div>
               ))
             )}
           </div>
         </div>
+      )}
+
+      {selectedApproval && (
+        <ApprovalReviewModal
+          approval={selectedApproval}
+          onApprove={async (id) => {
+            await approveMutation.mutateAsync(id);
+          }}
+          onDisapprove={async (id, reason) => {
+            await disapproveMutation.mutateAsync({ id, reason });
+          }}
+          onClose={() => setSelectedApproval(null)}
+          isSubmitting={approveMutation.isPending || disapproveMutation.isPending}
+        />
       )}
     </div>
   );

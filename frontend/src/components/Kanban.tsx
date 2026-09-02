@@ -2,12 +2,20 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { formatCurrency, formatDate } from "../lib/format";
 import { Badge, Modal, Button } from "./ui";
+import { ApprovalRequestModal } from "./ApprovalRequestModal";
 import { Building2, User, Calendar } from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
 
 interface KanbanItem {
   id: string;
   name: string;
   amount: string;
+  expectedDealValue?: string | number | null;
+  actualDealValue?: string | number | null;
+  bottomLineCost?: string | number | null;
+  expectedMargin?: string | number | null;
+  grossMargin?: string | number | null;
+  marginLoss?: string | number | null;
   stageId: string;
   closeDate?: string | null;
   expectedCloseDate?: string | null;
@@ -32,21 +40,30 @@ export function KanbanBoard<T extends KanbanItem>({
   onMove: (item: T, newStageId: string) => void;
   visibleStageIds?: Set<string>;
 }) {
+  const { user } = useAuth();
+  const isPartnerOrSenior = user?.orgRole === "PARTNER" || user?.orgRole === "SENIOR_PARTNER";
+
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
   const [confirmMove, setConfirmMove] = useState<{ item: T; targetStage: { id: string; name: string; isClosed: boolean; isWon: boolean } } | null>(null);
 
+  const [approvalMove, setApprovalMove] = useState<{ item: T; fromStage: { id: string; name: string }; targetStage: { id: string; name: string } } | null>(null);
+
   function handleDrop(targetStage: { id: string; name: string; isClosed: boolean; isWon: boolean }) {
-    setOverStage(null);
+    if (!dragId) return;
     const item = items.find((i) => i.id === dragId);
     if (!item || item.stageId === targetStage.id) {
       setDragId(null);
       return;
     }
 
-    // If dropping into a terminal closed stage or moving out of closed stage, ask for confirmation
     const currentStage = stages.find((s) => s.id === item.stageId);
-    if (targetStage.isClosed || (currentStage && currentStage.isClosed)) {
+    const isTargetApprovalStage = ["proposal", "quote", "negotiation", "closed won"].includes(targetStage.name.toLowerCase().trim());
+    const requiresApproval = !isPartnerOrSenior && isTargetApprovalStage;
+
+    if (requiresApproval && currentStage) {
+      setApprovalMove({ item, fromStage: currentStage, targetStage });
+    } else if (targetStage.isClosed || (currentStage && currentStage.isClosed)) {
       setConfirmMove({ item, targetStage });
     } else {
       onMove(item, targetStage.id);
@@ -101,6 +118,7 @@ export function KanbanBoard<T extends KanbanItem>({
                     ? `${item.contact.firstName} ${item.contact.lastName}`
                     : (item.contacts && item.contacts[0]?.contact ? `${item.contacts[0].contact.firstName} ${item.contacts[0].contact.lastName}` : null);
                   const closeDate = item.expectedCloseDate || item.closeDate;
+                  const pendingAppr = item.stageApprovals?.find((a: any) => a.status === "PENDING");
 
                   return (
                     <Link
@@ -125,19 +143,46 @@ export function KanbanBoard<T extends KanbanItem>({
                         </div>
                       )}
 
-                      {/* Deal Value & Stage Status */}
-                      <div className="flex items-center justify-between pt-1 border-t" style={{ borderColor: "var(--ink-50)" }}>
-                        <span className="text-sm font-mono-num font-bold" style={{ color: "var(--ink-900)" }}>
-                          {formatCurrency(item.amount)}
-                        </span>
-                        {item.stageApprovals?.some((a: any) => a.status === "PENDING") ? (
-                          <Badge tone="amber">
-                            ⏳ Pending Approval
-                          </Badge>
+                      {/* Deal Value & Margin */}
+                      <div className="pt-2 border-t space-y-1" style={{ borderColor: "var(--ink-50)" }}>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-[var(--ink-500)]">
+                            {item.actualDealValue !== null && item.actualDealValue !== undefined ? "Actual:" : "Expected:"}
+                          </span>
+                          <span className="font-mono-num font-bold text-sm text-[var(--ledger-800)]">
+                            {item.actualDealValue !== null && item.actualDealValue !== undefined
+                              ? formatCurrency(item.actualDealValue)
+                              : item.expectedDealValue !== null && item.expectedDealValue !== undefined
+                              ? formatCurrency(item.expectedDealValue)
+                              : formatCurrency(item.amount)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-[var(--ink-500)]">
+                            {item.grossMargin !== null && item.grossMargin !== undefined ? "Gross Margin:" : "Margin:"}
+                          </span>
+                          <span className={`font-mono-num font-bold ${item.grossMargin !== null && item.grossMargin !== undefined && Number(item.grossMargin) < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                            {item.grossMargin !== null && item.grossMargin !== undefined
+                              ? formatCurrency(item.grossMargin)
+                              : item.expectedMargin !== null && item.expectedMargin !== undefined
+                              ? formatCurrency(item.expectedMargin)
+                              : "—"}
+                          </span>
+                        </div>
+
+                        {pendingAppr ? (
+                          <div className="pt-1">
+                            <Badge tone="amber">
+                              ⏳ Pending Approval: {pendingAppr.toStage?.name || "Proposal"}
+                            </Badge>
+                          </div>
                         ) : item.probability !== undefined ? (
-                          <Badge tone={stage.isWon ? "green" : stage.isClosed ? "neutral" : undefined}>
-                            {item.probability}%
-                          </Badge>
+                          <div className="flex justify-end pt-0.5">
+                            <Badge tone={stage.isWon ? "green" : stage.isClosed ? "neutral" : undefined}>
+                              {item.probability}%
+                            </Badge>
+                          </div>
                         ) : null}
                       </div>
 
@@ -213,6 +258,19 @@ export function KanbanBoard<T extends KanbanItem>({
             </div>
           </div>
         </Modal>
+      )}
+      {/* Stage Approval Request Modal */}
+      {approvalMove && (
+        <ApprovalRequestModal
+          opportunity={approvalMove.item}
+          fromStage={approvalMove.fromStage}
+          toStage={approvalMove.targetStage}
+          onSubmit={async () => {
+            await onMove(approvalMove.item, approvalMove.targetStage.id);
+            setApprovalMove(null);
+          }}
+          onClose={() => setApprovalMove(null)}
+        />
       )}
     </>
   );

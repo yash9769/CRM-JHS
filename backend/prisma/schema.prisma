@@ -39,6 +39,8 @@ model Tenant {
   leads           Lead[]
   savedViews      SavedView[]
   stageApprovals  StageApproval[]
+  stickyNotes     StickyNote[]
+  opportunityAttachments OpportunityAttachment[]
 
   @@map("tenants")
 }
@@ -97,6 +99,9 @@ model User {
 
   requestedApprovals StageApproval[] @relation("ApprovalRequestedBy")
   receivedApprovals  StageApproval[] @relation("ApprovalApprover")
+  reviewedApprovals  StageApproval[] @relation("ApprovalReviewedBy")
+  stickyNotes        StickyNote[]    @relation("UserStickyNotes")
+  uploadedOpportunityAttachments OpportunityAttachment[] @relation("AttachmentUploader")
 
   @@unique([tenantId, email])
   @@map("users")
@@ -340,6 +345,9 @@ model Opportunity {
   contactId         String?
   contact           Contact?         @relation("OpportunityPrimaryContact", fields: [contactId], references: [id])
   amount            Decimal          @db.Decimal(16, 2)
+  expectedDealValue Decimal?         @db.Decimal(16, 2)
+  actualDealValue   Decimal?         @db.Decimal(16, 2)
+  bottomLineCost    Decimal?         @db.Decimal(16, 2)
   pipelineId        String
   pipeline          Pipeline         @relation(fields: [pipelineId], references: [id])
   stageId           String
@@ -358,18 +366,23 @@ model Opportunity {
   lostReason        String?
   leadSource        String?
   description       String?
+  loeValue          String?
+  loeUnit           String?          @default("Hours")
+  poNumber          String?
+  poValue           Decimal?         @db.Decimal(16, 2)
   properties        Json             @default("{}")
   archived          Boolean          @default(false)
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
-  contacts     OpportunityContact[]
-  stageHistory OpportunityStageHistory[]
-  activities   Activity[]
-  notes        Note[]
-  lineItems    LineItem[]
-  quotes       Quote[]
+  contacts       OpportunityContact[]
+  stageHistory   OpportunityStageHistory[]
+  activities     Activity[]
+  notes          Note[]
+  lineItems      LineItem[]
+  quotes         Quote[]
   stageApprovals StageApproval[]
+  attachments    OpportunityAttachment[]
 
   @@index([tenantId])
   @@index([tenantId, accountId])
@@ -800,32 +813,96 @@ model Notification {
 enum ApprovalStatus {
   PENDING
   APPROVED
-  REJECTED
+  DISAPPROVED
+  CANCELLED
 }
 
 model StageApproval {
-  id            String         @id @default(uuid())
-  tenantId      String
-  tenant        Tenant         @relation(fields: [tenantId], references: [id])
-  opportunityId String
-  opportunity   Opportunity    @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-  requestedById String
-  requestedBy   User           @relation("ApprovalRequestedBy", fields: [requestedById], references: [id])
-  approverId    String?
-  approver      User?          @relation("ApprovalApprover", fields: [approverId], references: [id])
-  fromStageId   String
-  fromStage     PipelineStage  @relation("ApprovalFromStage", fields: [fromStageId], references: [id])
-  toStageId     String
-  toStage       PipelineStage  @relation("ApprovalToStage", fields: [toStageId], references: [id])
-  status        ApprovalStatus @default(PENDING)
-  comments      String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id               String         @id @default(uuid())
+  tenantId         String
+  tenant           Tenant         @relation(fields: [tenantId], references: [id])
+  opportunityId    String
+  opportunity      Opportunity    @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  requestedById    String
+  requestedBy      User           @relation("ApprovalRequestedBy", fields: [requestedById], references: [id])
+  approverId       String?
+  approver         User?          @relation("ApprovalApprover", fields: [approverId], references: [id])
+  reviewedById     String?
+  reviewedBy       User?          @relation("ApprovalReviewedBy", fields: [reviewedById], references: [id])
+  fromStageId      String
+  fromStage        PipelineStage  @relation("ApprovalFromStage", fields: [fromStageId], references: [id])
+  toStageId        String
+  toStage          PipelineStage  @relation("ApprovalToStage", fields: [toStageId], references: [id])
+  status           ApprovalStatus @default(PENDING)
+  comments         String?
+  requesterComment String?
+  approverComment  String?
+  loeValue         String?
+  loeUnit          String?        @default("Hours")
+  poNumber         String?
+  poValue          Decimal?       @db.Decimal(16, 2)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  reviewedAt       DateTime?
+
+  attachments      OpportunityAttachment[]
 
   @@index([tenantId, opportunityId])
   @@index([tenantId, requestedById])
   @@index([tenantId, approverId])
+  @@index([tenantId, reviewedById])
   @@index([tenantId, status])
   @@map("stage_approvals")
 }
+
+// ---------------------------------------------------------------------------
+// Sticky Notes (Global / Dashboard Personal Notes)
+// ---------------------------------------------------------------------------
+
+model StickyNote {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  userId      String
+  user        User     @relation("UserStickyNotes", fields: [userId], references: [id])
+  title       String?
+  content     String   @default("")
+  color       String?  @default("yellow")
+  isPinned    Boolean  @default(false)
+  isMinimized Boolean  @default(false)
+  positionX   Int?     @default(0)
+  positionY   Int?     @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, userId])
+  @@map("sticky_notes")
+}
+
+// ---------------------------------------------------------------------------
+// Opportunity Attachments (Object-Storage Ready Metadata)
+// ---------------------------------------------------------------------------
+
+model OpportunityAttachment {
+  id               String         @id @default(uuid())
+  tenantId         String
+  tenant           Tenant         @relation(fields: [tenantId], references: [id])
+  opportunityId    String
+  opportunity      Opportunity    @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  stageApprovalId  String?
+  stageApproval    StageApproval? @relation(fields: [stageApprovalId], references: [id], onDelete: SetNull)
+  originalFilename String
+  mimeType         String
+  size             Int
+  storageKey       String?
+  uploadedById     String
+  uploadedBy       User           @relation("AttachmentUploader", fields: [uploadedById], references: [id])
+  createdAt        DateTime       @default(now())
+
+  @@index([tenantId, opportunityId])
+  @@index([tenantId, stageApprovalId])
+  @@map("opportunity_attachments")
+}
+
+
 

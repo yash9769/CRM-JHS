@@ -6,7 +6,9 @@ import { Modal, Field, Button, inputClass, inputStyle } from "./ui";
 import { RelationshipSelector, type RelationshipOption } from "./RelationshipSelector";
 import { fetchAccountOptions, fetchContactOptions, fetchOwnerOptions } from "../lib/pickers";
 import type { Pipeline, DuplicateLeadCandidate } from "../lib/types";
+import { Info, DollarSign } from "lucide-react";
 import { formatCurrency } from "../lib/format";
+import { computeOpportunityFinancials } from "../lib/financial";
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -133,6 +135,8 @@ export function NewAccountModal({
 /* Contact                                                                 */
 /* ---------------------------------------------------------------------- */
 
+import { useAuth } from "../hooks/useAuth";
+
 export function NewContactModal({
   onClose,
   onCreated,
@@ -166,9 +170,15 @@ export function NewContactModal({
   const [accountLabel, setAccountLabel] = useState<string | null>(accountName || null);
   const [showNewAccount, setShowNewAccount] = useState<string | null>(null);
   const [duplicates, setDuplicates] = useState<any[] | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: (force: boolean) => api.post("/contacts", { ...form, accountId: accountId || null }, { params: force ? { force: "true" } : {} }),
+    mutationFn: (force: boolean) => {
+      if (form.phone && !/^\d+$/.test(form.phone)) {
+        throw new Error("Phone number must contain only numeric digits (no spaces, dashes, or letters)");
+      }
+      return api.post("/contacts", { ...form, accountId: accountId || null }, { params: force ? { force: "true" } : {} });
+    },
     onSuccess: (res) => { qc.invalidateQueries({ queryKey: ["contacts"] }); if (accountId) qc.invalidateQueries({ queryKey: ["account", accountId] }); onCreated?.(res.data); onClose(); },
     onError: (err: any) => { if (err?.response?.status === 409) setDuplicates(err.response.data.duplicates || []); },
   });
@@ -197,8 +207,21 @@ export function NewContactModal({
   return (
     <>
       <Modal title="New Contact" onClose={onClose}>
-        <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(false); }}>
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          setPhoneError(null);
+          if (form.phone && !/^\d+$/.test(form.phone)) {
+            setPhoneError("Phone number must contain only numeric digits (no spaces, dashes, or symbols)");
+            return;
+          }
+          mutation.mutate(false);
+        }}>
           <GeneralError err={mutation.error?.response?.status !== 409 ? mutation.error : undefined} fallback="Could not create contact." />
+          {phoneError && (
+            <div className="text-sm mb-3 px-3 py-2 rounded-md text-[var(--rose-600)] bg-[var(--rose-100)]">
+              {phoneError}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Field label="First name" required>
               <input required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} className={inputClass} style={inputStyle} placeholder="Rahul" />
@@ -214,8 +237,18 @@ export function NewContactModal({
               <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputClass} style={inputStyle} placeholder="rahul@example.com" />
               <FieldError message={fieldErrors.email} />
             </Field>
-            <Field label="Phone Number">
-              <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputClass} style={inputStyle} placeholder="+91 98765 43210" />
+            <Field label="Phone Number (Numeric only)">
+              <input
+                value={form.phone}
+                onChange={(e) => {
+                  setForm({ ...form, phone: e.target.value });
+                  setPhoneError(null);
+                }}
+                className={inputClass}
+                style={inputStyle}
+                placeholder="9876543210"
+              />
+              <FieldError message={fieldErrors.phone} />
             </Field>
           </div>
           <Field label="Designation">
@@ -282,6 +315,8 @@ export function NewOpportunityModal({
   initialRemarks?: string;
 }) {
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const isManager = user?.orgRole === "MANAGER";
 
   const { data: oppPipelines } = useQuery<{ data: Pipeline[] }>({
     queryKey: ["pipelines", "OPPORTUNITY"],
@@ -301,17 +336,29 @@ export function NewOpportunityModal({
   const [showNewAccount, setShowNewAccount] = useState<string | null>(null);
   const [showNewContact, setShowNewContact] = useState<string | null>(null);
 
-  const [ownerId, setOwnerId] = useState<string | null>(null);
-  const [ownerLabel, setOwnerLabel] = useState<string | null>(null);
+  const [ownerId, setOwnerId] = useState<string | null>(
+    isManager && user ? user.id : null
+  );
+  const [ownerLabel, setOwnerLabel] = useState<string | null>(
+    isManager && user ? `${user.firstName} ${user.lastName}` : null
+  );
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({
     name: initialName || "",
-    amount: initialAmount ? String(initialAmount) : "",
+    expectedDealValue: initialAmount ? String(initialAmount) : "",
+    actualDealValue: "",
+    bottomLineCost: "",
     stageId: "",
     remarks: initialRemarks || "",
     createdDate: todayStr,
     closeDate: "",
+  });
+
+  const computedFinancials = computeOpportunityFinancials({
+    expectedDealValue: form.expectedDealValue,
+    actualDealValue: form.actualDealValue,
+    bottomLineCost: form.bottomLineCost,
   });
 
   const [clientError, setClientError] = useState<string | null>(null);
@@ -324,7 +371,7 @@ export function NewOpportunityModal({
       setAccountOwnerId(opt.ownerId);
       setAccountOwnerLabel(opt.ownerLabel || null);
     }
-    if (!ownerId && opt?.ownerId) {
+    if (!isManager && !ownerId && opt?.ownerId) {
       setOwnerId(opt.ownerId);
       setOwnerLabel(opt.ownerLabel || null);
     }
@@ -347,15 +394,23 @@ export function NewOpportunityModal({
       if (!ownerId) {
         throw new Error("Please assign the opportunity to a user");
       }
-      if (Number(form.amount) < 0) {
-        throw new Error("Value must be non-negative");
-      }
+
+      const expected = form.expectedDealValue ? Number(form.expectedDealValue) : null;
+      const actual = form.actualDealValue ? Number(form.actualDealValue) : null;
+      const cost = form.bottomLineCost ? Number(form.bottomLineCost) : null;
+
+      if (expected !== null && expected < 0) throw new Error("Expected Deal Value must be non-negative");
+      if (actual !== null && actual < 0) throw new Error("Actual Deal Value must be non-negative");
+      if (cost !== null && cost < 0) throw new Error("Bottom Line Cost must be non-negative");
 
       return api.post("/opportunities", {
         name: form.name,
         accountId: accountId,
         contactId: contactId || null,
-        amount: Number(form.amount || 0),
+        amount: expected ?? 0,
+        expectedDealValue: expected,
+        actualDealValue: actual,
+        bottomLineCost: cost,
         pipelineId: oppPipeline!.id,
         stageId: effectiveStageId,
         ownerId: ownerId,
@@ -457,42 +512,141 @@ export function NewOpportunityModal({
             <FieldError message={fieldErrors.name} />
           </Field>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Opportunity Stage" required>
-              <select
-                value={effectiveStageId}
-                onChange={(e) => setForm({ ...form, stageId: e.target.value })}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {oppPipeline.stages.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              <FieldError message={fieldErrors.stageId} />
-            </Field>
+          <Field label="Opportunity Stage" required>
+            <select
+              value={effectiveStageId}
+              onChange={(e) => setForm({ ...form, stageId: e.target.value })}
+              className={inputClass}
+              style={inputStyle}
+            >
+              {oppPipeline.stages.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            <FieldError message={fieldErrors.stageId} />
+          </Field>
 
-            <Field label="Opportunity Value" required>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-medium text-[var(--ink-500)]">
-                  ₹
-                </span>
-                <input
-                  required
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  className={`${inputClass} pl-8`}
-                  style={inputStyle}
-                  placeholder="12,00,000"
-                />
+          {/* FINANCIAL DETAILS SECTION */}
+          <div className="p-4 rounded-xl border bg-[var(--ink-50)] border-[var(--ink-100)] space-y-3">
+            <div className="flex items-center gap-2">
+              <DollarSign size={16} className="text-[var(--ledger-700)]" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--ink-800)]">Financial Details</h4>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Field
+                label={
+                  <div className="flex items-center gap-1">
+                    <span>Expected Deal Value</span>
+                    <span title="Expected Deal Value is the revenue amount you expect this opportunity to generate. It represents the expected commercial value before the deal is finally closed." className="cursor-help text-[var(--ink-400)] hover:text-[var(--ledger-700)]">
+                      <Info size={13} />
+                    </span>
+                  </div>
+                }
+              >
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-semibold text-[var(--ink-500)]">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.expectedDealValue}
+                    onChange={(e) => setForm({ ...form, expectedDealValue: e.target.value })}
+                    className={`${inputClass} pl-8 font-mono-num`}
+                    style={inputStyle}
+                    placeholder="12,00,000"
+                  />
+                </div>
+                <FieldError message={fieldErrors.expectedDealValue} />
+              </Field>
+
+              <Field
+                label={
+                  <div className="flex items-center gap-1">
+                    <span>Actual Deal Value</span>
+                    <span title="Actual Deal Value is the final amount agreed with the customer. Enter it when the final commercial value is known or when the opportunity is closed." className="cursor-help text-[var(--ink-400)] hover:text-[var(--ledger-700)]">
+                      <Info size={13} />
+                    </span>
+                  </div>
+                }
+              >
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-semibold text-[var(--ink-500)]">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.actualDealValue}
+                    onChange={(e) => setForm({ ...form, actualDealValue: e.target.value })}
+                    className={`${inputClass} pl-8 font-mono-num`}
+                    style={inputStyle}
+                    placeholder="Optional until agreed"
+                  />
+                </div>
+                <FieldError message={fieldErrors.actualDealValue} />
+              </Field>
+
+              <Field
+                label={
+                  <div className="flex items-center gap-1">
+                    <span>Bottom Line Cost</span>
+                    <span title="Bottom Line Cost is the cost associated with delivering this opportunity. It is used to calculate Gross Margin." className="cursor-help text-[var(--ink-400)] hover:text-[var(--ledger-700)]">
+                      <Info size={13} />
+                    </span>
+                  </div>
+                }
+              >
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-semibold text-[var(--ink-500)]">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.bottomLineCost}
+                    onChange={(e) => setForm({ ...form, bottomLineCost: e.target.value })}
+                    className={`${inputClass} pl-8 font-mono-num`}
+                    style={inputStyle}
+                    placeholder="7,00,000"
+                  />
+                </div>
+                <FieldError message={fieldErrors.bottomLineCost} />
+              </Field>
+            </div>
+
+            {/* Calculated Margins Indicator */}
+            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[var(--ink-200)] text-xs">
+              <div className="p-2 rounded-lg bg-white border border-[var(--ink-100)]">
+                <div className="flex items-center gap-1 text-[11px] text-[var(--ink-500)] font-medium">
+                  <span>Expected Margin</span>
+                  <span title="Expected Margin = Expected Deal Value - Bottom Line Cost" className="cursor-help"><Info size={11} /></span>
+                </div>
+                <div className="font-mono-num font-bold text-slate-800">
+                  {computedFinancials.expectedMargin !== null ? formatCurrency(computedFinancials.expectedMargin) : "—"}
+                </div>
               </div>
-              <FieldError message={fieldErrors.amount} />
-            </Field>
+
+              <div className="p-2 rounded-lg bg-white border border-[var(--ink-100)]">
+                <div className="flex items-center gap-1 text-[11px] text-[var(--ink-500)] font-medium">
+                  <span>Gross Margin</span>
+                  <span title="Gross Margin is the Actual Deal Value minus the Bottom Line Cost." className="cursor-help"><Info size={11} /></span>
+                </div>
+                <div className={`font-mono-num font-bold ${computedFinancials.grossMargin !== null && computedFinancials.grossMargin < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                  {computedFinancials.grossMargin !== null ? formatCurrency(computedFinancials.grossMargin) : "—"}
+                </div>
+              </div>
+
+              <div className="p-2 rounded-lg bg-white border border-[var(--ink-100)]">
+                <div className="flex items-center gap-1 text-[11px] text-[var(--ink-500)] font-medium">
+                  <span>Margin Loss</span>
+                  <span title="Margin Loss shows how much the final Actual Deal Value is below the original Expected Deal Value." className="cursor-help"><Info size={11} /></span>
+                </div>
+                <div className="font-mono-num font-bold text-amber-700">
+                  {computedFinancials.marginLoss !== null ? formatCurrency(computedFinancials.marginLoss) : "—"}
+                </div>
+              </div>
+            </div>
           </div>
 
           <Field label="Remarks">

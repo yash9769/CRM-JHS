@@ -53,8 +53,8 @@ export default async function authRoutes(app: FastifyInstance) {
         { name: "Scope Discussion", order: 5, probability: 50, isClosed: false, isWon: false },
         { name: "Proposal Sent", order: 6, probability: 65, isClosed: false, isWon: false },
         { name: "Negotiation", order: 7, probability: 80, isClosed: false, isWon: false },
-        { name: "Proposal Won", order: 8, probability: 100, isClosed: true, isWon: true },
-        { name: "Proposal Lost", order: 9, probability: 0, isClosed: true, isWon: false },
+        { name: "Closed Won", order: 8, probability: 100, isClosed: true, isWon: true },
+        { name: "Closed Lost", order: 9, probability: 0, isClosed: true, isWon: false },
         { name: "Opportunity Dead", order: 10, probability: 0, isClosed: true, isWon: false },
       ];
 

@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { generateQuotePdf } from "../lib/quotePdf.js";
 import { toCsv } from "../lib/csv.js";
+import { requireExportPermission } from "../lib/rbac.js";
 
 const CreateQuoteSchema = z.object({
   opportunityId: z.string(),
@@ -52,11 +53,12 @@ export default async function quoteRoutes(app: FastifyInstance) {
       prisma.quote.count({ where }),
     ]);
 
-    return { data, pagination: { page: Number(page), pageSize: Number(pageSize), total, totalPages: Math.ceil(total / Number(pageSize)) } };
+    return { data, pagination: { page, pageSize, total, totalPages: Math.ceil(total / Number(pageSize)) } };
   });
 
   // Export quotes CSV
   app.get("/api/v1/quotes/export", { preHandler: [app.authenticate] }, async (req: any, reply) => {
+    requireExportPermission(req.authUser);
     const { status, opportunityId, accountId, search } = req.query as any;
     const where: any = { tenantId: req.authUser.tenantId };
     if (status) where.status = status;

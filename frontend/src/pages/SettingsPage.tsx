@@ -132,14 +132,16 @@ export default function SettingsPage() {
                   >
                     <UploadCloud size={13} className="mr-1" /> Import
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => downloadCsvExport(item.exportPath, {}, item.file)}
-                    className="text-xs"
-                  >
-                    <Download size={13} className="mr-1" /> Export
-                  </Button>
+                  {me?.orgRole !== "MANAGER" && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => downloadCsvExport(item.exportPath, {}, item.file)}
+                      className="text-xs"
+                    >
+                      <Download size={13} className="mr-1" /> Export
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
@@ -150,14 +152,18 @@ export default function SettingsPage() {
                 <p className="text-xs text-[var(--ink-500)] mt-0.5">Export all formal quotes with line totals and expiration dates.</p>
               </div>
               <div className="flex items-center gap-2 mt-3 pt-2 border-t border-[var(--ink-100)]">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => downloadCsvExport("/quotes/export", {}, "quotes.csv")}
-                  className="text-xs"
-                >
-                  <Download size={13} className="mr-1" /> Export Quotes CSV
-                </Button>
+                {me?.orgRole !== "MANAGER" ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => downloadCsvExport("/quotes/export", {}, "quotes.csv")}
+                    className="text-xs"
+                  >
+                    <Download size={13} className="mr-1" /> Export Quotes CSV
+                  </Button>
+                ) : (
+                  <span className="text-xs text-[var(--ink-400)] italic">Export restricted for Manager</span>
+                )}
               </div>
             </div>
 
@@ -167,46 +173,53 @@ export default function SettingsPage() {
                 <p className="text-xs text-[var(--ink-500)] mt-0.5">Export all tasks, calls, meetings, and follow-ups across the team.</p>
               </div>
               <div className="flex items-center gap-2 mt-3 pt-2 border-t border-[var(--ink-100)]">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => downloadCsvExport("/activities/export", {}, "tasks.csv")}
-                  className="text-xs"
-                >
-                  <Download size={13} className="mr-1" /> Export Tasks CSV
-                </Button>
+                {me?.orgRole !== "MANAGER" ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => downloadCsvExport("/activities/export", {}, "tasks.csv")}
+                    className="text-xs"
+                  >
+                    <Download size={13} className="mr-1" /> Export Tasks CSV
+                  </Button>
+                ) : (
+                  <span className="text-xs text-[var(--ink-400)] italic">Export restricted for Manager</span>
+                )}
               </div>
             </div>
           </div>
         </Card>
 
-        {/* RBAC info */}
-        <Card className="p-4 md:p-5">
-          <div className="flex items-center gap-2 mb-3"><Shield size={15} className="text-[var(--ledger-600)]" /><h3 className="text-sm font-semibold text-[var(--ink-800)]">Role permissions</h3></div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead><tr className="border-b border-[var(--ink-100)]">
-                {["Permission", "Manager", "Partner", "Senior Partner"].map(h => (
-                  <th key={h} className="py-2 px-3 text-left font-medium text-[var(--ink-500)]">{h}</th>
-                ))}
-              </tr></thead>
-              <tbody>
-                {[
-                  ["View assigned / team records", "✓", "✓", "✓"],
-                  ["Create / edit records", "✓", "✓", "✓"],
-                  ["View team org chart", "—", "✓", "✓"],
-                  ["Manage team members", "—", "✓", "✓"],
-                  ["View all tenant reports", "—", "—", "✓"],
-                ].map(([perm, ...vals]) => (
-                  <tr key={perm} className="border-b last:border-0 border-[var(--ink-50)]">
-                    <td className="py-2 px-3 text-[var(--ink-600)]">{perm}</td>
-                    {vals.map((v, i) => <td key={i} className="py-2 px-3 text-center" style={{ color: v === "✓" ? "var(--ledger-600)" : "var(--ink-300)" }}>{v}</td>)}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        {/* RBAC info (Only shown to Partner and Senior Partner) */}
+        {me?.orgRole !== "MANAGER" && (
+          <Card className="p-4 md:p-5">
+            <div className="flex items-center gap-2 mb-3"><Shield size={15} className="text-[var(--ledger-600)]" /><h3 className="text-sm font-semibold text-[var(--ink-800)]">Role permissions</h3></div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead><tr className="border-b border-[var(--ink-100)]">
+                  {["Permission", "Manager", "Partner", "Senior Partner"].map(h => (
+                    <th key={h} className="py-2 px-3 text-left font-medium text-[var(--ink-500)]">{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {[
+                    ["View assigned / team records", "✓", "✓", "✓"],
+                    ["Create / edit records", "✓", "✓", "✓"],
+                    ["Export CRM datasets (CSV)", "—", "✓", "✓"],
+                    ["View team org chart", "—", "✓", "✓"],
+                    ["Manage team members", "—", "✓", "✓"],
+                    ["View all tenant reports", "—", "—", "✓"],
+                  ].map(([perm, ...vals]) => (
+                    <tr key={perm} className="border-b last:border-0 border-[var(--ink-50)]">
+                      <td className="py-2 px-3 text-[var(--ink-600)]">{perm}</td>
+                      {vals.map((v, i) => <td key={i} className="py-2 px-3 text-center" style={{ color: v === "✓" ? "var(--ledger-600)" : "var(--ink-300)" }}>{v}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
       </div>
       {importEntity && <CsvImportModal entity={importEntity} onClose={() => setImportEntity(null)} />}
     </div>

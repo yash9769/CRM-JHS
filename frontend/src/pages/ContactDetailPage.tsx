@@ -76,11 +76,19 @@ export default function ContactDetailPage() {
                   <Link
                     key={o.id}
                     to={`/opportunities/${o.id}`}
-                    className="flex items-center justify-between px-3 py-2 rounded-md hover:bg-[var(--ink-50)] border border-[var(--ink-100)]"
+                    className="flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-[var(--ink-50)] border border-[var(--ink-100)] transition-colors"
                   >
-                    <span className="font-medium text-sm text-[var(--ledger-700)]">{o.name}</span>
+                    <div>
+                      <span className="font-semibold text-sm text-[var(--ledger-700)]">{o.name}</span>
+                      <div className="text-xs text-[var(--ink-500)] flex items-center gap-2 mt-0.5 font-mono-num">
+                        <span>Expected: {o.expectedDealValue !== null && o.expectedDealValue !== undefined ? formatCurrency(o.expectedDealValue) : formatCurrency(o.amount)}</span>
+                        {o.actualDealValue !== null && o.actualDealValue !== undefined && <span>· Actual: {formatCurrency(o.actualDealValue)}</span>}
+                        <span className={o.grossMargin !== null && o.grossMargin !== undefined && Number(o.grossMargin) < 0 ? "text-rose-600 font-bold" : "text-emerald-700 font-bold"}>
+                          · Margin: {o.grossMargin !== null && o.grossMargin !== undefined ? formatCurrency(o.grossMargin) : (o.expectedMargin !== null && o.expectedMargin !== undefined ? formatCurrency(o.expectedMargin) : "—")}
+                        </span>
+                      </div>
+                    </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono-num text-sm">{formatCurrency(o.amount)}</span>
                       <StageBadge stage={o.stage as any} />
                     </div>
                   </Link>

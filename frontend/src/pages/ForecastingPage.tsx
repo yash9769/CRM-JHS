@@ -167,15 +167,21 @@ export default function ForecastingPage() {
         {trend?.data?.length > 0 && (
           <Card className="p-5">
             <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--ink-800)" }}>12-month: Target vs. Actual</h3>
-            <ResponsiveContainer width="100%" height={240}>
+            <ResponsiveContainer width="100%" height={260}>
               <BarChart data={trend.data} margin={{ right: 16 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--ink-400)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "var(--ink-400)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "var(--ink-400)" }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={75}
+                  tickFormatter={(v) => formatCurrency(v)}
+                />
                 <Tooltip formatter={(v: any) => formatCurrency(Number(v))} contentStyle={{ borderRadius: 8, borderColor: "var(--ink-200)", fontSize: 12 }} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="target" name="Target" fill="var(--ink-200)" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="actual" name="Actual" fill="var(--ledger-600)" radius={[3, 3, 0, 0]} />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                <Bar dataKey="target" name="Target" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="actual" name="Actual" fill="var(--ledger-600)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </Card>

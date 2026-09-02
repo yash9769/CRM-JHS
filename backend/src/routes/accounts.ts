@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
-import { getCreatedByFilter, requireCanAccess } from "../lib/rbac.js";
+import { getCreatedByFilter, requireCanAccess, requireExportPermission } from "../lib/rbac.js";
 
 const accountSchema = z.object({
   name: z.string().min(1),
@@ -73,6 +73,7 @@ export default async function accountRoutes(app: FastifyInstance) {
         where,
         include: {
           owner: { select: { id: true, firstName: true, lastName: true } },
+          createdBy: { select: { id: true, firstName: true, lastName: true } },
           _count: { select: { contacts: true, opportunities: true } },
         },
         orderBy: { [sortBy]: q.sortDir || "desc" },
@@ -93,6 +94,8 @@ export default async function accountRoutes(app: FastifyInstance) {
 
   // EXPORT — CSV of accounts matching current filters
   app.get("/api/v1/accounts/export", { preHandler: app.authenticate }, async (req, reply) => {
+    requireExportPermission(req.authUser);
+
     const q = req.query as { search?: string; accountType?: string; ownerId?: string; industry?: string; includeArchived?: string };
     const rbacFilter = await getCreatedByFilter(req.authUser);
     const where = {
