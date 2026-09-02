@@ -96,7 +96,6 @@ export const CANONICAL_STAGES = [
   "Prospect",
   "Lead",
   "Marketing Qualified Lead",
-  "Opportunity",
   "Scope Discussion",
   "Proposal Sent",
   "Negotiation",

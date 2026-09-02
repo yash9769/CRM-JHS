@@ -6,13 +6,12 @@ export const CANONICAL_OPPORTUNITY_STAGES = [
   { name: "Prospect", order: 1, probability: 10, isClosed: false, isWon: false },
   { name: "Lead", order: 2, probability: 20, isClosed: false, isWon: false },
   { name: "Marketing Qualified Lead", order: 3, probability: 30, isClosed: false, isWon: false },
-  { name: "Opportunity", order: 4, probability: 40, isClosed: false, isWon: false },
-  { name: "Scope Discussion", order: 5, probability: 50, isClosed: false, isWon: false },
-  { name: "Proposal Sent", order: 6, probability: 65, isClosed: false, isWon: false },
-  { name: "Negotiation", order: 7, probability: 80, isClosed: false, isWon: false },
-  { name: "Closed Won", order: 8, probability: 100, isClosed: true, isWon: true },
-  { name: "Closed Lost", order: 9, probability: 0, isClosed: true, isWon: false },
-  { name: "Opportunity Dead", order: 10, probability: 0, isClosed: true, isWon: false },
+  { name: "Scope Discussion", order: 4, probability: 50, isClosed: false, isWon: false },
+  { name: "Proposal Sent", order: 5, probability: 65, isClosed: false, isWon: false },
+  { name: "Negotiation", order: 6, probability: 80, isClosed: false, isWon: false },
+  { name: "Closed Won", order: 7, probability: 100, isClosed: true, isWon: true },
+  { name: "Closed Lost", order: 8, probability: 0, isClosed: true, isWon: false },
+  { name: "Opportunity Dead", order: 9, probability: 0, isClosed: true, isWon: false },
 ];
 
 const STAGE_NAME_MAP: Record<string, string> = {
