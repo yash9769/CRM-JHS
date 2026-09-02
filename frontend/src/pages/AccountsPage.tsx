@@ -15,8 +15,6 @@ import { Plus, Search, Building2, Download, UploadCloud } from "lucide-react";
 
 import { useAuth } from "../hooks/useAuth";
 
-const TYPES = ["ALL", "PROSPECT", "CUSTOMER", "PARTNER", "FORMER_CUSTOMER"] as const;
-
 const ACCOUNT_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Account Name", permanent: true },
   { key: "industry", label: "Industry" },
@@ -32,7 +30,6 @@ export default function AccountsPage() {
   const [search, setSearch] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [accountType, setAccountType] = useState<(typeof TYPES)[number]>("ALL");
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [ownerLabel, setOwnerLabel] = useState<string | null>(null);
 
@@ -42,14 +39,13 @@ export default function AccountsPage() {
   );
 
   const { data, isLoading } = useQuery<Paginated<Account & { createdBy?: { firstName: string; lastName: string } }>>({
-    queryKey: ["accounts", search, accountType, ownerId],
+    queryKey: ["accounts", search, ownerId],
     queryFn: async () =>
       (
         await api.get("/accounts", {
           params: {
             search,
             pageSize: 50,
-            ...(accountType !== "ALL" ? { accountType } : {}),
             ...(ownerId ? { ownerId } : {})
           },
         })
@@ -59,7 +55,7 @@ export default function AccountsPage() {
   async function exportCsv() {
     await downloadCsvExport(
       "/accounts/export",
-      { search, ...(accountType !== "ALL" ? { accountType } : {}), ...(ownerId ? { ownerId } : {}) },
+      { search, ...(ownerId ? { ownerId } : {}) },
       "accounts.csv"
     );
   }
@@ -106,21 +102,7 @@ export default function AccountsPage() {
               style={inputStyle}
             />
           </div>
-          <div className="flex gap-1">
-            {TYPES.map((t) => (
-              <button
-                key={t}
-                onClick={() => setAccountType(t)}
-                className="px-2.5 py-1.5 rounded-md text-xs font-medium whitespace-nowrap"
-                style={{
-                  background: accountType === t ? "var(--ledger-700)" : "var(--ink-50)",
-                  color: accountType === t ? "white" : "var(--ink-600)",
-                }}
-              >
-                {t === "ALL" ? "All types" : t.replace("_", " ")}
-              </button>
-            ))}
-          </div>
+
           <div className="w-52">
             <RelationshipSelector
               value={ownerId}
