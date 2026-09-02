@@ -380,13 +380,6 @@ export default function OpportunitiesPage() {
                               <StageBadge stage={o.stage as any} />
                             </td>
                           )}
-                          {isVisible("forecastCategory") && (
-                            <td className="px-4 py-3">
-                              <Badge tone={o.forecastCategory === "CLOSED_WON" ? "green" : o.forecastCategory === "CLOSED_LOST" ? "rose" : "neutral"}>
-                                {o.forecastCategory || "PIPELINE"}
-                              </Badge>
-                            </td>
-                          )}
                           {isVisible("actualDealValue") && (
                             <td className="px-4 py-3 font-mono-num font-semibold text-slate-900">
                               {financials.actualDealValue !== null ? formatCurrency(financials.actualDealValue) : "—"}

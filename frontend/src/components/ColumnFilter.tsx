@@ -18,7 +18,10 @@ export function useColumnVisibility(pageKey: string, columns: ColumnDef[]) {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return new Set(parsed);
+          const validKeys = parsed.filter((k: string) => columns.some((c) => c.key === k));
+          if (validKeys.length > 0) {
+            return new Set(validKeys);
+          }
         }
       }
     } catch {
@@ -30,8 +33,17 @@ export function useColumnVisibility(pageKey: string, columns: ColumnDef[]) {
   useEffect(() => {
     if (columns.length > 0) {
       setVisibleKeys((prev) => {
-        const next = new Set(prev);
+        const next = new Set<string>();
         let changed = false;
+        // Keep valid previous keys
+        prev.forEach((k) => {
+          if (columns.some((c) => c.key === k)) {
+            next.add(k);
+          } else {
+            changed = true;
+          }
+        });
+        // Add default visible keys
         columns.forEach((c) => {
           if (!next.has(c.key) && c.defaultVisible !== false) {
             next.add(c.key);
