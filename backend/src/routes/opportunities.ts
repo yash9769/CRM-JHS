@@ -453,14 +453,6 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       // Mandatory Closed Won validation in CSV
       const isClosedWon = stage.isClosed && stage.isWon;
       if (isClosedWon) {
-        if (!loeStr || !loeStr.trim()) {
-          results.push({ row: i, status: "error", error: `LOE is mandatory for opportunity "${oppName}" in Closed Won stage.` });
-          continue;
-        }
-        if (!poNumberStr || !poNumberStr.trim()) {
-          results.push({ row: i, status: "error", error: `PO Number is mandatory for opportunity "${oppName}" in Closed Won stage.` });
-          continue;
-        }
         if (parsedPoValue === null || parsedPoValue <= 0) {
           results.push({ row: i, status: "error", error: `Valid positive PO Value is mandatory for opportunity "${oppName}" in Closed Won stage.` });
           continue;
@@ -756,12 +748,6 @@ export default async function opportunityRoutes(app: FastifyInstance) {
 
     // Closed Won validation
     if (isClosingWon) {
-      if (!body.loeValue || !body.loeValue.trim()) {
-        return reply.code(400).send({ error: "LOE (Level of Effort) is mandatory when moving an opportunity to Closed Won." });
-      }
-      if (!body.poNumber || !body.poNumber.trim()) {
-        return reply.code(400).send({ error: "PO Number is mandatory when moving an opportunity to Closed Won." });
-      }
       if (body.poValue === undefined || body.poValue === null || Number(body.poValue) <= 0) {
         return reply.code(400).send({ error: "A valid positive PO Value is mandatory when moving an opportunity to Closed Won." });
       }
@@ -995,12 +981,6 @@ export default async function opportunityRoutes(app: FastifyInstance) {
 
     // Closed Won validation
     if (isMovingToClosedWon) {
-      if (!body.loeValue || !body.loeValue.trim()) {
-        return reply.code(400).send({ error: "LOE (Level of Effort) is mandatory when moving an opportunity to Closed Won." });
-      }
-      if (!body.poNumber || !body.poNumber.trim()) {
-        return reply.code(400).send({ error: "PO Number is mandatory when moving an opportunity to Closed Won." });
-      }
       if (body.poValue === undefined || body.poValue === null || Number(body.poValue) <= 0) {
         return reply.code(400).send({ error: "A valid positive PO Value is mandatory when moving an opportunity to Closed Won." });
       }

@@ -15,8 +15,6 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
   const { user } = useAuth();
   const isManager = user?.orgRole === "MANAGER";
 
-  const [loeValue, setLoeValue] = useState(opportunity.loeValue || "");
-  const [loeUnit, setLoeUnit] = useState(opportunity.loeUnit || "Hours");
   const [poNumber, setPoNumber] = useState(opportunity.poNumber || "");
   const [poValue, setPoValue] = useState(
     opportunity.poValue !== null && opportunity.poValue !== undefined
@@ -43,7 +41,7 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
       });
     }
     setAttachments((prev) => [...prev, ...newFiles]);
-    setUploadNotice("Attachment metadata staged (local staging ready).");
+    setUploadNotice("Attachment staged ready for upload.");
   };
 
   const removeAttachment = (idx: number) => {
@@ -54,36 +52,30 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
     e.preventDefault();
     setError(null);
 
-    if (!loeValue.trim()) {
-      setError("LOE (Level of Effort) is required to close this opportunity.");
-      return;
-    }
-    if (!poNumber.trim()) {
-      setError("PO Number is required to close this opportunity.");
-      return;
-    }
     const numPoValue = Number(poValue);
     if (isNaN(numPoValue) || numPoValue <= 0) {
-      setError("A valid positive PO Value is required to close this opportunity.");
+      setError("A valid positive Proposal / PO Value is required to close this opportunity.");
+      return;
+    }
+
+    if (!attachments.length) {
+      setError("An attachment (Letter of Engagement / Client Confirmation / PO Document) is required to mark this opportunity Closed Won.");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // Step 1: Update opportunity or create stage approval request with close details
       const patchRes = await api.patch(`/opportunities/${opportunity.id}`, {
         stageId: targetStageId,
-        loeValue: loeValue.trim(),
-        loeUnit,
-        poNumber: poNumber.trim(),
+        poNumber: poNumber.trim() || undefined,
         poValue: numPoValue,
         actualDealValue: numPoValue,
+        loeValue: attachments[0]?.filename || "LOE Attached",
         remarks: remarks.trim() || undefined,
       });
 
       const stageApprovalId = patchRes.data?.approval?.id || null;
 
-      // Step 2: Upload attachment metadata
       for (const att of attachments) {
         await api.post(`/opportunities/${opportunity.id}/attachments`, {
           originalFilename: att.filename,
@@ -103,16 +95,16 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
   };
 
   return (
-    <Modal title="Mark Opportunity as Closed Won 🎉" onClose={onClose} width="520px">
+    <Modal title="Mark Opportunity as Closed Won 🎉" onClose={onClose} width="540px">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 flex items-start gap-2.5">
           <Trophy size={18} className="text-emerald-700 shrink-0 mt-0.5" />
           <div>
-            <div className="font-bold">Deal Close Details Required</div>
+            <div className="font-bold">Deal Close Requirements</div>
             <div>
               {isManager
-                ? "As a Manager, submitting these details will create a Stage Approval request for Partner sign-off."
-                : "Enter the finalized client Purchase Order and Effort details to mark this opportunity Closed Won."}
+                ? "Upload the Letter of Engagement (LOE) or client confirmation and PO value to create a Stage Approval request for Partner sign-off."
+                : "Upload the Letter of Engagement (LOE) or client confirmation and PO value to mark this opportunity Closed Won."}
             </div>
           </div>
         </div>
@@ -124,75 +116,15 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
           </div>
         )}
 
-        {/* LOE */}
+        {/* Mandatory Attachment (LOE / Client Confirmation / PO) */}
         <div>
           <label className="block text-xs font-semibold mb-1 text-[var(--ink-700)]">
-            LOE (Level of Effort) <span className="text-rose-500">*</span>
+            Letter of Engagement (LOE) / Client Confirmation Attachment <span className="text-rose-500">*</span>
           </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              required
-              value={loeValue}
-              onChange={(e) => setLoeValue(e.target.value)}
-              placeholder="e.g. 160 or 4 weeks"
-              className={`${inputClass} flex-1`}
-              style={inputStyle}
-            />
-            <select
-              value={loeUnit}
-              onChange={(e) => setLoeUnit(e.target.value)}
-              className={`${inputClass} w-28 bg-white`}
-              style={inputStyle}
-            >
-              <option value="Hours">Hours</option>
-              <option value="Days">Days</option>
-              <option value="Weeks">Weeks</option>
-              <option value="Months">Months</option>
-            </select>
-          </div>
-        </div>
-
-        {/* PO Number */}
-        <div>
-          <label className="block text-xs font-semibold mb-1 text-[var(--ink-700)]">
-            PO Number <span className="text-rose-500">*</span>
-          </label>
-          <input
-            type="text"
-            required
-            value={poNumber}
-            onChange={(e) => setPoNumber(e.target.value)}
-            placeholder="e.g. PO-2026-9812"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
-
-        {/* PO Value */}
-        <div>
-          <label className="block text-xs font-semibold mb-1 text-[var(--ink-700)]">
-            PO Value ($) <span className="text-rose-500">*</span>
-          </label>
-          <input
-            type="number"
-            min="0.01"
-            step="0.01"
-            required
-            value={poValue}
-            onChange={(e) => setPoValue(e.target.value)}
-            placeholder="e.g. 250000"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
-
-        {/* Attachments */}
-        <div>
-          <label className="block text-xs font-semibold mb-1 text-[var(--ink-700)]">
-            Supporting Attachments (SOW, PO, Signed Agreement)
-          </label>
-          <div className="p-3 border-2 border-dashed border-[var(--ink-200)] rounded-xl text-center hover:bg-[var(--ink-50)] transition-colors">
+          <p className="text-[11px] text-[var(--ink-500)] mb-1.5">
+            Supports LOE (Letter of Engagement), email confirmation screenshot, PDF, DOCX, or PO document from client.
+          </p>
+          <div className="p-3.5 border-2 border-dashed border-[var(--ink-200)] rounded-xl text-center hover:bg-[var(--ink-50)] transition-colors">
             <input
               type="file"
               multiple
@@ -201,24 +133,24 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
               id="close-won-file-upload"
             />
             <label htmlFor="close-won-file-upload" className="cursor-pointer flex flex-col items-center gap-1">
-              <Upload size={18} className="text-[var(--ink-400)]" />
-              <span className="text-xs font-medium text-[var(--ledger-700)]">Click to upload files</span>
-              <span className="text-[10px] text-[var(--ink-400)]">PDF, DOCX, XLSX, Images</span>
+              <Upload size={20} className="text-[var(--ledger-600)]" />
+              <span className="text-xs font-semibold text-[var(--ledger-700)]">Click to upload LOE or Client Confirmation</span>
+              <span className="text-[10px] text-[var(--ink-400)]">PDF, DOCX, Images, Email Confirmation</span>
             </label>
           </div>
 
           {uploadNotice && (
-            <div className="mt-1 text-[11px] text-[var(--ink-500)] italic">{uploadNotice}</div>
+            <div className="mt-1 text-[11px] text-emerald-600 font-medium">{uploadNotice}</div>
           )}
 
           {attachments.length > 0 && (
             <div className="mt-2 space-y-1.5">
               {attachments.map((att, idx) => (
-                <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-[var(--ink-50)] text-xs">
+                <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-emerald-50/80 border border-emerald-200 text-xs">
                   <div className="flex items-center gap-1.5 truncate">
                     <FileCheck size={14} className="text-emerald-600 shrink-0" />
-                    <span className="font-medium truncate">{att.filename}</span>
-                    <span className="text-[10px] text-[var(--ink-400)]">({Math.round(att.size / 1024)} KB)</span>
+                    <span className="font-medium truncate text-emerald-950">{att.filename}</span>
+                    <span className="text-[10px] text-emerald-700">({Math.round(att.size / 1024)} KB)</span>
                   </div>
                   <button
                     type="button"
@@ -231,6 +163,42 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
               ))}
             </div>
           )}
+        </div>
+
+        {/* PO Value (Mandatory) */}
+        <div>
+          <label className="block text-xs font-semibold mb-1 text-[var(--ink-700)]">
+            PO / Proposal Value (₹) <span className="text-rose-500">*</span>
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 font-semibold text-[var(--ink-500)] text-xs">₹</span>
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              required
+              value={poValue}
+              onChange={(e) => setPoValue(e.target.value)}
+              placeholder="e.g. 1000000"
+              className={`${inputClass} pl-7 font-mono-num`}
+              style={inputStyle}
+            />
+          </div>
+        </div>
+
+        {/* PO Number (Optional - Can be put later) */}
+        <div>
+          <label className="block text-xs font-semibold mb-1 text-[var(--ink-700)]">
+            PO Number <span className="text-[var(--ink-400)] font-normal">(Optional — can be added later)</span>
+          </label>
+          <input
+            type="text"
+            value={poNumber}
+            onChange={(e) => setPoNumber(e.target.value)}
+            placeholder="e.g. PO-2026-9812 (or leave blank if pending)"
+            className={inputClass}
+            style={inputStyle}
+          />
         </div>
 
         {/* Remarks / Comments */}

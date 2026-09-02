@@ -16,7 +16,7 @@ import { ApprovalRequestModal } from "../components/ApprovalRequestModal";
 import { ApprovalReviewModal } from "../components/ApprovalReviewModal";
 import {
   ArrowRight, CheckCircle2, Building2, User, Pencil, UserPlus,
-  PhoneCall, Archive, FileText, Plus, Trash2, Download, Clock, ShieldAlert, RotateCcw,
+  FileText, Plus, Trash2, Download, Clock, ShieldAlert, RotateCcw,
   DollarSign, Info, ArrowDown, StickyNote, FileCheck
 } from "lucide-react";
 
@@ -279,8 +279,6 @@ export default function OpportunityDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" onClick={() => setModal("edit")}><Pencil size={14} /> Edit</Button>
             <Button variant="secondary" onClick={() => setModal("contact")}><UserPlus size={14} /> Add Contact</Button>
-            <Button variant="secondary" onClick={() => setModal("log")}><PhoneCall size={14} /> Log Activity</Button>
-            <Button variant="secondary" onClick={() => setModal("archive")}><Archive size={14} /> Archive</Button>
           </div>
         </div>
 
