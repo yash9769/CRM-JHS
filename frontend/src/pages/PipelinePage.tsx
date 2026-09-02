@@ -58,6 +58,7 @@ export default function PipelinePage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["opportunities"] });
       qc.invalidateQueries({ queryKey: ["opportunity"] });
+      qc.invalidateQueries({ queryKey: ["audit-log"] });
     },
   });
 

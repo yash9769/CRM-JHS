@@ -104,6 +104,7 @@ export default function OpportunityDetailPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["opportunity", id] });
       qc.invalidateQueries({ queryKey: ["opportunities"] });
+      qc.invalidateQueries({ queryKey: ["audit-log"] });
     },
   });
 
@@ -116,6 +117,7 @@ export default function OpportunityDetailPage() {
       qc.invalidateQueries({ queryKey: ["opportunity", id] });
       qc.invalidateQueries({ queryKey: ["opportunities"] });
       qc.invalidateQueries({ queryKey: ["stage-approvals"] });
+      qc.invalidateQueries({ queryKey: ["audit-log"] });
     },
   });
 
@@ -126,6 +128,7 @@ export default function OpportunityDetailPage() {
       qc.invalidateQueries({ queryKey: ["opportunity", id] });
       qc.invalidateQueries({ queryKey: ["opportunities"] });
       qc.invalidateQueries({ queryKey: ["stage-approvals"] });
+      qc.invalidateQueries({ queryKey: ["audit-log"] });
     },
   });
 
@@ -688,7 +691,7 @@ export default function OpportunityDetailPage() {
                   <FileCheck size={16} className="text-[var(--ledger-600)]" /> Opportunity Activity Logs & Audit Trail
                 </h3>
               </div>
-              <HistoryPanel objectType="OPPORTUNITY" recordId={opp.id} />
+              <HistoryPanel objectType="OPPORTUNITY" recordId={opp.id} fallbackHistory={opp.stageHistory} />
             </Card>
 
             {/* LINE ITEMS & PRODUCTS */}
@@ -827,6 +830,7 @@ export default function OpportunityDetailPage() {
           onSuccess={() => {
             qc.invalidateQueries({ queryKey: ["opportunity", id] });
             qc.invalidateQueries({ queryKey: ["opportunities"] });
+            qc.invalidateQueries({ queryKey: ["audit-log"] });
           }}
         />
       )}
@@ -840,6 +844,7 @@ export default function OpportunityDetailPage() {
           onSuccess={() => {
             qc.invalidateQueries({ queryKey: ["opportunity", id] });
             qc.invalidateQueries({ queryKey: ["opportunities"] });
+            qc.invalidateQueries({ queryKey: ["audit-log"] });
           }}
         />
       )}

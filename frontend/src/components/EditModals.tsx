@@ -259,6 +259,7 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["opportunity", opp.id] });
       qc.invalidateQueries({ queryKey: ["opportunities"] });
+      qc.invalidateQueries({ queryKey: ["audit-log"] });
       onClose();
     },
     onError: (err: any) => {

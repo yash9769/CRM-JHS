@@ -33,8 +33,8 @@ export default async function auditHistoryRoutes(app: FastifyInstance) {
       ...(recordId ? { recordId } : {}),
     };
 
-    // If not Senior Partner, restrict logs to visible users in team hierarchy
-    if (req.authUser.orgRole !== "SENIOR_PARTNER") {
+    // If not Senior Partner AND not requesting logs for a specific recordId, restrict logs to visible users in team hierarchy
+    if (req.authUser.orgRole !== "SENIOR_PARTNER" && !recordId) {
       const visibleUserIds = await getVisibleUserIds(req.authUser);
       where.userId = { in: visibleUserIds };
     }

@@ -1109,10 +1109,18 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       return updated;
     });
 
+    let fromStageName: string | null = null;
+    if (stageChanged && existing.stageId) {
+      const fromStageObj = await prisma.pipelineStage.findUnique({ where: { id: existing.stageId }, select: { name: true } });
+      fromStageName = fromStageObj?.name || null;
+    }
+    const toStageName = targetStage?.name || null;
+
     await logAudit({
       tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "OPPORTUNITY",
       recordId: id, action: isApprovalRequired ? "STAGE_APPROVAL_REQUESTED" : (stageChanged ? "STAGE_CHANGED" : "UPDATED"),
-      oldValues: existing, newValues: opportunity,
+      oldValues: { ...existing, stageName: fromStageName },
+      newValues: { ...opportunity, stageName: toStageName, fromStageName, toStageName },
     });
 
     if (!isApprovalRequired && targetStage?.isClosed) {
