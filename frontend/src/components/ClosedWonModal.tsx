@@ -95,7 +95,7 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
   };
 
   return (
-    <Modal title="Mark Opportunity as Closed Won 🎉" onClose={onClose} width="540px">
+    <Modal title="Mark Opportunity as Closed Won" onClose={onClose} width="540px">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 flex items-start gap-2.5">
           <Trophy size={18} className="text-emerald-700 shrink-0 mt-0.5" />
