@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { logAudit, notify } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
-import { getCreatedByFilter, requireExportPermission } from "../lib/rbac.js";
+import { getCreatedByFilter, requireExportPermission, requireCanAccess, getVisibleUserIds } from "../lib/rbac.js";
 
 const LEAD_STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "NURTURING", "UNQUALIFIED", "CONVERTED"] as const;
 
@@ -130,8 +130,10 @@ export default async function leadRoutes(app: FastifyInstance) {
     requireExportPermission(req.authUser);
 
     const q = req.query as { search?: string; status?: string; source?: string; ownerId?: string; includeArchived?: string };
+    const rbacFilter = await getCreatedByFilter(req.authUser);
     const where = {
       tenantId: req.authUser.tenantId,
+      ...rbacFilter,
       ...(q.includeArchived === "true" ? {} : { archived: false }),
       ...(q.status ? { status: q.status as any } : {}),
       ...(q.source ? { source: q.source } : {}),
@@ -335,6 +337,7 @@ export default async function leadRoutes(app: FastifyInstance) {
       },
     });
     if (!lead) return reply.code(404).send({ error: "Lead not found" });
+    await requireCanAccess(req.authUser, lead);
 
     // Resolve conversion targets for display, if converted
     let convertedAccount = null, convertedContact = null, convertedOpportunity = null;
@@ -351,6 +354,7 @@ export default async function leadRoutes(app: FastifyInstance) {
     const body = leadSchema.partial().parse(req.body);
     const existing = await prisma.lead.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Lead not found" });
+    await requireCanAccess(req.authUser, existing);
 
     const lead = await prisma.lead.update({
       where: { id },
@@ -365,6 +369,7 @@ export default async function leadRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const existing = await prisma.lead.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Lead not found" });
+    await requireCanAccess(req.authUser, existing);
     const lead = await prisma.lead.update({ where: { id }, data: { archived: true } });
     await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "LEAD", recordId: id, action: "ARCHIVED" });
     return lead;
@@ -380,8 +385,24 @@ export default async function leadRoutes(app: FastifyInstance) {
     }).parse(req.body);
 
     const tenantId = req.authUser.tenantId;
-    const scoped = await prisma.lead.findMany({ where: { id: { in: body.ids }, tenantId }, select: { id: true } });
-    const ids = scoped.map((l) => l.id);
+    const scoped = await prisma.lead.findMany({
+      where: { id: { in: body.ids }, tenantId },
+      select: { id: true, createdById: true, ownerId: true },
+    });
+
+    let visibleScoped = scoped;
+    let skippedIds: string[] = [];
+    if (req.authUser.orgRole !== "SENIOR_PARTNER") {
+      const visibleUserIds = await getVisibleUserIds(req.authUser);
+      visibleScoped = scoped.filter(
+        (l) =>
+          (l.createdById && visibleUserIds.includes(l.createdById)) ||
+          (l.ownerId && visibleUserIds.includes(l.ownerId))
+      );
+      skippedIds = scoped.filter((l) => !visibleScoped.includes(l)).map((l) => l.id);
+    }
+
+    const ids = visibleScoped.map((l) => l.id);
     if (!ids.length) return reply.code(404).send({ error: "No matching leads found" });
 
     let data: any = {};
@@ -397,13 +418,14 @@ export default async function leadRoutes(app: FastifyInstance) {
 
     await prisma.lead.updateMany({ where: { id: { in: ids }, tenantId }, data });
     await logAudit({ tenantId, userId: req.authUser.id, objectType: "LEAD", recordId: ids.join(","), action: `BULK_${body.action.toUpperCase()}`, newValues: data });
-    return { updated: ids.length };
+    return { updated: ids.length, skipped: skippedIds };
   });
 
   app.delete("/api/v1/leads/:id", { preHandler: app.authenticate }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const existing = await prisma.lead.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Lead not found" });
+    await requireCanAccess(req.authUser, existing);
     await prisma.lead.delete({ where: { id } });
     await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "LEAD", recordId: id, action: "DELETED", oldValues: existing });
     return reply.code(204).send();
@@ -417,6 +439,7 @@ export default async function leadRoutes(app: FastifyInstance) {
 
     const lead = await prisma.lead.findFirst({ where: { id, tenantId } });
     if (!lead) return reply.code(404).send({ error: "Lead not found" });
+    await requireCanAccess(req.authUser, lead);
     if (lead.status === "CONVERTED") return reply.code(409).send({ error: "Lead has already been converted" });
 
     if (body.createOpportunity && !body.opportunity) {
