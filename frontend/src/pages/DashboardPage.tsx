@@ -101,7 +101,7 @@ export default function DashboardPage() {
             <Kpi icon={Percent} label="Win Rate" value={`${Math.round(data.kpis.winRate * 100)}%`} url="/reports" />
             <Kpi icon={Wallet} label="Avg Opportunity Size" value={formatCurrency(data.kpis.avgOpportunitySize)} url="/opportunities" />
             <Kpi icon={TrendingUp} label="Margin Value" value={formatCurrency((data.kpis.totalGrossMargin || 0) + (data.kpis.totalExpectedMargin || 0))} tone="green" url="/opportunities" />
-            <Kpi icon={CalendarClock} label="Cost Incurred" value={formatCurrency(data.kpis.totalBottomLineCost || 0)} url="/opportunities" />
+            <Kpi icon={CalendarClock} label="Cost Incurred to Company" value={formatCurrency(data.kpis.totalBottomLineCost || 0)} url="/opportunities" />
           </div>
         )}
 
