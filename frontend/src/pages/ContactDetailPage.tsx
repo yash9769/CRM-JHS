@@ -4,17 +4,17 @@ import { useQuery, useMutation, useQueryClient as useQC2 } from "@tanstack/react
 import { api } from "../lib/api";
 import { Card, StageBadge, Button } from "../components/ui";
 import { Timeline } from "../components/Timeline";
-import { NewOpportunityModal, LogActivityModal } from "../components/CreateModals";
+import { NewOpportunityModal } from "../components/CreateModals";
 import { EditContactModal, ArchiveConfirmModal } from "../components/EditModals";
 import { formatCurrency, initials } from "../lib/format";
 import type { Contact } from "../lib/types";
-import { Mail, Phone, Link2, Building2, Target, PhoneCall, Pencil, Archive } from "lucide-react";
+import { Mail, Phone, Link2, Building2, Target, Pencil, Archive } from "lucide-react";
 
 export default function ContactDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qcArchive = useQC2();
-  const [modal, setModal] = useState<"opportunity" | "log" | "edit" | "archive" | null>(null);
+  const [modal, setModal] = useState<"opportunity" | "edit" | "archive" | null>(null);
 
   const archiveMutation = useMutation({
     mutationFn: () => api.post(`/contacts/${id}/archive`),
@@ -52,7 +52,6 @@ export default function ContactDetailPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" onClick={() => setModal("edit")}><Pencil size={14} /> Edit</Button>
           <Button variant="secondary" onClick={() => setModal("opportunity")}><Target size={14} /> Create Opportunity</Button>
-          <Button variant="secondary" onClick={() => setModal("log")}><PhoneCall size={14} /> Log Call</Button>
           <Button variant="secondary" onClick={() => setModal("archive")}><Archive size={14} /> Archive</Button>
         </div>
       </div>
@@ -127,7 +126,6 @@ export default function ContactDetailPage() {
           onClose={() => setModal(null)}
         />
       )}
-      {modal === "log" && <LogActivityModal context={{ objectType: "CONTACT", contactId: contact.id, label: contactLabel }} onClose={() => setModal(null)} />}
     </div>
   );
 }

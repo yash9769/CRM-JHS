@@ -4,12 +4,12 @@ import { useQuery, useMutation, useQueryClient as useQC2 } from "@tanstack/react
 import { api } from "../lib/api";
 import { Card, Badge, StageBadge, EmptyState, Button } from "../components/ui";
 import { Timeline } from "../components/Timeline";
-import { NewContactModal, NewOpportunityModal, LogActivityModal } from "../components/CreateModals";
+import { NewContactModal, NewOpportunityModal } from "../components/CreateModals";
 import { EditAccountModal, ArchiveConfirmModal } from "../components/EditModals";
 import { HistoryPanel } from "../components/HistoryPanel";
 import { formatCurrency, formatDate, initials } from "../lib/format";
 import type { Account } from "../lib/types";
-import { Building2, Globe, Phone, MapPin, Users, Target, Plus, PhoneCall, Pencil, Archive } from "lucide-react";
+import { Building2, Globe, Phone, MapPin, Users, Target, Plus, Pencil, Archive } from "lucide-react";
 
 const tabs = ["Overview", "Contacts", "Opportunities", "Activity", "History"] as const;
 
@@ -18,7 +18,7 @@ export default function AccountDetailPage() {
   const navigate = useNavigate();
   const qcArchive = useQC2();
   const [tab, setTab] = useState<(typeof tabs)[number]>("Overview");
-  const [modal, setModal] = useState<"contact" | "opportunity" | "log" | "edit" | "archive" | null>(null);
+  const [modal, setModal] = useState<"contact" | "opportunity" | "edit" | "archive" | null>(null);
 
   const archiveMutation = useMutation({
     mutationFn: () => api.post(`/accounts/${id}/archive`),
@@ -53,7 +53,6 @@ export default function AccountDetailPage() {
           <Button variant="secondary" onClick={() => setModal("edit")}><Pencil size={14} /> Edit</Button>
           <Button variant="secondary" onClick={() => setModal("opportunity")}><Target size={14} /> Create Opportunity</Button>
           <Button variant="secondary" onClick={() => setModal("contact")}><Users size={14} /> Create Contact</Button>
-          <Button variant="secondary" onClick={() => setModal("log")}><PhoneCall size={14} /> Log Activity</Button>
           <Button variant="secondary" onClick={() => setModal("archive")}><Archive size={14} /> Archive</Button>
         </div>
       </div>
@@ -204,7 +203,6 @@ export default function AccountDetailPage() {
       )}
       {modal === "contact" && <NewContactModal accountId={account.id} accountName={account.name} onClose={() => setModal(null)} />}
       {modal === "opportunity" && <NewOpportunityModal accountId={account.id} accountName={account.name} onClose={() => setModal(null)} />}
-      {modal === "log" && <LogActivityModal context={{ objectType: "ACCOUNT", accountId: account.id, label: account.name }} onClose={() => setModal(null)} />}
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { Card, Button, Badge, StageBadge } from "../components/ui";
 import { NotesOnlyPanel } from "../components/NotesOnlyPanel";
 import { ClosedWonModal } from "../components/ClosedWonModal";
 import { ClosedLostModal } from "../components/ClosedLostModal";
-import { NewContactModal, LogActivityModal, NewQuoteModal, AddLineItemModal } from "../components/CreateModals";
+import { NewContactModal, NewQuoteModal, AddLineItemModal } from "../components/CreateModals";
 import { EditOpportunityModal, ArchiveConfirmModal } from "../components/EditModals";
 import { HistoryPanel } from "../components/HistoryPanel";
 import { formatCurrency, formatDate } from "../lib/format";
@@ -73,7 +73,7 @@ export default function OpportunityDetailPage() {
   const { user } = useAuth();
   const isPartner = user?.orgRole === "PARTNER" || user?.orgRole === "SENIOR_PARTNER";
 
-  const [modal, setModal] = useState<"edit" | "contact" | "log" | "archive" | "lineItem" | "quote" | null>(null);
+  const [modal, setModal] = useState<"edit" | "contact" | "archive" | "lineItem" | "quote" | null>(null);
   const [requestModalStage, setRequestModalStage] = useState<{ id: string; name: string } | null>(null);
   const [reviewModalApproval, setReviewModalApproval] = useState<any | null>(null);
   const [closedWonModalStageId, setClosedWonModalStageId] = useState<string | null>(null);
@@ -789,12 +789,6 @@ export default function OpportunityDetailPage() {
           accountName={opp.account?.name}
           onClose={() => setModal(null)}
           onCreated={() => qc.invalidateQueries({ queryKey: ["opportunity", id] })}
-        />
-      )}
-      {modal === "log" && (
-        <LogActivityModal
-          context={{ objectType: "OPPORTUNITY", opportunityId: opp.id, label: opp.name }}
-          onClose={() => setModal(null)}
         />
       )}
       {modal === "lineItem" && (

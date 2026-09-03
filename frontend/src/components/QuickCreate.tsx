@@ -1,17 +1,16 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Building2, Users, Target, PhoneCall } from "lucide-react";
+import { Plus, Building2, Users, Target } from "lucide-react";
 import {
-  NewAccountModal, NewContactModal, NewOpportunityModal, LogActivityModal,
+  NewAccountModal, NewContactModal, NewOpportunityModal,
 } from "./CreateModals";
 
-type Kind = "account" | "contact" | "opportunity" | "activity" | "quote" | null;
+type Kind = "account" | "contact" | "opportunity" | "quote" | null;
 
 const items: { kind: Kind; label: string; icon: any }[] = [
   { kind: "account", label: "New Account", icon: Building2 },
   { kind: "contact", label: "New Contact", icon: Users },
   { kind: "opportunity", label: "New Opportunity", icon: Target },
-  { kind: "activity", label: "Log Activity", icon: PhoneCall },
 ];
 
 export function QuickCreateButton() {
@@ -70,7 +69,6 @@ export function QuickCreateButton() {
       {active === "account" && <NewAccountModal onClose={() => setActive(null)} onCreated={(a) => navigate(`/accounts/${a.id}`)} />}
       {active === "contact" && <NewContactModal onClose={() => setActive(null)} onCreated={(c) => navigate(`/contacts/${c.id}`)} />}
       {active === "opportunity" && <NewOpportunityModal onClose={() => setActive(null)} onCreated={(o) => navigate(`/opportunities/${o.id}`)} />}
-      {active === "activity" && <LogActivityModal onClose={() => setActive(null)} />}
     </div>
   );
 }
