@@ -345,8 +345,8 @@ model Opportunity {
   contactId         String?
   contact           Contact?         @relation("OpportunityPrimaryContact", fields: [contactId], references: [id])
   amount            Decimal          @db.Decimal(16, 2)
-  expectedDealValue Decimal?         @db.Decimal(16, 2)
-  actualDealValue   Decimal?         @db.Decimal(16, 2)
+  expectedOpportunityValue Decimal?  @db.Decimal(16, 2)
+  actualOpportunityValue   Decimal?  @db.Decimal(16, 2)
   bottomLineCost    Decimal?         @db.Decimal(16, 2)
   pipelineId        String
   pipeline          Pipeline         @relation(fields: [pipelineId], references: [id])
@@ -359,7 +359,10 @@ model Opportunity {
   createdById       String?
   createdBy         User?            @relation("OpportunityCreator", fields: [createdById], references: [id])
   opportunityType   OpportunityType  @default(NEW_BUSINESS)
-  dealType          String?
+  // Legacy free-text column carried over from the removed `Deal` model (see
+  // migration 20260827120000_merge_deal_into_opportunity). Superseded by
+  // `opportunityType`; NULL for every existing row. Candidate for removal.
+  opportunityTypeLegacy String?
   forecastCategory  ForecastCategory @default(PIPELINE)
   actualCloseDate   DateTime?
   wonDate           DateTime?

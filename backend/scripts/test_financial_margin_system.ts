@@ -20,7 +20,7 @@ async function runTests() {
   }
 
   // 1. Expected Margin calculation
-  const res1 = computeOpportunityFinancials({ expectedDealValue: 100000, bottomLineCost: 60000 });
+  const res1 = computeOpportunityFinancials({ expectedOpportunityValue: 100000, bottomLineCost: 60000 });
   assert(res1.expectedMargin === 40000, 1, "Expected Margin calculated correctly (100k - 60k = 40k)");
 
   // 2. Expected Margin unavailable when Expected Deal Value is missing
@@ -28,11 +28,11 @@ async function runTests() {
   assert(res2.expectedMargin === null, 2, "Expected Margin is null when Expected Deal Value missing");
 
   // 3. Expected Margin unavailable when Bottom Line Cost is missing
-  const res3 = computeOpportunityFinancials({ expectedDealValue: 100000 });
+  const res3 = computeOpportunityFinancials({ expectedOpportunityValue: 100000 });
   assert(res3.expectedMargin === null, 3, "Expected Margin is null when Bottom Line Cost missing");
 
   // 4. Gross Margin calculation
-  const res4 = computeOpportunityFinancials({ actualDealValue: 120000, bottomLineCost: 70000 });
+  const res4 = computeOpportunityFinancials({ actualOpportunityValue: 120000, bottomLineCost: 70000 });
   assert(res4.grossMargin === 50000, 4, "Gross Margin calculated correctly (120k - 70k = 50k)");
 
   // 5. Gross Margin unavailable when Actual Deal Value is missing
@@ -40,50 +40,50 @@ async function runTests() {
   assert(res5.grossMargin === null, 5, "Gross Margin is null when Actual Deal Value missing");
 
   // 6. Gross Margin unavailable when Bottom Line Cost is missing
-  const res6 = computeOpportunityFinancials({ actualDealValue: 120000 });
+  const res6 = computeOpportunityFinancials({ actualOpportunityValue: 120000 });
   assert(res6.grossMargin === null, 6, "Gross Margin is null when Bottom Line Cost missing");
 
   // 7. Negative Gross Margin supported (loss-making deal)
-  const res7 = computeOpportunityFinancials({ actualDealValue: 80000, bottomLineCost: 100000 });
+  const res7 = computeOpportunityFinancials({ actualOpportunityValue: 80000, bottomLineCost: 100000 });
   assert(res7.grossMargin === -20000, 7, "Negative Gross Margin supported (80k - 100k = -20k)");
 
   // 8. Margin Loss calculation
-  const res8 = computeOpportunityFinancials({ expectedDealValue: 100000, actualDealValue: 80000 });
+  const res8 = computeOpportunityFinancials({ expectedOpportunityValue: 100000, actualOpportunityValue: 80000 });
   assert(res8.marginLoss === 20000, 8, "Margin Loss calculated correctly (100k - 80k = 20k)");
 
   // 9. Margin Loss never negative (min 0 when actual > expected)
-  const res9 = computeOpportunityFinancials({ expectedDealValue: 100000, actualDealValue: 120000 });
+  const res9 = computeOpportunityFinancials({ expectedOpportunityValue: 100000, actualOpportunityValue: 120000 });
   assert(res9.marginLoss === 0, 9, "Margin Loss is 0 when Actual Deal Value exceeds Expected (100k vs 120k)");
 
   // 10. Margin Loss unavailable when Actual Deal Value missing
-  const res10 = computeOpportunityFinancials({ expectedDealValue: 100000 });
+  const res10 = computeOpportunityFinancials({ expectedOpportunityValue: 100000 });
   assert(res10.marginLoss === null, 10, "Margin Loss is null when Actual Deal Value missing");
 
   // 11. Top-Line Revenue calculation (uses Actual if available, else Expected)
-  const res11a = computeOpportunityFinancials({ expectedDealValue: 100000, actualDealValue: 110000 });
-  const res11b = computeOpportunityFinancials({ expectedDealValue: 100000 });
+  const res11a = computeOpportunityFinancials({ expectedOpportunityValue: 100000, actualOpportunityValue: 110000 });
+  const res11b = computeOpportunityFinancials({ expectedOpportunityValue: 100000 });
   assert(res11a.topLineRevenue === 110000 && res11b.topLineRevenue === 100000, 11, "Top-Line Revenue uses Actual when present, else Expected");
 
-  // 12. Backward compatibility fallback: fallback amount used as expectedDealValue
+  // 12. Backward compatibility fallback: fallback amount used as expectedOpportunityValue
   const res12 = computeOpportunityFinancials({ amount: 150000, bottomLineCost: 50000 });
-  assert(res12.expectedDealValue === 150000 && res12.expectedMargin === 100000, 12, "Fallback amount used as expectedDealValue when expectedDealValue is null");
+  assert(res12.expectedOpportunityValue === 150000 && res12.expectedMargin === 100000, 12, "Fallback amount used as expectedOpportunityValue when expectedOpportunityValue is null");
 
-  // 13. Verify database migration: all existing DB records have expectedDealValue populated
+  // 13. Verify database migration: all existing DB records have expectedOpportunityValue populated
   const totalOppsCount = await prisma.opportunity.count();
   const migratedOppsCount = await prisma.opportunity.count({
-    where: { expectedDealValue: { not: null } }
+    where: { expectedOpportunityValue: { not: null } }
   });
-  assert(migratedOppsCount === totalOppsCount && totalOppsCount > 0, 13, `Database migration verified: ${migratedOppsCount}/${totalOppsCount} opportunities have expectedDealValue`);
+  assert(migratedOppsCount === totalOppsCount && totalOppsCount > 0, 13, `Database migration verified: ${migratedOppsCount}/${totalOppsCount} opportunities have expectedOpportunityValue`);
 
   // 14. Verify DB schema fields exist
   const sampleOpp = await prisma.opportunity.findFirst();
   assert(
     sampleOpp !== null &&
-    "expectedDealValue" in sampleOpp &&
-    "actualDealValue" in sampleOpp &&
+    "expectedOpportunityValue" in sampleOpp &&
+    "actualOpportunityValue" in sampleOpp &&
     "bottomLineCost" in sampleOpp,
     14,
-    "Prisma Opportunity schema contains expectedDealValue, actualDealValue, and bottomLineCost"
+    "Prisma Opportunity schema contains expectedOpportunityValue, actualOpportunityValue, and bottomLineCost"
   );
 
   // 15. Test creating opportunity with financial fields in DB
@@ -98,8 +98,8 @@ async function runTests() {
         tenantId: testTenant.id,
         name: "TEST_FINANCIAL_MARGIN_OPP",
         amount: 250000,
-        expectedDealValue: 250000,
-        actualDealValue: 220000,
+        expectedOpportunityValue: 250000,
+        actualOpportunityValue: 220000,
         bottomLineCost: 150000,
         pipelineId: testStage.pipelineId,
         stageId: testStage.id,
@@ -120,7 +120,7 @@ async function runTests() {
     // 16. Test updating financial fields
     const updatedOpp = await prisma.opportunity.update({
       where: { id: createdOpp.id },
-      data: { actualDealValue: 270000 }
+      data: { actualOpportunityValue: 270000 }
     });
     const computedUpdated = computeOpportunityFinancials(updatedOpp);
     assert(
@@ -129,8 +129,8 @@ async function runTests() {
       "Updated Opportunity recalculates grossMargin=120k and marginLoss=0"
     );
 
-    // 17. Verify amount syncs with expectedDealValue
-    assert(Number(updatedOpp.amount) === 250000, 17, "Opportunity amount synced with expectedDealValue");
+    // 17. Verify amount syncs with expectedOpportunityValue
+    assert(Number(updatedOpp.amount) === 250000, 17, "Opportunity amount synced with expectedOpportunityValue");
 
     // Clean up test record
     await prisma.opportunity.delete({ where: { id: createdOpp.id } });
@@ -144,16 +144,16 @@ async function runTests() {
 
   // 19. Verify missing actual deal value warning logic for Closed Won
   const closedWonStage = await prisma.pipelineStage.findFirst({ where: { isClosed: true, isWon: true } });
-  const mockClosedWonOpp = { stage: closedWonStage, actualDealValue: null };
-  const hasMissingWarning = mockClosedWonOpp.stage?.isWon && mockClosedWonOpp.actualDealValue === null;
-  assert(hasMissingWarning === true, 19, "Closed Won opportunity without actualDealValue triggers hasMissingActualValue warning flag");
+  const mockClosedWonOpp = { stage: closedWonStage, actualOpportunityValue: null };
+  const hasMissingWarning = mockClosedWonOpp.stage?.isWon && mockClosedWonOpp.actualOpportunityValue === null;
+  assert(hasMissingWarning === true, 19, "Closed Won opportunity without actualOpportunityValue triggers hasMissingActualValue warning flag");
 
   // 20. Verify non-negative validations
   const invalidNegativeCost = computeOpportunityFinancials({ bottomLineCost: -5000 });
   assert(invalidNegativeCost.bottomLineCost === null, 20, "Negative bottomLineCost rejected / sanitized to null");
 
   // 21. Verify zero values allowed
-  const zeroValues = computeOpportunityFinancials({ expectedDealValue: 0, bottomLineCost: 0, actualDealValue: 0 });
+  const zeroValues = computeOpportunityFinancials({ expectedOpportunityValue: 0, bottomLineCost: 0, actualOpportunityValue: 0 });
   assert(
     zeroValues.expectedMargin === 0 && zeroValues.grossMargin === 0 && zeroValues.marginLoss === 0,
     21,
@@ -161,7 +161,7 @@ async function runTests() {
   );
 
   // 22. Verify server-side calculation authority (frontend-supplied margins ignored)
-  const clientInput = { expectedDealValue: 100000, bottomLineCost: 40000, expectedMargin: 999999 };
+  const clientInput = { expectedOpportunityValue: 100000, bottomLineCost: 40000, expectedMargin: 999999 };
   const serverAuthoritative = computeOpportunityFinancials(clientInput);
   assert(serverAuthoritative.expectedMargin === 60000, 22, "Server calculation authority enforced: client-supplied expectedMargin ignored in favor of computed value");
 

@@ -17,9 +17,9 @@ export default async function dashboardRoutes(app: FastifyInstance) {
     const openOppsFinancials = openOpps.map((o) => computeOpportunityFinancials(o));
     const closedWonFinancials = closedWonOpps.map((o) => computeOpportunityFinancials(o));
 
-    const totalPipeline = openOppsFinancials.reduce((s, f) => s + (f.expectedDealValue || 0), 0);
-    const weightedPipeline = openOpps.reduce((s, o, idx) => s + (openOppsFinancials[idx].expectedDealValue || 0) * (o.probability / 100), 0);
-    const closedWonRevenue = closedWonFinancials.reduce((s, f) => s + (f.actualDealValue !== null ? f.actualDealValue : (f.expectedDealValue || 0)), 0);
+    const totalPipeline = openOppsFinancials.reduce((s, f) => s + (f.expectedOpportunityValue || 0), 0);
+    const weightedPipeline = openOpps.reduce((s, o, idx) => s + (openOppsFinancials[idx].expectedOpportunityValue || 0) * (o.probability / 100), 0);
+    const closedWonRevenue = closedWonFinancials.reduce((s, f) => s + (f.actualOpportunityValue !== null ? f.actualOpportunityValue : (f.expectedOpportunityValue || 0)), 0);
     
     const totalExpectedMargin = openOppsFinancials.reduce((s, f) => s + (f.expectedMargin || 0), 0);
     const totalGrossMargin = closedWonFinancials.reduce((s, f) => s + (f.grossMargin || 0), 0);
@@ -46,7 +46,7 @@ export default async function dashboardRoutes(app: FastifyInstance) {
       const key = o.stageId;
       const cur = byStageMap.get(key) || { stageName: o.stage.name, count: 0, amount: 0 };
       cur.count += 1;
-      cur.amount += f.expectedDealValue || 0;
+      cur.amount += f.expectedOpportunityValue || 0;
       byStageMap.set(key, cur);
     }
 
@@ -64,7 +64,7 @@ export default async function dashboardRoutes(app: FastifyInstance) {
         })
         .reduce((s, opp) => {
           const f = computeOpportunityFinancials(opp);
-          return s + (f.actualDealValue !== null ? f.actualDealValue : (f.expectedDealValue || 0));
+          return s + (f.actualOpportunityValue !== null ? f.actualOpportunityValue : (f.expectedOpportunityValue || 0));
         }, 0);
       revenueByMonth.push({ month: label, revenue });
     }
@@ -77,7 +77,7 @@ export default async function dashboardRoutes(app: FastifyInstance) {
       const key = o.ownerId;
       const cur = byOwnerMap.get(key) || { owner: `${o.owner.firstName} ${o.owner.lastName}`, count: 0, amount: 0 };
       cur.count += 1;
-      cur.amount += f.expectedDealValue || 0;
+      cur.amount += f.expectedOpportunityValue || 0;
       byOwnerMap.set(key, cur);
     }
 

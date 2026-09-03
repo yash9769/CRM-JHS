@@ -139,7 +139,7 @@ export default async function approvalRoutes(app: FastifyInstance) {
             loeUnit: approval.loeUnit ?? "Hours",
             poNumber: approval.poNumber ?? undefined,
             poValue: approval.poValue ?? undefined,
-            actualDealValue: approval.poValue ? approval.poValue : undefined,
+            actualOpportunityValue: approval.poValue ? approval.poValue : undefined,
           } : {}),
         },
       });

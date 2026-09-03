@@ -1,13 +1,13 @@
 export interface FinancialsInput {
-  expectedDealValue?: any;
-  actualDealValue?: any;
+  expectedOpportunityValue?: any;
+  actualOpportunityValue?: any;
   bottomLineCost?: any;
   amount?: any;
 }
 
 export interface ComputedFinancials {
-  expectedDealValue: number | null;
-  actualDealValue: number | null; // Topline Value
+  expectedOpportunityValue: number | null;
+  actualOpportunityValue: number | null; // Topline Value
   bottomLineCost: number | null;  // Cost Incurred to Company
   expectedMargin: number | null;
   grossMargin: number | null;
@@ -24,17 +24,17 @@ function toNum(val: any): number | null {
 }
 
 export function computeOpportunityFinancials(input: FinancialsInput): ComputedFinancials {
-  let expectedDealValue = toNum(input.expectedDealValue);
-  if (expectedDealValue === null) {
-    expectedDealValue = toNum(input.amount);
+  let expectedOpportunityValue = toNum(input.expectedOpportunityValue);
+  if (expectedOpportunityValue === null) {
+    expectedOpportunityValue = toNum(input.amount);
   }
-  if (expectedDealValue !== null && expectedDealValue < 0) {
-    expectedDealValue = null;
+  if (expectedOpportunityValue !== null && expectedOpportunityValue < 0) {
+    expectedOpportunityValue = null;
   }
 
-  let actualDealValue = toNum(input.actualDealValue);
-  if (actualDealValue !== null && actualDealValue < 0) {
-    actualDealValue = null;
+  let actualOpportunityValue = toNum(input.actualOpportunityValue);
+  if (actualOpportunityValue !== null && actualOpportunityValue < 0) {
+    actualOpportunityValue = null;
   }
 
   let bottomLineCost = toNum(input.bottomLineCost);
@@ -44,35 +44,35 @@ export function computeOpportunityFinancials(input: FinancialsInput): ComputedFi
 
   // 1. Expected Margin = Expected Deal Value - Cost Incurred to Company
   const expectedMargin =
-    expectedDealValue !== null && bottomLineCost !== null
-      ? expectedDealValue - bottomLineCost
+    expectedOpportunityValue !== null && bottomLineCost !== null
+      ? expectedOpportunityValue - bottomLineCost
       : null;
 
   // 2. Gross Margin / Realized Margin = Topline Value - Cost Incurred to Company (Can be negative!)
   const grossMargin =
-    actualDealValue !== null && bottomLineCost !== null
-      ? actualDealValue - bottomLineCost
+    actualOpportunityValue !== null && bottomLineCost !== null
+      ? actualOpportunityValue - bottomLineCost
       : null;
 
   // 3. Margin Loss = MAX(Expected Deal Value - Topline Value, 0)
   const marginLoss =
-    actualDealValue !== null && expectedDealValue !== null
-      ? Math.max(expectedDealValue - actualDealValue, 0)
+    actualOpportunityValue !== null && expectedOpportunityValue !== null
+      ? Math.max(expectedOpportunityValue - actualOpportunityValue, 0)
       : null;
 
   // 4. Top-Line Revenue = Topline Value (or Expected Deal Value if actual is null)
-  const topLineRevenue = actualDealValue !== null ? actualDealValue : expectedDealValue;
+  const topLineRevenue = actualOpportunityValue !== null ? actualOpportunityValue : expectedOpportunityValue;
 
   // 5. Margin Value: If Topline Value is present, use Topline - Cost; otherwise Expected - Cost
   const marginValue =
-    actualDealValue !== null && bottomLineCost !== null
-      ? actualDealValue - bottomLineCost
-      : expectedDealValue !== null && bottomLineCost !== null
-      ? expectedDealValue - bottomLineCost
+    actualOpportunityValue !== null && bottomLineCost !== null
+      ? actualOpportunityValue - bottomLineCost
+      : expectedOpportunityValue !== null && bottomLineCost !== null
+      ? expectedOpportunityValue - bottomLineCost
       : null;
 
   // 6. Margin Percentage: Safely calculate percentage against relevant revenue denominator
-  const revenueDenominator = actualDealValue !== null ? actualDealValue : expectedDealValue;
+  const revenueDenominator = actualOpportunityValue !== null ? actualOpportunityValue : expectedOpportunityValue;
   let marginPercentage: number | null = null;
   if (marginValue !== null && revenueDenominator !== null) {
     if (revenueDenominator > 0) {
@@ -85,8 +85,8 @@ export function computeOpportunityFinancials(input: FinancialsInput): ComputedFi
   }
 
   return {
-    expectedDealValue,
-    actualDealValue,
+    expectedOpportunityValue,
+    actualOpportunityValue,
     bottomLineCost,
     expectedMargin,
     grossMargin,
