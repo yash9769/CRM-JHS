@@ -11,60 +11,15 @@ import { EditOpportunityModal, ArchiveConfirmModal } from "../components/EditMod
 import { HistoryPanel } from "../components/HistoryPanel";
 import { formatCurrency, formatDate } from "../lib/format";
 import { computeOpportunityFinancials } from "../lib/financial";
-import type { Opportunity, Pipeline } from "../lib/types";
+import type { Opportunity } from "../lib/types";
 import { useAuth } from "../hooks/useAuth";
 import { ApprovalRequestModal } from "../components/ApprovalRequestModal";
 import { ApprovalReviewModal } from "../components/ApprovalReviewModal";
 import {
-  ArrowRight, CheckCircle2, Building2, User, Pencil, UserPlus,
+  ArrowRight, Building2, User, Pencil, UserPlus,
   FileText, Plus, Trash2, Download, Clock, ShieldAlert, RotateCcw,
   IndianRupee, Info, ArrowDown, StickyNote, FileCheck
 } from "lucide-react";
-
-function Stepper({
-  stages,
-  currentStageId,
-  onSelectStage,
-}: {
-  stages: Pipeline["stages"];
-  currentStageId: string;
-  onSelectStage: (stage: Pipeline["stages"][number]) => void;
-}) {
-  const currentIdx = stages.findIndex((s) => s.id === currentStageId);
-  return (
-    <div className="flex items-center overflow-x-auto py-1 gap-1">
-      {stages.map((s, i) => {
-        const done = i < currentIdx;
-        const active = i === currentIdx;
-        return (
-          <div key={s.id} className="flex items-center shrink-0">
-            <button
-              type="button"
-              onClick={() => onSelectStage(s)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer hover:opacity-90 ${
-                active
-                  ? "bg-[var(--ledger-600)] text-white shadow-xs"
-                  : done
-                  ? "bg-[var(--ledger-50)] text-[var(--ledger-800)]"
-                  : "bg-[var(--ink-50)] text-[var(--ink-500)]"
-              }`}
-            >
-              <div
-                className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
-                  active ? "bg-white text-[var(--ledger-700)]" : done ? "bg-[var(--ledger-600)] text-white" : "bg-[var(--ink-200)] text-[var(--ink-600)]"
-                }`}
-              >
-                {done ? <CheckCircle2 size={10} /> : i + 1}
-              </div>
-              <span className="whitespace-nowrap">{s.name}</span>
-            </button>
-            {i < stages.length - 1 && <ArrowRight size={12} className="mx-1 shrink-0 text-[var(--ink-300)]" />}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 export default function OpportunityDetailPage() {
   const { id } = useParams();
@@ -283,14 +238,9 @@ export default function OpportunityDetailPage() {
           </div>
         </div>
 
-        {/* Pipeline Stepper */}
+        {/* Pipeline Stage Change */}
         <Card className="p-4">
-          <Stepper
-            stages={opp.pipeline!.stages}
-            currentStageId={opp.stageId}
-            onSelectStage={handleStageSelect}
-          />
-          <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-[var(--ink-100)]">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="text-xs font-medium text-[var(--ink-500)]">Change Opportunity Stage to:</span>
             <select
               value={opp.stageId}
