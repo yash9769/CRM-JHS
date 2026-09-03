@@ -219,6 +219,7 @@ export interface Opportunity {
   notes?: Note[];
   stageApprovals?: StageApproval[];
   attachments?: OpportunityAttachment[];
+  stageHistory?: any[];
 }
 
 export interface DashboardMetrics {
