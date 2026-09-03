@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
-import { requireExportPermission } from "../lib/rbac.js";
+import { requireExportPermission, getCreatedByFilter, requireCanAccess } from "../lib/rbac.js";
 
 const activitySchema = z.object({
   type: z.enum(["CALL", "EMAIL", "MEETING", "TASK", "NOTE", "FOLLOW_UP", "DEMO", "PROPOSAL", "OTHER"]),
@@ -30,8 +30,10 @@ const noteSchema = z.object({
 export default async function activityRoutes(app: FastifyInstance) {
   app.get("/api/v1/activities", { preHandler: app.authenticate }, async (req) => {
     const q = req.query as { accountId?: string; contactId?: string; opportunityId?: string; leadId?: string; status?: string; ownerId?: string; dueBefore?: string; dueAfter?: string; type?: string };
+    const rbacFilter = await getCreatedByFilter(req.authUser);
     const where = {
       tenantId: req.authUser.tenantId,
+      ...rbacFilter,
       ...(q.accountId ? { accountId: q.accountId } : {}),
       ...(q.contactId ? { contactId: q.contactId } : {}),
       ...(q.opportunityId ? { opportunityId: q.opportunityId } : {}),
@@ -71,8 +73,10 @@ export default async function activityRoutes(app: FastifyInstance) {
       leadId?: string;
       search?: string;
     };
+    const rbacFilter = await getCreatedByFilter(req.authUser);
     const where = {
       tenantId: req.authUser.tenantId,
+      ...rbacFilter,
       ...(q.type ? { type: q.type as any } : {}),
       ...(q.status ? { status: q.status as any } : {}),
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
@@ -144,8 +148,9 @@ export default async function activityRoutes(app: FastifyInstance) {
   app.patch("/api/v1/activities/:id", { preHandler: app.authenticate }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = activitySchema.partial().parse(req.body);
-    const existing = await prisma.activity.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
+    const existing = await prisma.activity.findFirst({ where: { id, tenantId: req.authUser.tenantId }, select: { id: true, ownerId: true, completedDate: true } });
     if (!existing) return reply.code(404).send({ error: "Activity not found" });
+    await requireCanAccess(req.authUser, existing);
     const activity = await prisma.activity.update({
       where: { id },
       data: {
@@ -169,15 +174,17 @@ export default async function activityRoutes(app: FastifyInstance) {
   app.patch("/api/v1/notes/:id", { preHandler: app.authenticate }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = z.object({ body: z.string().min(1) }).parse(req.body);
-    const existing = await prisma.note.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
+    const existing = await prisma.note.findFirst({ where: { id, tenantId: req.authUser.tenantId }, select: { id: true, authorId: true } });
     if (!existing) return reply.code(404).send({ error: "Note not found" });
+    await requireCanAccess(req.authUser, { ownerId: existing.authorId });
     return prisma.note.update({ where: { id }, data: { body: body.body } });
   });
 
   app.delete("/api/v1/notes/:id", { preHandler: app.authenticate }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const existing = await prisma.note.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
+    const existing = await prisma.note.findFirst({ where: { id, tenantId: req.authUser.tenantId }, select: { id: true, authorId: true } });
     if (!existing) return reply.code(404).send({ error: "Note not found" });
+    await requireCanAccess(req.authUser, { ownerId: existing.authorId });
     await prisma.note.delete({ where: { id } });
     return reply.code(204).send();
   });
