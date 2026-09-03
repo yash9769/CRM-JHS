@@ -32,7 +32,7 @@ describe("API Opportunity Workflow & Lifecycle", () => {
         headers: { Authorization: `Bearer ${seniorToken}` },
         body: {
           amount: 950000,
-          actualDealValue: 950000,
+          actualOpportunityValue: 950000,
           bottomLineCost: 500000,
           remarks: "Updated pricing details during negotiation",
         },

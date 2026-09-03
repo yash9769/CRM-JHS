@@ -20,8 +20,8 @@ export interface TestOpportunityInput {
   accountId: string;
   contactId?: string | null;
   amount: number;
-  expectedDealValue?: number;
-  actualDealValue?: number;
+  expectedOpportunityValue?: number;
+  actualOpportunityValue?: number;
   bottomLineCost?: number;
   remarks?: string;
   expectedCloseDate?: string;
@@ -73,15 +73,15 @@ export function createContactFixture(accountId?: string, overrides: Partial<Test
 
 export function createOpportunityFixture(accountId: string, contactId?: string, overrides: Partial<TestOpportunityInput> = {}): TestOpportunityInput {
   const uid = generateUniqueId("opp");
-  const proposalValue = overrides.amount || overrides.actualDealValue || 500000;
+  const proposalValue = overrides.amount || overrides.actualOpportunityValue || 500000;
   const costIncurred = overrides.bottomLineCost || 300000;
   return {
     name: `SOC Implementation Deal ${uid}`,
     accountId,
     contactId: contactId || null,
     amount: proposalValue,
-    actualDealValue: proposalValue,
-    expectedDealValue: proposalValue,
+    actualOpportunityValue: proposalValue,
+    expectedOpportunityValue: proposalValue,
     bottomLineCost: costIncurred,
     remarks: "Standard beta test opportunity record",
     expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
