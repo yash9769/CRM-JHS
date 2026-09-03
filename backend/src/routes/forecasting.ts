@@ -166,8 +166,15 @@ export default async function forecastingRoutes(app: FastifyInstance) {
   // Get targets
   app.get("/api/v1/forecast/targets", { preHandler: [app.authenticate] }, async (req: any) => {
     const { period } = req.query as any;
+    // ForecastTarget has no createdById field (only ownerId), so getCreatedByFilter's
+    // createdById/ownerId OR clause would throw a Prisma "unknown argument" error here.
+    // Scope by ownerId directly using the same visibility rules instead.
+    const targetRbacFilter =
+      req.authUser.orgRole === "SENIOR_PARTNER"
+        ? {}
+        : { ownerId: { in: await getVisibleUserIds(req.authUser) } };
     const targets = await prisma.forecastTarget.findMany({
-      where: { tenantId: req.authUser.tenantId, ...(period ? { period } : {}) },
+      where: { tenantId: req.authUser.tenantId, ...targetRbacFilter, ...(period ? { period } : {}) },
       orderBy: [{ period: "desc" }, { createdAt: "asc" }],
     });
     return { data: targets };
@@ -177,6 +184,12 @@ export default async function forecastingRoutes(app: FastifyInstance) {
   app.get("/api/v1/forecast/trend", { preHandler: [app.authenticate] }, async (req: any) => {
     const tenantId = req.authUser.tenantId;
     const rbacFilter = await getCreatedByFilter(req.authUser);
+    // ForecastTarget has no createdById field (only ownerId); reuse the same
+    // ownerId-based scoping as the /forecast/targets endpoint above.
+    const targetRbacFilter =
+      req.authUser.orgRole === "SENIOR_PARTNER"
+        ? {}
+        : { ownerId: { in: await getVisibleUserIds(req.authUser) } };
     const months = [];
     const now = new Date();
 
@@ -188,7 +201,7 @@ export default async function forecastingRoutes(app: FastifyInstance) {
 
       const [target, closedWon] = await Promise.all([
         prisma.forecastTarget.aggregate({
-          where: { tenantId, period },
+          where: { tenantId, period, ...targetRbacFilter },
           _sum: { targetAmount: true },
         }),
         prisma.opportunity.aggregate({
