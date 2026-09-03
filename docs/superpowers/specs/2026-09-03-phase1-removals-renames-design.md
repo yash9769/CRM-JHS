@@ -15,8 +15,8 @@ Two independent implementations exist and both must go:
   - [LeadDetailPage.tsx](frontend/src/pages/LeadDetailPage.tsx) — same
   - [OpportunityDetailPage.tsx](frontend/src/pages/OpportunityDetailPage.tsx) — same
   - [QuickCreate.tsx](frontend/src/components/QuickCreate.tsx) — "Log Activity" quick-create entry
-- The separate inline "Log" mini-form built into [Timeline.tsx](frontend/src/components/Timeline.tsx) (its own `logActivity` mutation posting to `/activities`, plus the type-select/subject/body/"Log" button UI) — remove this form, keep the rest of Timeline (notes, and read-only display of past activity history) intact.
-- Backend: `POST /api/v1/activities` in [activities.ts](backend/src/routes/activities.ts) becomes unused once both frontends stop calling it — remove the route. **Keep** `GET /api/v1/activities` and `GET /api/v1/activities/export` (still needed to display/export historical activity data in Timeline and Reports).
+- The separate inline "Log" mini-form built into [Timeline.tsx](frontend/src/components/Timeline.tsx) (its own `logActivity` mutation posting to `/activities`, plus the type-select/subject/body/"Log" button UI) — remove this form, keep the rest of Timeline (notes, task creation, and read-only display of past activity history) intact.
+- **Correction:** `POST /api/v1/activities` in [activities.ts](backend/src/routes/activities.ts) must **stay** — Timeline's "Create task" tab also posts to this same endpoint (with `type: "TASK"`), which is a separate feature we're keeping. No backend changes are needed for this item at all.
 
 ## 2. Dashboard label rename
 
