@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { getCreatedByFilter } from "../lib/rbac.js";
+import { getCreatedByFilter, requireCanAccess } from "../lib/rbac.js";
 
 const productSchema = z.object({
   name: z.string().min(1),
@@ -56,15 +56,7 @@ export default async function productRoutes(app: FastifyInstance) {
     const existing = await prisma.product.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Product not found" });
 
-    // Role check: unitPrice can only be updated by SENIOR_PARTNER, PARTNER, or MANAGER
-    if (body.unitPrice !== undefined && Number(body.unitPrice) !== Number(existing.unitPrice)) {
-      const allowedRoles = ["SENIOR_PARTNER", "PARTNER", "MANAGER"];
-      if (!allowedRoles.includes(req.authUser.orgRole)) {
-        return reply.code(403).send({
-          error: "Permission denied: Only Senior Partner, Partner, or Manager roles can edit unit prices.",
-        });
-      }
-    }
+    await requireCanAccess(req.authUser, existing);
 
     const updated = await prisma.product.update({
       where: { id },
