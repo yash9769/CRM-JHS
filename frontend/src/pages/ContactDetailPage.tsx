@@ -80,8 +80,8 @@ export default function ContactDetailPage() {
                     <div>
                       <span className="font-semibold text-sm text-[var(--ledger-700)]">{o.name}</span>
                       <div className="text-xs text-[var(--ink-500)] flex items-center gap-2 mt-0.5 font-mono-num">
-                        <span>Expected: {o.expectedDealValue !== null && o.expectedDealValue !== undefined ? formatCurrency(o.expectedDealValue) : formatCurrency(o.amount)}</span>
-                        {o.actualDealValue !== null && o.actualDealValue !== undefined && <span>· Actual: {formatCurrency(o.actualDealValue)}</span>}
+                        <span>Expected: {o.expectedOpportunityValue !== null && o.expectedOpportunityValue !== undefined ? formatCurrency(o.expectedOpportunityValue) : formatCurrency(o.amount)}</span>
+                        {o.actualOpportunityValue !== null && o.actualOpportunityValue !== undefined && <span>· Actual: {formatCurrency(o.actualOpportunityValue)}</span>}
                         <span className={o.grossMargin !== null && o.grossMargin !== undefined && Number(o.grossMargin) < 0 ? "text-rose-600 font-bold" : "text-emerald-700 font-bold"}>
                           · Margin: {o.grossMargin !== null && o.grossMargin !== undefined ? formatCurrency(o.grossMargin) : (o.expectedMargin !== null && o.expectedMargin !== undefined ? formatCurrency(o.expectedMargin) : "—")}
                         </span>

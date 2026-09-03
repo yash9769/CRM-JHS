@@ -69,7 +69,7 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
         stageId: targetStageId,
         poNumber: poNumber.trim() || undefined,
         poValue: numPoValue,
-        actualDealValue: numPoValue,
+        actualOpportunityValue: numPoValue,
         loeValue: attachments[0]?.filename || "LOE Attached",
         remarks: remarks.trim() || undefined,
       });

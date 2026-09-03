@@ -403,8 +403,8 @@ export function NewOpportunityModal({
         accountId: accountId,
         contactId: contactId || null,
         amount: proposalSent ?? 0,
-        expectedDealValue: proposalSent,
-        actualDealValue: proposalSent,
+        expectedOpportunityValue: proposalSent,
+        actualOpportunityValue: proposalSent,
         bottomLineCost: cost,
         pipelineId: oppPipeline!.id,
         stageId: effectiveStageId,
@@ -556,7 +556,7 @@ export function NewOpportunityModal({
                     placeholder="10,00,000"
                   />
                 </div>
-                <FieldError message={fieldErrors.amount || fieldErrors.actualDealValue || fieldErrors.expectedDealValue} />
+                <FieldError message={fieldErrors.amount || fieldErrors.actualOpportunityValue || fieldErrors.expectedOpportunityValue} />
               </Field>
 
               <Field

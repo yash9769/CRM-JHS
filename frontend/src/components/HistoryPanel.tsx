@@ -5,7 +5,7 @@ import { relativeTime } from "../lib/format";
 import { History, ExternalLink } from "lucide-react";
 import { AuditLogDetailModal, type AuditEntry } from "./AuditLogDetailModal";
 
-const TRACKED_FIELDS = ["stageId", "stage", "ownerId", "amount", "actualDealValue", "bottomLineCost", "poNumber", "poValue", "loeValue", "remarks"];
+const TRACKED_FIELDS = ["stageId", "stage", "ownerId", "amount", "actualOpportunityValue", "bottomLineCost", "poNumber", "poValue", "loeValue", "remarks"];
 
 function describeChange(entry: AuditEntry): string {
   if (entry.action === "CREATED") return "created this record";

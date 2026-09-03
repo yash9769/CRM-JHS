@@ -175,7 +175,7 @@ export default function OpportunityDetailPage() {
             <div>
               <span className="text-[var(--ink-400)] font-medium mr-1.5">Proposal Sent Value:</span>
               <span className="font-mono-num font-bold text-slate-900">
-                {financials.actualDealValue !== null ? formatCurrency(financials.actualDealValue) : formatCurrency(opp.amount)}
+                {financials.actualOpportunityValue !== null ? formatCurrency(financials.actualOpportunityValue) : formatCurrency(opp.amount)}
               </span>
             </div>
 
@@ -262,7 +262,7 @@ export default function OpportunityDetailPage() {
             </h1>
             <div className="flex flex-wrap items-center gap-2.5 mt-2 text-xs md:text-sm text-[var(--ink-600)]">
               <span className="font-mono-num text-base md:text-lg font-bold text-[var(--ledger-800)]">
-                {financials.expectedDealValue !== null ? formatCurrency(financials.expectedDealValue) : formatCurrency(opp.amount)}
+                {financials.expectedOpportunityValue !== null ? formatCurrency(financials.expectedOpportunityValue) : formatCurrency(opp.amount)}
               </span>
               <span>·</span>
               <span className="font-medium">Assigned to: {opp.owner?.firstName} {opp.owner?.lastName}</span>
@@ -327,7 +327,7 @@ export default function OpportunityDetailPage() {
                 <div>
                   <dt className="text-xs font-medium uppercase tracking-wider text-[var(--ink-400)]">Expected Deal Value</dt>
                   <dd className="mt-1 font-mono-num font-bold text-base text-[var(--ledger-700)]">
-                    {financials.expectedDealValue !== null ? formatCurrency(financials.expectedDealValue) : formatCurrency(opp.amount)}
+                    {financials.expectedOpportunityValue !== null ? formatCurrency(financials.expectedOpportunityValue) : formatCurrency(opp.amount)}
                   </dd>
                 </div>
 
@@ -361,7 +361,7 @@ export default function OpportunityDetailPage() {
                 <div>
                   <dt className="text-xs font-medium uppercase tracking-wider text-[var(--ink-400)]">Deal Type</dt>
                   <dd className="mt-1 font-medium text-[var(--ink-800)]">
-                    {opp.dealType || opp.opportunityType || "NEW_BUSINESS"}
+                    {opp.opportunityTypeLegacy || opp.opportunityType || "NEW_BUSINESS"}
                   </dd>
                 </div>
 
@@ -508,7 +508,7 @@ export default function OpportunityDetailPage() {
                     <div className="text-[11px] text-[var(--ink-400)]">Commercial revenue value</div>
                   </div>
                   <div className="font-mono-num text-base font-bold text-slate-900">
-                    {financials.actualDealValue !== null ? formatCurrency(financials.actualDealValue) : formatCurrency(opp.amount)}
+                    {financials.actualOpportunityValue !== null ? formatCurrency(financials.actualOpportunityValue) : formatCurrency(opp.amount)}
                   </div>
                 </div>
 

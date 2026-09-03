@@ -182,8 +182,8 @@ export interface Opportunity {
   contactId?: string | null;
   contact?: Contact | null;
   amount: string;
-  expectedDealValue?: string | number | null;
-  actualDealValue?: string | number | null;
+  expectedOpportunityValue?: string | number | null;
+  actualOpportunityValue?: string | number | null;
   bottomLineCost?: string | number | null;
   expectedMargin?: string | number | null;
   grossMargin?: string | number | null;
@@ -203,7 +203,7 @@ export interface Opportunity {
   loeUnit?: string | null;
   poNumber?: string | null;
   poValue?: number | string | null;
-  dealType?: string | null;
+  opportunityTypeLegacy?: string | null;
   forecastCategory?: string;
   ownerId: string;
   owner?: Owner;
