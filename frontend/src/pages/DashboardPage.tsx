@@ -152,7 +152,7 @@ export default function DashboardPage() {
               <Flame size={16} className="text-[var(--rose-600)]" />
               2. Opportunities at Risk
             </h3>
-            <Link to="/opportunities" className="text-xs text-[var(--rose-600)] hover:underline font-medium">Review All Deals</Link>
+            <Link to="/opportunities" className="text-xs text-[var(--rose-600)] hover:underline font-medium">Review All Opportunities</Link>
           </div>
           <Card className="p-4 border-l-4 border-l-[var(--rose-500)]">
             {!opportunitiesAtRisk.length ? (

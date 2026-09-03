@@ -325,7 +325,7 @@ export default function OpportunityDetailPage() {
                 </div>
 
                 <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-[var(--ink-400)]">Expected Deal Value</dt>
+                  <dt className="text-xs font-medium uppercase tracking-wider text-[var(--ink-400)]">Expected Opportunity Value</dt>
                   <dd className="mt-1 font-mono-num font-bold text-base text-[var(--ledger-700)]">
                     {financials.expectedOpportunityValue !== null ? formatCurrency(financials.expectedOpportunityValue) : formatCurrency(opp.amount)}
                   </dd>
@@ -359,7 +359,7 @@ export default function OpportunityDetailPage() {
                 </div>
 
                 <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-[var(--ink-400)]">Deal Type</dt>
+                  <dt className="text-xs font-medium uppercase tracking-wider text-[var(--ink-400)]">Opportunity Type</dt>
                   <dd className="mt-1 font-medium text-[var(--ink-800)]">
                     {opp.opportunityTypeLegacy || opp.opportunityType || "NEW_BUSINESS"}
                   </dd>

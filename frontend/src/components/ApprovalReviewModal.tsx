@@ -113,7 +113,7 @@ export function ApprovalReviewModal({
 
               <div>
                 <div className="text-[10px] text-[var(--ink-400)] uppercase font-semibold flex items-center gap-1">
-                  <Wallet size={11} /> Deal Value
+                  <Wallet size={11} /> Opportunity Value
                 </div>
                 <div className="font-bold text-sm font-mono-num text-[var(--ink-900)]">
                   {formatCurrency(opp?.amount || 0)}
@@ -175,7 +175,7 @@ export function ApprovalReviewModal({
               )}
             </div>
 
-            {/* Closed Won Deal Details (LOE, PO Number, PO Value) */}
+            {/* Closed Won Opportunity Details (LOE, PO Number, PO Value) */}
             {(approval.poNumber || approval.loeValue || approval.poValue !== null) && (
               <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs space-y-2">
                 <div className="font-bold text-emerald-950 flex items-center gap-1.5">

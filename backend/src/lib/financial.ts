@@ -42,7 +42,7 @@ export function computeOpportunityFinancials(input: FinancialsInput): ComputedFi
     bottomLineCost = null;
   }
 
-  // 1. Expected Margin = Expected Deal Value - Cost Incurred to Company
+  // 1. Expected Margin = Expected Opportunity Value - Cost Incurred to Company
   const expectedMargin =
     expectedOpportunityValue !== null && bottomLineCost !== null
       ? expectedOpportunityValue - bottomLineCost
@@ -54,13 +54,13 @@ export function computeOpportunityFinancials(input: FinancialsInput): ComputedFi
       ? actualOpportunityValue - bottomLineCost
       : null;
 
-  // 3. Margin Loss = MAX(Expected Deal Value - Topline Value, 0)
+  // 3. Margin Loss = MAX(Expected Opportunity Value - Topline Value, 0)
   const marginLoss =
     actualOpportunityValue !== null && expectedOpportunityValue !== null
       ? Math.max(expectedOpportunityValue - actualOpportunityValue, 0)
       : null;
 
-  // 4. Top-Line Revenue = Topline Value (or Expected Deal Value if actual is null)
+  // 4. Top-Line Revenue = Topline Value (or Expected Opportunity Value if actual is null)
   const topLineRevenue = actualOpportunityValue !== null ? actualOpportunityValue : expectedOpportunityValue;
 
   // 5. Margin Value: If Topline Value is present, use Topline - Cost; otherwise Expected - Cost

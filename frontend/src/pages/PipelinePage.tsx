@@ -100,7 +100,7 @@ export default function PipelinePage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search pipeline deals…"
+              placeholder="Search pipeline opportunities…"
               className={`${inputClass} pl-8`}
               style={inputStyle}
             />
@@ -121,7 +121,7 @@ export default function PipelinePage() {
         </div>
 
         {isOppsLoading ? (
-          <div className="p-8 text-sm text-[var(--ink-400)]">Loading pipeline deals…</div>
+          <div className="p-8 text-sm text-[var(--ink-400)]">Loading pipeline opportunities…</div>
         ) : (
           <KanbanBoard
             stages={pipeline.stages}

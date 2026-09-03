@@ -143,7 +143,7 @@ export function KanbanBoard<T extends KanbanItem>({
                         </div>
                       )}
 
-                      {/* Deal Value & Margin */}
+                      {/* Opportunity Value & Margin */}
                       <div className="pt-2 border-t space-y-1" style={{ borderColor: "var(--ink-50)" }}>
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-semibold text-[var(--ink-500)]">

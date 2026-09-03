@@ -100,7 +100,7 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
         <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 flex items-start gap-2.5">
           <Trophy size={18} className="text-emerald-700 shrink-0 mt-0.5" />
           <div>
-            <div className="font-bold">Deal Close Requirements</div>
+            <div className="font-bold">Opportunity Close Requirements</div>
             <div>
               {isManager
                 ? "Upload the Purchase Order (PO) or Letter of Engagement (LOE) / client confirmation and enter the PO value to create a Stage Approval request for Partner sign-off."
@@ -209,7 +209,7 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
           <textarea
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
-            placeholder="Add any additional notes about this deal closure…"
+            placeholder="Add any additional notes about this opportunity closure…"
             rows={2}
             className={`${inputClass} resize-none`}
             style={inputStyle}
