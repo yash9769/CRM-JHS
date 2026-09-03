@@ -79,7 +79,6 @@ export default function ForecastingPage() {
     <div>
       <PageHeader
         title="Forecasting"
-        subtitle="Track pipeline coverage vs. target. Commit to what you'll close."
         action={<Button onClick={() => setShowTarget(true)}><Target size={15} /> Set Target</Button>}
       />
 

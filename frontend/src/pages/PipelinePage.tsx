@@ -72,7 +72,6 @@ export default function PipelinePage() {
     <div className="pb-24 md:pb-8">
       <PageHeader
         title="Sales Pipeline"
-        subtitle="Drag opportunities between stages as work progresses."
         action={
           <div className="flex flex-wrap items-center gap-2">
             <ColumnFilterDropdown

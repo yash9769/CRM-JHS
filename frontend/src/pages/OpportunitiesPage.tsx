@@ -131,7 +131,6 @@ export default function OpportunitiesPage() {
     <div className="pb-24 md:pb-8">
       <PageHeader
         title="Opportunities"
-        subtitle="Manage all your sales pipeline opportunities in one place."
         action={
           <div className="flex flex-wrap items-center gap-2">
             <ColumnFilterDropdown

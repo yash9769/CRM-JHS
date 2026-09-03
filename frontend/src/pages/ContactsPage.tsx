@@ -60,7 +60,6 @@ export default function ContactsPage() {
     <div>
       <PageHeader
         title="Contacts"
-        subtitle="People at the accounts you work with."
         action={
           <div className="flex items-center gap-2">
             <ColumnFilterDropdown

@@ -188,7 +188,7 @@ export default function ReportsPage() {
 
   return (
     <div>
-      <PageHeader title="Reports" subtitle="Pipeline health, rep performance, and win/loss trends." />
+      <PageHeader title="Reports" />
       <div className="px-8 pb-10">
         <div className="flex gap-1 mb-6 border-b" style={{ borderColor: "var(--ink-100)" }}>
           {visibleTabs.map(t => (

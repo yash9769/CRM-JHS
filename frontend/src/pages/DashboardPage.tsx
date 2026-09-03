@@ -79,7 +79,6 @@ export default function DashboardPage() {
     <div className="pb-24 md:pb-8">
       <PageHeader
         title={`${greeting}, ${user?.firstName || ""}`}
-        subtitle="Here is your real-time sales pipeline and activity dashboard."
       />
 
       <div className="px-4 md:px-8 space-y-8">

@@ -164,7 +164,6 @@ export default function SequencesPage() {
     <div>
       <PageHeader
         title="Sequences"
-        subtitle="Automated multi-step outreach workflows."
         action={<Button onClick={() => setShowNew(true)}><Plus size={15} /> New Sequence</Button>}
       />
       <div className="px-8 pb-8">

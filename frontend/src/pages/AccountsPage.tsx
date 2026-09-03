@@ -64,7 +64,6 @@ export default function AccountsPage() {
     <div>
       <PageHeader
         title="Accounts"
-        subtitle="Companies and organizations you sell to."
         action={
           <div className="flex items-center gap-2">
             <ColumnFilterDropdown
