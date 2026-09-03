@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { PageHeader, Card, StageBadge, Button, EmptyState, inputClass, inputStyle, Badge } from "../components/ui";
+import { PageHeader, Card, StageBadge, Button, EmptyState, inputClass, inputStyle } from "../components/ui";
 import { NewOpportunityModal } from "../components/CreateModals";
 import { CsvImportModal } from "../components/CsvImportModal";
 import { downloadCsvExport } from "../lib/exportCsv";

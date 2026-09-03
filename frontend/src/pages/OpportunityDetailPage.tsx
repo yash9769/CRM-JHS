@@ -691,7 +691,7 @@ export default function OpportunityDetailPage() {
                   <FileCheck size={16} className="text-[var(--ledger-600)]" /> Opportunity Activity Logs & Audit Trail
                 </h3>
               </div>
-              <HistoryPanel objectType="OPPORTUNITY" recordId={opp.id} fallbackHistory={opp.stageHistory} />
+              <HistoryPanel objectType="OPPORTUNITY" recordId={opp.id} />
             </Card>
 
             {/* LINE ITEMS & PRODUCTS */}
