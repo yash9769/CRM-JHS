@@ -13,8 +13,6 @@ import OpportunityDetailPage from "./pages/OpportunityDetailPage";
 import PipelinePage from "./pages/PipelinePage";
 import ProductsPage from "./pages/ProductsPage";
 import QuotesPage from "./pages/QuotesPage";
-import ForecastingPage from "./pages/ForecastingPage";
-import ReportsPage from "./pages/ReportsPage";
 import SearchPage from "./pages/SearchPage";
 import SettingsPage from "./pages/SettingsPage";
 import OrgChartPage from "./pages/OrgChartPage";
@@ -45,8 +43,9 @@ export default function App() {
         <Route path="/quotes" element={<QuotesPage />} />
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/products" element={<ProductsPage />} />
-        <Route path="/forecasting" element={<ForecastingPage />} />
-        <Route path="/reports" element={<ReportsPage />} />
+        {/* Reports and Forecasting were merged into the Dashboard -- redirect old links */}
+        <Route path="/forecasting" element={<Navigate to="/" replace />} />
+        <Route path="/reports" element={<Navigate to="/" replace />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/org-chart" element={canViewOrgChart(user) ? <OrgChartPage /> : <Navigate to="/" replace />} />

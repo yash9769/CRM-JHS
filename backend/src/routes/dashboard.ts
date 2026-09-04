@@ -2,12 +2,9 @@ import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
 import { getCreatedByFilter } from "../lib/rbac.js";
 import { computeOpportunityFinancials } from "../lib/financial.js";
+import { generateDashboardPdf } from "../lib/dashboardPdf.js";
 
-export default async function dashboardRoutes(app: FastifyInstance) {
-  app.get("/api/v1/dashboard", { preHandler: app.authenticate }, async (req) => {
-    const tenantId = req.authUser.tenantId;
-    const rbacFilter = await getCreatedByFilter(req.authUser);
-
+async function computeDashboardData(tenantId: string, rbacFilter: any) {
     const [openOpps, closedWonOpps, closedLostOpps] = await Promise.all([
       prisma.opportunity.findMany({ where: { tenantId, ...rbacFilter, stage: { isClosed: false } }, include: { stage: true, account: true, owner: true } }),
       prisma.opportunity.findMany({ where: { tenantId, ...rbacFilter, stage: { isClosed: true, isWon: true } } }),
@@ -101,6 +98,32 @@ export default async function dashboardRoutes(app: FastifyInstance) {
         oppsByOwner: Array.from(byOwnerMap.values()),
       },
     };
+}
+
+export default async function dashboardRoutes(app: FastifyInstance) {
+  app.get("/api/v1/dashboard", { preHandler: app.authenticate }, async (req) => {
+    const tenantId = req.authUser.tenantId;
+    const rbacFilter = await getCreatedByFilter(req.authUser);
+    return computeDashboardData(tenantId, rbacFilter);
+  });
+
+  // Downloadable PDF summary of the dashboard KPIs and charts
+  app.get("/api/v1/dashboard/pdf", { preHandler: app.authenticate }, async (req, reply) => {
+    const tenantId = req.authUser.tenantId;
+    const rbacFilter = await getCreatedByFilter(req.authUser);
+    const data = await computeDashboardData(tenantId, rbacFilter);
+
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    const pdfBuffer = await generateDashboardPdf({
+      tenantName: tenant?.name || "CRM",
+      generatedFor: `${req.authUser.firstName} ${req.authUser.lastName}`,
+      generatedAt: new Date(),
+      ...data,
+    });
+
+    reply.header("Content-Type", "application/pdf");
+    reply.header("Content-Disposition", `attachment; filename="dashboard-report-${new Date().toISOString().slice(0, 10)}.pdf"`);
+    return reply.send(pdfBuffer);
   });
 
   // Action center
