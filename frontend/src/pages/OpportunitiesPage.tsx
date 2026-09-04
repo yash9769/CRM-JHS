@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment, type ReactElement } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
@@ -51,7 +51,7 @@ export default function OpportunitiesPage() {
   const [bulkOwnerLabel, setBulkOwnerLabel] = useState<string | null>(null);
   const [bulkStagePicker, setBulkStagePicker] = useState(false);
 
-  const { visibleKeys, toggle, showAll, reset, isVisible } = useColumnVisibility(
+  const { visibleKeys, toggle, showAll, reset, isVisible, order, orderedColumns, reorder, applyOrder } = useColumnVisibility(
     "opportunities-table",
     OPPORTUNITY_COLUMNS
   );
@@ -137,11 +137,12 @@ export default function OpportunitiesPage() {
         action={
           <div className="flex flex-wrap items-center gap-2">
             <ColumnFilterDropdown
-              columns={OPPORTUNITY_COLUMNS}
+              columns={orderedColumns}
               visibleKeys={visibleKeys}
               onToggle={toggle}
               onShowAll={showAll}
               onReset={reset}
+              onReorder={reorder}
               label="Columns"
             />
             <Button variant="secondary" onClick={downloadSampleTemplate}>
@@ -258,6 +259,8 @@ export default function OpportunitiesPage() {
               setOwnerId(f.ownerId || null);
               setOwnerLabel(null);
             }}
+            currentColumns={order}
+            onApplyColumns={applyOrder}
           />
         </div>
 
@@ -280,66 +283,11 @@ export default function OpportunitiesPage() {
                       <th className="px-4 py-2.5 w-8 border-b border-[var(--ink-100)] bg-white">
                         <SelectAllCheckbox checked={allChecked} indeterminate={!!someChecked} onChange={toggleAll} />
                       </th>
-                      {isVisible("name") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
-                          Opportunity Name
+                      {orderedColumns.filter((c) => isVisible(c.key)).map((col) => (
+                        <th key={col.key} className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
+                          {col.label}
                         </th>
-                      )}
-                      {isVisible("owner") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
-                          Assigned To
-                        </th>
-                      )}
-                      {isVisible("account") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
-                          Account Name
-                        </th>
-                      )}
-                      {isVisible("contact") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
-                          Contact Person
-                        </th>
-                      )}
-                      {isVisible("stage") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
-                          Stage
-                        </th>
-                      )}
-                      {isVisible("actualOpportunityValue") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
-                          Proposal Sent Value
-                        </th>
-                      )}
-                      {isVisible("bottomLineCost") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
-                          Cost Incurred to Company
-                        </th>
-                      )}
-                      {isVisible("marginValue") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
-                          Margin Value
-                        </th>
-                      )}
-                      {isVisible("marginPercentage") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
-                          Margin Percentage
-                        </th>
-                      )}
-                      {isVisible("createdAt") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
-                          Created Date
-                        </th>
-                      )}
-                      {isVisible("closeDate") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
-                          Close Date
-                        </th>
-                      )}
-                      {isVisible("remarks") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
-                          Remarks
-                        </th>
-                      )}
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -357,73 +305,79 @@ export default function OpportunitiesPage() {
                         ? (mv > 0 ? "text-emerald-600 font-bold" : mv < 0 ? "text-rose-600 font-bold" : "text-slate-600 font-medium")
                         : "text-slate-400";
 
+                      const cellRenderers: Record<string, () => ReactElement> = {
+                        name: () => (
+                          <td className="px-4 py-3">
+                            <Link to={`/opportunities/${o.id}`} className="font-semibold hover:underline text-[var(--ledger-700)]">
+                              {o.name}
+                            </Link>
+                          </td>
+                        ),
+                        owner: () => (
+                          <td className="px-4 py-3 text-[var(--ink-600)]">
+                            {o.owner ? `${o.owner.firstName} ${o.owner.lastName}` : "—"}
+                          </td>
+                        ),
+                        account: () => (
+                          <td className="px-4 py-3 font-medium text-[var(--ink-700)]">
+                            {o.account?.name || "—"}
+                          </td>
+                        ),
+                        contact: () => (
+                          <td className="px-4 py-3 text-[var(--ink-600)]">
+                            {contactName}
+                          </td>
+                        ),
+                        stage: () => (
+                          <td className="px-4 py-3">
+                            <StageBadge stage={o.stage as any} />
+                          </td>
+                        ),
+                        actualOpportunityValue: () => (
+                          <td className="px-4 py-3 font-mono-num font-semibold text-slate-900">
+                            {financials.actualOpportunityValue !== null ? formatCurrency(financials.actualOpportunityValue) : "—"}
+                          </td>
+                        ),
+                        bottomLineCost: () => (
+                          <td className="px-4 py-3 font-mono-num font-medium text-slate-600">
+                            {financials.bottomLineCost !== null ? formatCurrency(financials.bottomLineCost) : "—"}
+                          </td>
+                        ),
+                        marginValue: () => (
+                          <td className={`px-4 py-3 font-mono-num ${marginColorClass}`}>
+                            {mv !== null ? formatCurrency(mv) : "—"}
+                          </td>
+                        ),
+                        marginPercentage: () => (
+                          <td className={`px-4 py-3 font-mono-num ${marginColorClass}`}>
+                            {mp !== null ? `${mp.toFixed(1)}%` : "—"}
+                          </td>
+                        ),
+                        createdAt: () => (
+                          <td className="px-4 py-3 font-mono-num text-xs text-[var(--ink-500)]">
+                            {formatDate(o.createdAt)}
+                          </td>
+                        ),
+                        closeDate: () => (
+                          <td className="px-4 py-3 font-mono-num text-xs text-[var(--ink-500)]">
+                            {formatDate(o.expectedCloseDate)}
+                          </td>
+                        ),
+                        remarks: () => (
+                          <td className="px-4 py-3 text-xs max-w-xs truncate text-[var(--ink-500)]">
+                            {o.description || "—"}
+                          </td>
+                        ),
+                      };
+
                       return (
                         <tr key={o.id} className="border-b last:border-0 hover:bg-[var(--ink-50)] border-[var(--ink-100)]">
                           <td className="px-4 py-3">
                             <RowCheckbox checked={selected.has(o.id)} onChange={(v) => toggleOne(o.id, v)} />
                           </td>
-                          {isVisible("name") && (
-                            <td className="px-4 py-3">
-                              <Link to={`/opportunities/${o.id}`} className="font-semibold hover:underline text-[var(--ledger-700)]">
-                                {o.name}
-                              </Link>
-                            </td>
-                          )}
-                          {isVisible("owner") && (
-                            <td className="px-4 py-3 text-[var(--ink-600)]">
-                              {o.owner ? `${o.owner.firstName} ${o.owner.lastName}` : "—"}
-                            </td>
-                          )}
-                          {isVisible("account") && (
-                            <td className="px-4 py-3 font-medium text-[var(--ink-700)]">
-                              {o.account?.name || "—"}
-                            </td>
-                          )}
-                          {isVisible("contact") && (
-                            <td className="px-4 py-3 text-[var(--ink-600)]">
-                              {contactName}
-                            </td>
-                          )}
-                          {isVisible("stage") && (
-                            <td className="px-4 py-3">
-                              <StageBadge stage={o.stage as any} />
-                            </td>
-                          )}
-                          {isVisible("actualOpportunityValue") && (
-                            <td className="px-4 py-3 font-mono-num font-semibold text-slate-900">
-                              {financials.actualOpportunityValue !== null ? formatCurrency(financials.actualOpportunityValue) : "—"}
-                            </td>
-                          )}
-                          {isVisible("bottomLineCost") && (
-                            <td className="px-4 py-3 font-mono-num font-medium text-slate-600">
-                              {financials.bottomLineCost !== null ? formatCurrency(financials.bottomLineCost) : "—"}
-                            </td>
-                          )}
-                          {isVisible("marginValue") && (
-                            <td className={`px-4 py-3 font-mono-num ${marginColorClass}`}>
-                              {mv !== null ? formatCurrency(mv) : "—"}
-                            </td>
-                          )}
-                          {isVisible("marginPercentage") && (
-                            <td className={`px-4 py-3 font-mono-num ${marginColorClass}`}>
-                              {mp !== null ? `${mp.toFixed(1)}%` : "—"}
-                            </td>
-                          )}
-                          {isVisible("createdAt") && (
-                            <td className="px-4 py-3 font-mono-num text-xs text-[var(--ink-500)]">
-                              {formatDate(o.createdAt)}
-                            </td>
-                          )}
-                          {isVisible("closeDate") && (
-                            <td className="px-4 py-3 font-mono-num text-xs text-[var(--ink-500)]">
-                              {formatDate(o.expectedCloseDate)}
-                            </td>
-                          )}
-                          {isVisible("remarks") && (
-                            <td className="px-4 py-3 text-xs max-w-xs truncate text-[var(--ink-500)]">
-                              {o.description || "—"}
-                            </td>
-                          )}
+                          {orderedColumns.filter((c) => isVisible(c.key)).map((col) => (
+                            <Fragment key={col.key}>{cellRenderers[col.key]?.()}</Fragment>
+                          ))}
                         </tr>
                       );
                     })}
