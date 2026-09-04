@@ -190,9 +190,9 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
   const [showNewAccount, setShowNewAccount] = useState<string | null>(null);
   const [showNewContact, setShowNewContact] = useState<string | null>(null);
 
-  const initialProposalVal = opp.actualDealValue !== undefined && opp.actualDealValue !== null
-    ? String(opp.actualDealValue)
-    : (opp.expectedDealValue !== undefined && opp.expectedDealValue !== null ? String(opp.expectedDealValue) : String(opp.amount || ""));
+  const initialProposalVal = opp.actualOpportunityValue !== undefined && opp.actualOpportunityValue !== null
+    ? String(opp.actualOpportunityValue)
+    : (opp.expectedOpportunityValue !== undefined && opp.expectedOpportunityValue !== null ? String(opp.expectedOpportunityValue) : String(opp.amount || ""));
 
   const [form, setForm] = useState({
     name: opp.name,
@@ -245,8 +245,8 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
         accountId: accountId,
         contactId: contactId || null,
         amount: proposalSent ?? Number(opp.amount),
-        expectedDealValue: proposalSent,
-        actualDealValue: proposalSent,
+        expectedOpportunityValue: proposalSent,
+        actualOpportunityValue: proposalSent,
         bottomLineCost: cost,
         stageId: form.stageId,
         ownerId: ownerId,
@@ -359,7 +359,7 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
           <div className="p-4 rounded-xl border bg-[var(--ink-50)] border-[var(--ink-100)] space-y-3">
             <div className="flex items-center gap-2">
               <IndianRupee size={16} className="text-[var(--ledger-700)]" />
-              <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--ink-800)]">Financial Details</h4>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--ink-800)]">Pricing Details</h4>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -388,7 +388,7 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
                     placeholder="10,00,000"
                   />
                 </div>
-                <FieldError message={fieldErrors.amount || fieldErrors.actualDealValue || fieldErrors.expectedDealValue} />
+                <FieldError message={fieldErrors.amount || fieldErrors.actualOpportunityValue || fieldErrors.expectedOpportunityValue} />
               </Field>
 
               <Field

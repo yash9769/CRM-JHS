@@ -72,7 +72,6 @@ export default function PipelinePage() {
     <div className="pb-24 md:pb-8">
       <PageHeader
         title="Sales Pipeline"
-        subtitle="Drag opportunities between stages as work progresses."
         action={
           <div className="flex flex-wrap items-center gap-2">
             <ColumnFilterDropdown
@@ -100,7 +99,7 @@ export default function PipelinePage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search pipeline deals…"
+              placeholder="Search pipeline opportunities…"
               className={`${inputClass} pl-8`}
               style={inputStyle}
             />
@@ -121,7 +120,7 @@ export default function PipelinePage() {
         </div>
 
         {isOppsLoading ? (
-          <div className="p-8 text-sm text-[var(--ink-400)]">Loading pipeline deals…</div>
+          <div className="p-8 text-sm text-[var(--ink-400)]">Loading pipeline opportunities…</div>
         ) : (
           <KanbanBoard
             stages={pipeline.stages}

@@ -85,6 +85,7 @@
   ```bash
   cd backend && npm run prisma:generate && ./node_modules/.bin/prisma db push
   ```
+  > **Warning — pre-rename databases**: if a database still has the old column names `expectedDealValue` / `actualDealValue` / `dealType` on `Opportunity`, do **not** run `db push` against it. Prisma will drop and recreate those columns instead of renaming them, silently losing all their data. Such a database must first be migrated with the safe `ALTER TABLE ... RENAME COLUMN` migration in `backend/prisma/migrations/20260903120000_rename_deal_fields_to_opportunity/` via `./node_modules/.bin/prisma migrate deploy` (if the DB predates migration tracking, baseline the existing schema history first with `prisma migrate resolve --applied <migration_name>`). Only after that migration has been applied is `db push` safe again.
 - **Seed Demo Data**:
   ```bash
   cd backend && npx tsx prisma/seed_yash.ts

@@ -14,7 +14,7 @@ export interface RelationshipOption {
 
 /**
  * Generic, tenant-safe, debounced async-search relationship picker.
- * Used for Account / Contact / Owner / Opportunity / Deal / Product pickers
+ * Used for Account / Contact / Owner / Opportunity / Product pickers
  * everywhere in the app so we never load hundreds of rows into a <select>.
  */
 export function RelationshipSelector({

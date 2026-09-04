@@ -403,8 +403,8 @@ export function NewOpportunityModal({
         accountId: accountId,
         contactId: contactId || null,
         amount: proposalSent ?? 0,
-        expectedDealValue: proposalSent,
-        actualDealValue: proposalSent,
+        expectedOpportunityValue: proposalSent,
+        actualOpportunityValue: proposalSent,
         bottomLineCost: cost,
         pipelineId: oppPipeline!.id,
         stageId: effectiveStageId,
@@ -527,7 +527,7 @@ export function NewOpportunityModal({
           <div className="p-4 rounded-xl border bg-[var(--ink-50)] border-[var(--ink-100)] space-y-3">
             <div className="flex items-center gap-2">
               <IndianRupee size={16} className="text-[var(--ledger-700)]" />
-              <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--ink-800)]">Financial Details</h4>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--ink-800)]">Pricing Details</h4>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -556,7 +556,7 @@ export function NewOpportunityModal({
                     placeholder="10,00,000"
                   />
                 </div>
-                <FieldError message={fieldErrors.amount || fieldErrors.actualDealValue || fieldErrors.expectedDealValue} />
+                <FieldError message={fieldErrors.amount || fieldErrors.actualOpportunityValue || fieldErrors.expectedOpportunityValue} />
               </Field>
 
               <Field
@@ -1096,48 +1096,3 @@ export function NewTaskModal({ onClose, onCreated, context }: { onClose: () => v
   );
 }
 
-const LOGGABLE_TYPES = ["CALL", "EMAIL", "MEETING", "NOTE", "FOLLOW_UP", "DEMO", "PROPOSAL", "OTHER"] as const;
-
-export function LogActivityModal({ onClose, onCreated, context }: { onClose: () => void; onCreated?: () => void; context?: AssocContext }) {
-  const qc = useQueryClient();
-  const [form, setForm] = useState<{ type: (typeof LOGGABLE_TYPES)[number]; subject: string; body: string }>({ type: "CALL", subject: "", body: "" });
-  const mutation = useMutation({
-    mutationFn: () =>
-      api.post("/activities", {
-        type: form.type,
-        subject: form.subject,
-        body: form.body || null,
-        status: "COMPLETED",
-        objectType: context?.objectType || "ACCOUNT",
-        accountId: context?.accountId,
-        contactId: context?.contactId,
-        opportunityId: context?.opportunityId,
-        leadId: context?.leadId,
-      }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["activities"] }); onCreated?.(); onClose(); },
-  });
-
-  return (
-    <Modal title="Log Activity" onClose={onClose}>
-      <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="space-y-4">
-        <GeneralError err={mutation.error} fallback="Could not log activity." />
-        {context?.label && <div className="text-xs mb-3.5 text-[var(--ink-500)]">Related to <span className="font-medium text-[var(--ink-700)]">{context.label}</span></div>}
-        <Field label="Type" required>
-          <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as any })} className={inputClass} style={inputStyle}>
-            {LOGGABLE_TYPES.map((t) => <option key={t} value={t}>{t.replace("_", " ")}</option>)}
-          </select>
-        </Field>
-        <Field label="Subject" required>
-          <input required value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className={inputClass} style={inputStyle} />
-        </Field>
-        <Field label="Notes">
-          <textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} className={inputClass} style={{ ...inputStyle, minHeight: 70 }} />
-        </Field>
-        <div className="flex justify-end gap-2 pt-2 border-t border-[var(--ink-100)]">
-          <Button variant="secondary" onClick={onClose} type="button">Cancel</Button>
-          <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Logging…" : "Log Activity"}</Button>
-        </div>
-      </form>
-    </Modal>
-  );
-}

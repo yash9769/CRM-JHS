@@ -30,7 +30,7 @@ export default function SettingsPage() {
 
   return (
     <div className="pb-24 md:pb-8">
-      <PageHeader title="Settings" subtitle="Manage your workspace and team." />
+      <PageHeader title="Settings" />
       <div className="px-4 md:px-8 pb-10 space-y-6 max-w-4xl">
 
         {/* Workspace info */}

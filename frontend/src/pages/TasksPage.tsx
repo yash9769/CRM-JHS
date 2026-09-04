@@ -73,7 +73,6 @@ export default function TasksPage() {
     <div className="pb-24 md:pb-8">
       <PageHeader
         title="Tasks"
-        subtitle="Everything you and your team need to follow up on."
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" onClick={exportCsv}>

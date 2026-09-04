@@ -25,10 +25,9 @@ export function Timeline({ activities = [], notes = [], assoc, queryKeysToInvali
   activities?: Activity[]; notes?: Note[]; assoc: Assoc; queryKeysToInvalidate: unknown[][];
 }) {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"log" | "note" | "task">("log");
+  const [tab, setTab] = useState<"note" | "task">("note");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
-  const [type, setType] = useState<Activity["type"]>("CALL");
 
   const events: TimelineEvent[] = [
     ...activities.map((a) => ({ id: a.id, kind: "activity" as const, at: a.createdAt, activity: a })),
@@ -37,10 +36,6 @@ export function Timeline({ activities = [], notes = [], assoc, queryKeysToInvali
 
   const invalidate = () => queryKeysToInvalidate.forEach((k) => qc.invalidateQueries({ queryKey: k }));
 
-  const logActivity = useMutation({
-    mutationFn: () => api.post("/activities", { type, subject, body: body || null, status: "COMPLETED", ...assoc, objectType: assoc.objectType }),
-    onSuccess: () => { setSubject(""); setBody(""); invalidate(); },
-  });
   const logTask = useMutation({
     mutationFn: () => api.post("/activities", { type: "TASK", subject, status: "PENDING", ...assoc, objectType: assoc.objectType }),
     onSuccess: () => { setSubject(""); invalidate(); },
@@ -53,28 +48,18 @@ export function Timeline({ activities = [], notes = [], assoc, queryKeysToInvali
   return (
     <div>
       <div className="flex gap-1 mb-3 border-b" style={{ borderColor: "var(--ink-100)" }}>
-        {(["log", "note", "task"] as const).map((t) => (
+        {(["note", "task"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className="px-3 py-2 text-xs font-medium border-b-2 -mb-px"
             style={{ borderColor: tab === t ? "var(--ledger-600)" : "transparent", color: tab === t ? "var(--ledger-700)" : "var(--ink-400)" }}
           >
-            {t === "log" ? "Log activity" : t === "note" ? "Add note" : "Create task"}
+            {t === "note" ? "Add note" : "Create task"}
           </button>
         ))}
       </div>
 
-      {tab === "log" && (
-        <div className="mb-5 p-3 rounded-lg" style={{ background: "var(--ink-50)" }}>
-          <select value={type} onChange={(e) => setType(e.target.value as Activity["type"])} className={`${inputClass} mb-2 bg-white`} style={inputStyle}>
-            {["CALL", "EMAIL", "MEETING", "DEMO", "PROPOSAL", "FOLLOW_UP", "OTHER"].map((t) => <option key={t} value={t}>{t.replace("_", " ")}</option>)}
-          </select>
-          <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className={`${inputClass} mb-2 bg-white`} style={inputStyle} />
-          <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Details (optional)" rows={2} className={`${inputClass} mb-2 bg-white`} style={inputStyle} />
-          <Button size="sm" disabled={!subject || logActivity.isPending} onClick={() => logActivity.mutate()}>Log</Button>
-        </div>
-      )}
       {tab === "note" && (
         <div className="mb-5 p-3 rounded-lg" style={{ background: "var(--ink-50)" }}>
           <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write a note…" rows={3} className={`${inputClass} mb-2 bg-white`} style={inputStyle} />

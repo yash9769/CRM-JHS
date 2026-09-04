@@ -18,20 +18,20 @@ export function isApprovalRequiredStage(stageName: string, userRole: string = "M
 export function formatOppWithFinancials(opp: any) {
   if (!opp) return opp;
   const financials = computeOpportunityFinancials({
-    expectedDealValue: opp.expectedDealValue !== null && opp.expectedDealValue !== undefined ? Number(opp.expectedDealValue) : (opp.amount !== null && opp.amount !== undefined ? Number(opp.amount) : null),
-    actualDealValue: opp.actualDealValue !== null && opp.actualDealValue !== undefined ? Number(opp.actualDealValue) : null,
+    expectedOpportunityValue: opp.expectedOpportunityValue !== null && opp.expectedOpportunityValue !== undefined ? Number(opp.expectedOpportunityValue) : (opp.amount !== null && opp.amount !== undefined ? Number(opp.amount) : null),
+    actualOpportunityValue: opp.actualOpportunityValue !== null && opp.actualOpportunityValue !== undefined ? Number(opp.actualOpportunityValue) : null,
     bottomLineCost: opp.bottomLineCost !== null && opp.bottomLineCost !== undefined ? Number(opp.bottomLineCost) : null,
     amount: Number(opp.amount || 0),
   });
 
   const isClosedWon = opp.stage ? (opp.stage.isClosed && opp.stage.isWon) : (opp.forecastCategory === "CLOSED_WON");
-  const hasMissingActualValue = isClosedWon && (opp.actualDealValue === null || opp.actualDealValue === undefined);
+  const hasMissingActualValue = isClosedWon && (opp.actualOpportunityValue === null || opp.actualOpportunityValue === undefined);
 
   return {
     ...opp,
-    amount: financials.expectedDealValue ?? opp.amount,
-    expectedDealValue: financials.expectedDealValue,
-    actualDealValue: financials.actualDealValue,
+    amount: financials.expectedOpportunityValue ?? opp.amount,
+    expectedOpportunityValue: financials.expectedOpportunityValue,
+    actualOpportunityValue: financials.actualOpportunityValue,
     bottomLineCost: financials.bottomLineCost,
     expectedMargin: financials.expectedMargin,
     grossMargin: financials.grossMargin,
@@ -67,8 +67,8 @@ const opportunitySchema = z.object({
   contactId: z.string().uuid().optional().nullable(),
   newContact: newContactSchema.optional(),
   amount: z.number({ invalid_type_error: "Opportunity value must be a number" }).nonnegative("Opportunity value must be non-negative").optional(),
-  expectedDealValue: z.number({ invalid_type_error: "Expected Deal Value must be a number" }).nonnegative("Expected Deal Value must be non-negative").optional().nullable(),
-  actualDealValue: z.number({ invalid_type_error: "Topline Value must be a number" }).nonnegative("Topline Value must be non-negative").optional().nullable(),
+  expectedOpportunityValue: z.number({ invalid_type_error: "Expected Opportunity Value must be a number" }).nonnegative("Expected Opportunity Value must be non-negative").optional().nullable(),
+  actualOpportunityValue: z.number({ invalid_type_error: "Topline Value must be a number" }).nonnegative("Topline Value must be non-negative").optional().nullable(),
   bottomLineCost: z.number({ invalid_type_error: "Cost Incurred to Company must be a number" }).nonnegative("Cost Incurred to Company must be non-negative").optional().nullable(),
   loeValue: z.string().optional().nullable(),
   loeUnit: z.string().optional().nullable(),
@@ -82,7 +82,7 @@ const opportunitySchema = z.object({
   actualCloseDate: z.string().datetime().optional().nullable(),
   wonDate: z.string().datetime().optional().nullable(),
   lostReason: z.string().optional().nullable(),
-  dealType: z.string().optional().nullable(),
+  opportunityTypeLegacy: z.string().optional().nullable(),
   forecastCategory: z.enum(["PIPELINE", "BEST_CASE", "COMMIT", "CLOSED_WON", "CLOSED_LOST"]).optional(),
   ownerId: z.string().uuid("Assigned To is required"),
   opportunityType: z.enum(["NEW_BUSINESS", "EXPANSION", "RENEWAL"]).optional(),
@@ -221,10 +221,10 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         accountOwner: o.account?.owner ? `${o.account.owner.firstName} ${o.account.owner.lastName}` : "",
         contactPerson: o.contact ? `${o.contact.firstName} ${o.contact.lastName}` : "",
         stage: o.stage.name,
-        dealType: o.dealType || o.opportunityType || "NEW_BUSINESS",
+        opportunityType: o.opportunityTypeLegacy || o.opportunityType || "NEW_BUSINESS",
         assignedTo: o.owner ? `${o.owner.firstName} ${o.owner.lastName}` : "",
-        expectedDealValue: f.expectedDealValue ?? "",
-        toplineValue: f.actualDealValue ?? "",
+        expectedOpportunityValue: f.expectedOpportunityValue ?? "",
+        toplineValue: f.actualOpportunityValue ?? "",
         costIncurred: f.bottomLineCost ?? "",
         marginValue: f.marginValue ?? "",
         marginPercentage: f.marginPercentage ?? "",
@@ -243,9 +243,9 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       { key: "accountOwner", label: "Account Owner" },
       { key: "contactPerson", label: "Contact Person" },
       { key: "stage", label: "Opportunity Stage" },
-      { key: "dealType", label: "Deal Stage" },
+      { key: "opportunityType", label: "Opportunity Type" },
       { key: "assignedTo", label: "Assigned To" },
-      { key: "expectedDealValue", label: "Expected Deal Value" },
+      { key: "expectedOpportunityValue", label: "Expected Opportunity Value" },
       { key: "toplineValue", label: "Topline Value" },
       { key: "costIncurred", label: "Cost Incurred to Company" },
       { key: "marginValue", label: "Margin Value" },
@@ -272,9 +272,9 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         accountOwner: "John Doe",
         contactPerson: "Jane Smith",
         stage: "Lead Qualified",
-        dealType: "NEW_BUSINESS",
+        opportunityType: "NEW_BUSINESS",
         assignedTo: "John Doe",
-        expectedDealValue: "500000",
+        expectedOpportunityValue: "500000",
         toplineValue: "520000",
         costIncurred: "350000",
         remarks: "Scope covers cloud infrastructure penetration testing",
@@ -292,9 +292,9 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       { key: "accountOwner", label: "Account Owner" },
       { key: "contactPerson", label: "Contact Person" },
       { key: "stage", label: "Opportunity Stage" },
-      { key: "dealType", label: "Deal Stage" },
+      { key: "opportunityType", label: "Opportunity Type" },
       { key: "assignedTo", label: "Assigned To" },
-      { key: "expectedDealValue", label: "Expected Deal Value" },
+      { key: "expectedOpportunityValue", label: "Expected Opportunity Value" },
       { key: "toplineValue", label: "Topline Value" },
       { key: "costIncurred", label: "Cost Incurred to Company" },
       { key: "remarks", label: "Remarks" },
@@ -362,8 +362,8 @@ export default async function opportunityRoutes(app: FastifyInstance) {
 
       const oppName = mapped.name || mapped.opportunityName || mapped.dealName;
       const accountName = mapped.account || mapped.accountName || mapped.companyName || mapped.company;
-      const amountStr = mapped.amount || mapped.expectedDealValue || mapped.dealValue || mapped.value;
-      const toplineValueStr = mapped.toplineValue || mapped.actualDealValue;
+      const amountStr = mapped.amount || mapped.expectedOpportunityValue || mapped.expectedDealValue || mapped.dealValue || mapped.value;
+      const toplineValueStr = mapped.toplineValue || mapped.actualOpportunityValue || mapped.actualDealValue;
       const costIncurredStr = mapped.costIncurred || mapped.bottomLineCost;
       const oppStageName = mapped.opportunityStage || mapped.stage || mapped.dealStage;
       const contactPersonName = mapped.contactPerson || mapped.contact;
@@ -597,8 +597,8 @@ export default async function opportunityRoutes(app: FastifyInstance) {
             where: { id: existingOpp.id },
             data: {
               amount: parsedAmount,
-              expectedDealValue: parsedAmount,
-              actualDealValue: parsedTopline ?? undefined,
+              expectedOpportunityValue: parsedAmount,
+              actualOpportunityValue: parsedTopline ?? undefined,
               bottomLineCost: parsedCost ?? undefined,
               stageId: stageReqApproval ? existingOpp.stageId : stage.id,
               probability: stageReqApproval ? existingOpp.probability : stage.probability,
@@ -626,8 +626,8 @@ export default async function opportunityRoutes(app: FastifyInstance) {
               createdById: req.authUser.id,
               name: oppName,
               amount: parsedAmount,
-              expectedDealValue: parsedAmount,
-              actualDealValue: parsedTopline ?? (isClosedWon && !stageReqApproval ? parsedPoValue : null),
+              expectedOpportunityValue: parsedAmount,
+              actualOpportunityValue: parsedTopline ?? (isClosedWon && !stageReqApproval ? parsedPoValue : null),
               bottomLineCost: parsedCost ?? null,
               probability: effectiveStage.probability,
               expectedCloseDate: closeDate,
@@ -782,10 +782,10 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       if (contactId) allContactIds.add(contactId);
       if (body.contactIds) body.contactIds.forEach((id) => allContactIds.add(id));
 
-      const expectedDealValue = body.expectedDealValue !== undefined && body.expectedDealValue !== null
-        ? body.expectedDealValue
+      const expectedOpportunityValue = body.expectedOpportunityValue !== undefined && body.expectedOpportunityValue !== null
+        ? body.expectedOpportunityValue
         : (body.amount ?? 0);
-      const actualDealValue = isClosingWon && !stageReqApproval ? (body.poValue ? Number(body.poValue) : body.actualDealValue ?? null) : (body.actualDealValue ?? null);
+      const actualOpportunityValue = isClosingWon && !stageReqApproval ? (body.poValue ? Number(body.poValue) : body.actualOpportunityValue ?? null) : (body.actualOpportunityValue ?? null);
       const bottomLineCost = body.bottomLineCost ?? null;
 
       const opp = await tx.opportunity.create({
@@ -794,9 +794,9 @@ export default async function opportunityRoutes(app: FastifyInstance) {
           name: body.name,
           accountId: accountId!,
           contactId: contactId || null,
-          amount: expectedDealValue,
-          expectedDealValue,
-          actualDealValue,
+          amount: expectedOpportunityValue,
+          expectedOpportunityValue,
+          actualOpportunityValue,
           bottomLineCost,
           pipelineId: body.pipelineId,
           stageId: effectiveStage.id,
@@ -810,7 +810,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
           loeUnit: isClosingWon && !stageReqApproval ? (body.loeUnit || "Hours") : "Hours",
           poNumber: isClosingWon && !stageReqApproval ? body.poNumber : null,
           poValue: isClosingWon && !stageReqApproval ? body.poValue : null,
-          dealType: body.dealType || null,
+          opportunityTypeLegacy: body.opportunityTypeLegacy || null,
           forecastCategory: isClosingWon && !stageReqApproval ? "CLOSED_WON" : isClosingLost ? "CLOSED_LOST" : (body.forecastCategory || "PIPELINE"),
           ownerId: body.ownerId,
           createdById: req.authUser.id,
@@ -1037,7 +1037,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       delete rest.stageId;
     }
 
-    const updatedExpectedDealValue = rest.expectedDealValue !== undefined ? rest.expectedDealValue : (rest.amount !== undefined ? rest.amount : undefined);
+    const updatedExpectedDealValue = rest.expectedOpportunityValue !== undefined ? rest.expectedOpportunityValue : (rest.amount !== undefined ? rest.amount : undefined);
     const updatedAmount = updatedExpectedDealValue !== undefined ? (updatedExpectedDealValue ?? existing.amount) : undefined;
 
     const opportunity = await prisma.$transaction(async (tx) => {
@@ -1053,8 +1053,8 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         data: {
           ...rest,
           ...(updatedAmount !== undefined ? { amount: updatedAmount } : {}),
-          ...(updatedExpectedDealValue !== undefined ? { expectedDealValue: updatedExpectedDealValue } : {}),
-          actualDealValue: isClosingWon ? (rest.poValue ? Number(rest.poValue) : (rest.actualDealValue ?? existing.actualDealValue)) : rest.actualDealValue,
+          ...(updatedExpectedDealValue !== undefined ? { expectedOpportunityValue: updatedExpectedDealValue } : {}),
+          actualOpportunityValue: isClosingWon ? (rest.poValue ? Number(rest.poValue) : (rest.actualOpportunityValue ?? existing.actualOpportunityValue)) : rest.actualOpportunityValue,
           loeValue: isClosingWon ? rest.loeValue : (rest.loeValue !== undefined ? rest.loeValue : undefined),
           loeUnit: isClosingWon ? (rest.loeUnit || "Hours") : (rest.loeUnit !== undefined ? rest.loeUnit : undefined),
           poNumber: isClosingWon ? rest.poNumber : (rest.poNumber !== undefined ? rest.poNumber : undefined),
@@ -1251,7 +1251,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
 
     const items = await prisma.lineItem.findMany({ where: { opportunityId: id } });
     const newAmount = items.reduce((sum, li) => sum + Number(li.total), 0);
-    await prisma.opportunity.update({ where: { id }, data: { amount: newAmount, expectedDealValue: newAmount } });
+    await prisma.opportunity.update({ where: { id }, data: { amount: newAmount, expectedOpportunityValue: newAmount } });
 
     return reply.code(201).send(lineItem);
   });
@@ -1263,7 +1263,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     await prisma.lineItem.delete({ where: { id: lineItemId } });
     const items = await prisma.lineItem.findMany({ where: { opportunityId } });
     const newAmount = items.reduce((sum, li) => sum + Number(li.total), 0);
-    await prisma.opportunity.update({ where: { id: opportunityId }, data: { amount: newAmount, expectedDealValue: newAmount } });
+    await prisma.opportunity.update({ where: { id: opportunityId }, data: { amount: newAmount, expectedOpportunityValue: newAmount } });
     return reply.code(204).send();
   });
 

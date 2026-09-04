@@ -174,7 +174,6 @@ export default function QuotesPage() {
     <div className="pb-24 md:pb-8">
       <PageHeader
         title="Quotes"
-        subtitle="Formal price proposals linked to opportunities."
         action={
           <div className="flex flex-wrap items-center gap-2">
             <ColumnFilterDropdown

@@ -52,7 +52,7 @@ export function createCRMScenario(options: ScenarioOptions = {}): Cypress.Chaina
           cy.createOpportunity(account.id, mainContactId, {
             name: `Scenario Opp ${i + 1} - ${Date.now()}`,
             amount: 500000 + i * 100000,
-            actualDealValue: 500000 + i * 100000,
+            actualOpportunityValue: 500000 + i * 100000,
             bottomLineCost: 300000 + i * 50000,
           })
         );

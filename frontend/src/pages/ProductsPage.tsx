@@ -370,7 +370,6 @@ export default function ProductsPage() {
     <div className="pb-24 md:pb-8">
       <PageHeader
         title="Products"
-        subtitle="Goods and service packages your team sells."
         action={
           <div className="flex flex-wrap items-center gap-2">
             <ColumnFilterDropdown

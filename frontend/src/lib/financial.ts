@@ -1,13 +1,13 @@
 export interface FinancialsInput {
-  expectedDealValue?: number | string | null;
-  actualDealValue?: number | string | null;
+  expectedOpportunityValue?: number | string | null;
+  actualOpportunityValue?: number | string | null;
   bottomLineCost?: number | string | null;
   amount?: number | string | null;
 }
 
 export interface ComputedFinancials {
-  expectedDealValue: number | null;
-  actualDealValue: number | null; // Proposal Sent Value
+  expectedOpportunityValue: number | null;
+  actualOpportunityValue: number | null; // Proposal Sent Value
   bottomLineCost: number | null;  // Cost Incurred to Company
   expectedMargin: number | null;
   grossMargin: number | null;
@@ -24,17 +24,17 @@ function toNum(val: any): number | null {
 }
 
 export function computeOpportunityFinancials(input: FinancialsInput): ComputedFinancials {
-  let expectedDealValue = toNum(input.expectedDealValue);
-  if (expectedDealValue === null) {
-    expectedDealValue = toNum(input.amount);
+  let expectedOpportunityValue = toNum(input.expectedOpportunityValue);
+  if (expectedOpportunityValue === null) {
+    expectedOpportunityValue = toNum(input.amount);
   }
-  if (expectedDealValue !== null && expectedDealValue < 0) {
-    expectedDealValue = null;
+  if (expectedOpportunityValue !== null && expectedOpportunityValue < 0) {
+    expectedOpportunityValue = null;
   }
 
-  let actualDealValue = toNum(input.actualDealValue);
-  if (actualDealValue !== null && actualDealValue < 0) {
-    actualDealValue = null;
+  let actualOpportunityValue = toNum(input.actualOpportunityValue);
+  if (actualOpportunityValue !== null && actualOpportunityValue < 0) {
+    actualOpportunityValue = null;
   }
 
   let bottomLineCost = toNum(input.bottomLineCost);
@@ -43,30 +43,30 @@ export function computeOpportunityFinancials(input: FinancialsInput): ComputedFi
   }
 
   const expectedMargin =
-    expectedDealValue !== null && bottomLineCost !== null
-      ? expectedDealValue - bottomLineCost
+    expectedOpportunityValue !== null && bottomLineCost !== null
+      ? expectedOpportunityValue - bottomLineCost
       : null;
 
   const grossMargin =
-    actualDealValue !== null && bottomLineCost !== null
-      ? actualDealValue - bottomLineCost
+    actualOpportunityValue !== null && bottomLineCost !== null
+      ? actualOpportunityValue - bottomLineCost
       : null;
 
   const marginLoss =
-    actualDealValue !== null && expectedDealValue !== null
-      ? Math.max(expectedDealValue - actualDealValue, 0)
+    actualOpportunityValue !== null && expectedOpportunityValue !== null
+      ? Math.max(expectedOpportunityValue - actualOpportunityValue, 0)
       : null;
 
-  const topLineRevenue = actualDealValue !== null ? actualDealValue : expectedDealValue;
+  const topLineRevenue = actualOpportunityValue !== null ? actualOpportunityValue : expectedOpportunityValue;
 
   const marginValue =
-    actualDealValue !== null && bottomLineCost !== null
-      ? actualDealValue - bottomLineCost
-      : expectedDealValue !== null && bottomLineCost !== null
-      ? expectedDealValue - bottomLineCost
+    actualOpportunityValue !== null && bottomLineCost !== null
+      ? actualOpportunityValue - bottomLineCost
+      : expectedOpportunityValue !== null && bottomLineCost !== null
+      ? expectedOpportunityValue - bottomLineCost
       : null;
 
-  const revenueDenominator = actualDealValue !== null ? actualDealValue : expectedDealValue;
+  const revenueDenominator = actualOpportunityValue !== null ? actualOpportunityValue : expectedOpportunityValue;
   let marginPercentage: number | null = null;
   if (marginValue !== null && revenueDenominator !== null) {
     if (revenueDenominator > 0) {
@@ -79,8 +79,8 @@ export function computeOpportunityFinancials(input: FinancialsInput): ComputedFi
   }
 
   return {
-    expectedDealValue,
-    actualDealValue,
+    expectedOpportunityValue,
+    actualOpportunityValue,
     bottomLineCost,
     expectedMargin,
     grossMargin,

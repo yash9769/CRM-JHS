@@ -18,7 +18,7 @@ describe("Opportunity Flow & Financial Details E2E", () => {
     cy.createOpportunity(accountId, contactId, {
       name: `Sticky Bar Opp ${Date.now()}`,
       amount: 1200000,
-      actualDealValue: 1200000,
+      actualOpportunityValue: 1200000,
       bottomLineCost: 700000,
     }).then((opp) => {
       cy.visit(`/opportunities/${opp.id}`);

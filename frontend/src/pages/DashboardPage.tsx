@@ -79,7 +79,6 @@ export default function DashboardPage() {
     <div className="pb-24 md:pb-8">
       <PageHeader
         title={`${greeting}, ${user?.firstName || ""}`}
-        subtitle="Here is your real-time sales pipeline and activity dashboard."
       />
 
       <div className="px-4 md:px-8 space-y-8">
@@ -101,7 +100,7 @@ export default function DashboardPage() {
             <Kpi icon={Percent} label="Win Rate" value={`${Math.round(data.kpis.winRate * 100)}%`} url="/reports" />
             <Kpi icon={Wallet} label="Avg Opportunity Size" value={formatCurrency(data.kpis.avgOpportunitySize)} url="/opportunities" />
             <Kpi icon={TrendingUp} label="Margin Value" value={formatCurrency((data.kpis.totalGrossMargin || 0) + (data.kpis.totalExpectedMargin || 0))} tone="green" url="/opportunities" />
-            <Kpi icon={CalendarClock} label="Cost Incurred" value={formatCurrency(data.kpis.totalBottomLineCost || 0)} url="/opportunities" />
+            <Kpi icon={CalendarClock} label="Cost Incurred to Company" value={formatCurrency(data.kpis.totalBottomLineCost || 0)} url="/opportunities" />
           </div>
         )}
 
@@ -152,7 +151,7 @@ export default function DashboardPage() {
               <Flame size={16} className="text-[var(--rose-600)]" />
               2. Opportunities at Risk
             </h3>
-            <Link to="/opportunities" className="text-xs text-[var(--rose-600)] hover:underline font-medium">Review All Deals</Link>
+            <Link to="/opportunities" className="text-xs text-[var(--rose-600)] hover:underline font-medium">Review All Opportunities</Link>
           </div>
           <Card className="p-4 border-l-4 border-l-[var(--rose-500)]">
             {!opportunitiesAtRisk.length ? (

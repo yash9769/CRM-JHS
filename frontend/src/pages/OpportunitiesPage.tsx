@@ -22,7 +22,7 @@ const OPPORTUNITY_COLUMNS: ColumnDef[] = [
   { key: "account", label: "Account Name" },
   { key: "contact", label: "Contact Person" },
   { key: "stage", label: "Stage" },
-  { key: "actualDealValue", label: "Proposal Sent Value" },
+  { key: "actualOpportunityValue", label: "Proposal Sent Value" },
   { key: "bottomLineCost", label: "Cost Incurred to Company" },
   { key: "marginValue", label: "Margin Value" },
   { key: "marginPercentage", label: "Margin Percentage" },
@@ -131,7 +131,6 @@ export default function OpportunitiesPage() {
     <div className="pb-24 md:pb-8">
       <PageHeader
         title="Opportunities"
-        subtitle="Manage all your sales pipeline opportunities in one place."
         action={
           <div className="flex flex-wrap items-center gap-2">
             <ColumnFilterDropdown
@@ -296,7 +295,7 @@ export default function OpportunitiesPage() {
                           Stage
                         </th>
                       )}
-                      {isVisible("actualDealValue") && (
+                      {isVisible("actualOpportunityValue") && (
                         <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
                           Proposal Sent Value
                         </th>
@@ -380,9 +379,9 @@ export default function OpportunitiesPage() {
                               <StageBadge stage={o.stage as any} />
                             </td>
                           )}
-                          {isVisible("actualDealValue") && (
+                          {isVisible("actualOpportunityValue") && (
                             <td className="px-4 py-3 font-mono-num font-semibold text-slate-900">
-                              {financials.actualDealValue !== null ? formatCurrency(financials.actualDealValue) : "—"}
+                              {financials.actualOpportunityValue !== null ? formatCurrency(financials.actualOpportunityValue) : "—"}
                             </td>
                           )}
                           {isVisible("bottomLineCost") && (

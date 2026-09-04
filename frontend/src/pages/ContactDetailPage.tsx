@@ -2,19 +2,19 @@ import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient as useQC2 } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { Card, StageBadge, Button } from "../components/ui";
+import { Card, Button } from "../components/ui";
 import { Timeline } from "../components/Timeline";
-import { NewOpportunityModal, LogActivityModal } from "../components/CreateModals";
+import { NewOpportunityModal } from "../components/CreateModals";
 import { EditContactModal, ArchiveConfirmModal } from "../components/EditModals";
-import { formatCurrency, initials } from "../lib/format";
+import { initials } from "../lib/format";
 import type { Contact } from "../lib/types";
-import { Mail, Phone, Link2, Building2, Target, PhoneCall, Pencil, Archive } from "lucide-react";
+import { Mail, Phone, Link2, Building2, Target, Pencil, Archive } from "lucide-react";
 
 export default function ContactDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qcArchive = useQC2();
-  const [modal, setModal] = useState<"opportunity" | "log" | "edit" | "archive" | null>(null);
+  const [modal, setModal] = useState<"opportunity" | "edit" | "archive" | null>(null);
 
   const archiveMutation = useMutation({
     mutationFn: () => api.post(`/contacts/${id}/archive`),
@@ -52,7 +52,6 @@ export default function ContactDetailPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" onClick={() => setModal("edit")}><Pencil size={14} /> Edit</Button>
           <Button variant="secondary" onClick={() => setModal("opportunity")}><Target size={14} /> Create Opportunity</Button>
-          <Button variant="secondary" onClick={() => setModal("log")}><PhoneCall size={14} /> Log Call</Button>
           <Button variant="secondary" onClick={() => setModal("archive")}><Archive size={14} /> Archive</Button>
         </div>
       </div>
@@ -64,37 +63,6 @@ export default function ContactDetailPage() {
             <div className="flex items-center gap-2"><Mail size={14} className="text-[var(--ink-400)]" /> {contact.email || "—"}</div>
             <div className="flex items-center gap-2"><Phone size={14} className="text-[var(--ink-400)]" /> {contact.phone || "—"}</div>
             {contact.linkedinUrl && <div className="flex items-center gap-2"><Link2 size={14} className="text-[var(--ink-400)]" /> {contact.linkedinUrl}</div>}
-          </div>
-
-          <div className="mt-6">
-            <h4 className="text-xs uppercase font-medium mb-2 text-[var(--ink-400)]">Opportunities</h4>
-            {!contact.opportunityContacts?.length ? (
-              <div className="text-sm text-[var(--ink-400)]">None yet</div>
-            ) : (
-              <div className="space-y-2">
-                {contact.opportunityContacts.map(({ opportunity: o }) => (
-                  <Link
-                    key={o.id}
-                    to={`/opportunities/${o.id}`}
-                    className="flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-[var(--ink-50)] border border-[var(--ink-100)] transition-colors"
-                  >
-                    <div>
-                      <span className="font-semibold text-sm text-[var(--ledger-700)]">{o.name}</span>
-                      <div className="text-xs text-[var(--ink-500)] flex items-center gap-2 mt-0.5 font-mono-num">
-                        <span>Expected: {o.expectedDealValue !== null && o.expectedDealValue !== undefined ? formatCurrency(o.expectedDealValue) : formatCurrency(o.amount)}</span>
-                        {o.actualDealValue !== null && o.actualDealValue !== undefined && <span>· Actual: {formatCurrency(o.actualDealValue)}</span>}
-                        <span className={o.grossMargin !== null && o.grossMargin !== undefined && Number(o.grossMargin) < 0 ? "text-rose-600 font-bold" : "text-emerald-700 font-bold"}>
-                          · Margin: {o.grossMargin !== null && o.grossMargin !== undefined ? formatCurrency(o.grossMargin) : (o.expectedMargin !== null && o.expectedMargin !== undefined ? formatCurrency(o.expectedMargin) : "—")}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <StageBadge stage={o.stage as any} />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
           </div>
         </Card>
 
@@ -127,7 +95,6 @@ export default function ContactDetailPage() {
           onClose={() => setModal(null)}
         />
       )}
-      {modal === "log" && <LogActivityModal context={{ objectType: "CONTACT", contactId: contact.id, label: contactLabel }} onClose={() => setModal(null)} />}
     </div>
   );
 }

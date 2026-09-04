@@ -12,36 +12,36 @@ async function seedFinancials() {
   let updatedCount = 0;
 
   for (const opp of opps) {
-    const expected = Number(opp.expectedDealValue || opp.amount || 500000);
+    const expected = Number(opp.expectedOpportunityValue || opp.amount || 500000);
     // Cost is typically 55% - 75% of expected deal value
     const costRatio = 0.6 + (opp.id.charCodeAt(0) % 15) / 100;
     const bottomLineCost = Math.round(expected * costRatio);
 
-    let actualDealValue: number | null = null;
+    let actualOpportunityValue: number | null = null;
 
     if (opp.stage?.isWon) {
       // Closed Won deals have an actual value (sometimes full, sometimes negotiated down by 5-10%)
       const discountRatio = (opp.id.charCodeAt(1) % 10) > 7 ? 0.92 : 1.0;
-      actualDealValue = Math.round(expected * discountRatio);
+      actualOpportunityValue = Math.round(expected * discountRatio);
     } else if (opp.stage?.isClosed) {
       // Closed Lost deals might have 0 or null actual value
-      actualDealValue = null;
+      actualOpportunityValue = null;
     } else {
       // Open deals that are further along in pipeline (probability >= 50%) might have agreed actual deal value
       if (opp.probability >= 50) {
-        actualDealValue = expected;
+        actualOpportunityValue = expected;
       } else {
         // Earlier stage open deals have cost set, but actual deal value optional/null until agreed
-        actualDealValue = (opp.id.charCodeAt(2) % 2 === 0) ? Math.round(expected * 0.95) : null;
+        actualOpportunityValue = (opp.id.charCodeAt(2) % 2 === 0) ? Math.round(expected * 0.95) : null;
       }
     }
 
     await prisma.opportunity.update({
       where: { id: opp.id },
       data: {
-        expectedDealValue: expected,
+        expectedOpportunityValue: expected,
         amount: expected,
-        actualDealValue,
+        actualOpportunityValue,
         bottomLineCost,
       }
     });

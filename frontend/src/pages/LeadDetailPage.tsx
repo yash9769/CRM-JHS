@@ -6,12 +6,12 @@ import { Card, Badge, Button, Modal, Field, inputClass, inputStyle } from "../co
 import { RelationshipSelector } from "../components/RelationshipSelector";
 import { fetchAccountOptions, fetchContactOptions, fetchOwnerOptions } from "../lib/pickers";
 import { Timeline } from "../components/Timeline";
-import { NewTaskModal, LogActivityModal } from "../components/CreateModals";
+import { NewTaskModal } from "../components/CreateModals";
 import { EditLeadModal } from "../components/EditModals";
 import { HistoryPanel } from "../components/HistoryPanel";
 import { formatDate, initials, relativeTime } from "../lib/format";
 import type { Lead, Pipeline } from "../lib/types";
-import { UserPlus, Phone, Mail, Building2, ArrowRightLeft, CheckSquare, PhoneCall, Pencil } from "lucide-react";
+import { UserPlus, Phone, Mail, Building2, ArrowRightLeft, CheckSquare, Pencil } from "lucide-react";
 
 const statusTone: Record<string, "neutral" | "green" | "amber" | "rose"> = {
   NEW: "neutral", CONTACTED: "amber", QUALIFIED: "green", NURTURING: "amber", UNQUALIFIED: "rose", CONVERTED: "green",
@@ -180,7 +180,6 @@ export default function LeadDetailPage() {
   const { id } = useParams();
   const [showConvert, setShowConvert] = useState(false);
   const [showTask, setShowTask] = useState(false);
-  const [showLog, setShowLog] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
 
   const { data: lead, isLoading } = useQuery<Lead>({
@@ -212,7 +211,6 @@ export default function LeadDetailPage() {
         <div className="flex gap-2">
           {!isConverted && <Button variant="secondary" onClick={() => setShowEdit(true)}><Pencil size={14} /> Edit</Button>}
           {!isConverted && <Button variant="secondary" onClick={() => setShowTask(true)}><CheckSquare size={14} /> Create Task</Button>}
-          {!isConverted && <Button variant="secondary" onClick={() => setShowLog(true)}><PhoneCall size={14} /> Log Call</Button>}
           {!isConverted ? (
             <Button onClick={() => setShowConvert(true)}><ArrowRightLeft size={14} /> Convert Lead</Button>
           ) : (
@@ -274,7 +272,6 @@ export default function LeadDetailPage() {
       {showConvert && <ConvertLeadModal lead={lead} onClose={() => setShowConvert(false)} />}
       {showEdit && <EditLeadModal lead={lead} onClose={() => setShowEdit(false)} />}
       {showTask && <NewTaskModal onClose={() => setShowTask(false)} context={{ objectType: "LEAD", leadId: lead.id, label: `${lead.firstName} ${lead.lastName}` }} />}
-      {showLog && <LogActivityModal onClose={() => setShowLog(false)} context={{ objectType: "LEAD", leadId: lead.id, label: `${lead.firstName} ${lead.lastName}` }} />}
     </div>
   );
 }

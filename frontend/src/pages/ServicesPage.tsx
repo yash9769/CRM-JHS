@@ -188,7 +188,6 @@ export default function ServicesPage() {
     <div className="pb-24 md:pb-8">
       <PageHeader
         title="Services"
-        subtitle="Manage service categories linked to products."
         action={
           <div className="flex flex-wrap items-center gap-2">
             <ColumnFilterDropdown

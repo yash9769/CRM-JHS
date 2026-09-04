@@ -6,65 +6,20 @@ import { Card, Button, Badge, StageBadge } from "../components/ui";
 import { NotesOnlyPanel } from "../components/NotesOnlyPanel";
 import { ClosedWonModal } from "../components/ClosedWonModal";
 import { ClosedLostModal } from "../components/ClosedLostModal";
-import { NewContactModal, LogActivityModal, NewQuoteModal, AddLineItemModal } from "../components/CreateModals";
+import { NewContactModal, NewQuoteModal, AddLineItemModal } from "../components/CreateModals";
 import { EditOpportunityModal, ArchiveConfirmModal } from "../components/EditModals";
 import { HistoryPanel } from "../components/HistoryPanel";
 import { formatCurrency, formatDate } from "../lib/format";
 import { computeOpportunityFinancials } from "../lib/financial";
-import type { Opportunity, Pipeline } from "../lib/types";
+import type { Opportunity } from "../lib/types";
 import { useAuth } from "../hooks/useAuth";
 import { ApprovalRequestModal } from "../components/ApprovalRequestModal";
 import { ApprovalReviewModal } from "../components/ApprovalReviewModal";
 import {
-  ArrowRight, CheckCircle2, Building2, User, Pencil, UserPlus,
+  ArrowRight, Building2, User, Pencil, UserPlus,
   FileText, Plus, Trash2, Download, Clock, ShieldAlert, RotateCcw,
   IndianRupee, Info, ArrowDown, StickyNote, FileCheck
 } from "lucide-react";
-
-function Stepper({
-  stages,
-  currentStageId,
-  onSelectStage,
-}: {
-  stages: Pipeline["stages"];
-  currentStageId: string;
-  onSelectStage: (stage: Pipeline["stages"][number]) => void;
-}) {
-  const currentIdx = stages.findIndex((s) => s.id === currentStageId);
-  return (
-    <div className="flex items-center overflow-x-auto py-1 gap-1">
-      {stages.map((s, i) => {
-        const done = i < currentIdx;
-        const active = i === currentIdx;
-        return (
-          <div key={s.id} className="flex items-center shrink-0">
-            <button
-              type="button"
-              onClick={() => onSelectStage(s)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer hover:opacity-90 ${
-                active
-                  ? "bg-[var(--ledger-600)] text-white shadow-xs"
-                  : done
-                  ? "bg-[var(--ledger-50)] text-[var(--ledger-800)]"
-                  : "bg-[var(--ink-50)] text-[var(--ink-500)]"
-              }`}
-            >
-              <div
-                className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
-                  active ? "bg-white text-[var(--ledger-700)]" : done ? "bg-[var(--ledger-600)] text-white" : "bg-[var(--ink-200)] text-[var(--ink-600)]"
-                }`}
-              >
-                {done ? <CheckCircle2 size={10} /> : i + 1}
-              </div>
-              <span className="whitespace-nowrap">{s.name}</span>
-            </button>
-            {i < stages.length - 1 && <ArrowRight size={12} className="mx-1 shrink-0 text-[var(--ink-300)]" />}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 export default function OpportunityDetailPage() {
   const { id } = useParams();
@@ -73,7 +28,7 @@ export default function OpportunityDetailPage() {
   const { user } = useAuth();
   const isPartner = user?.orgRole === "PARTNER" || user?.orgRole === "SENIOR_PARTNER";
 
-  const [modal, setModal] = useState<"edit" | "contact" | "log" | "archive" | "lineItem" | "quote" | null>(null);
+  const [modal, setModal] = useState<"edit" | "contact" | "archive" | "lineItem" | "quote" | null>(null);
   const [requestModalStage, setRequestModalStage] = useState<{ id: string; name: string } | null>(null);
   const [reviewModalApproval, setReviewModalApproval] = useState<any | null>(null);
   const [closedWonModalStageId, setClosedWonModalStageId] = useState<string | null>(null);
@@ -175,7 +130,7 @@ export default function OpportunityDetailPage() {
             <div>
               <span className="text-[var(--ink-400)] font-medium mr-1.5">Proposal Sent Value:</span>
               <span className="font-mono-num font-bold text-slate-900">
-                {financials.actualDealValue !== null ? formatCurrency(financials.actualDealValue) : formatCurrency(opp.amount)}
+                {financials.actualOpportunityValue !== null ? formatCurrency(financials.actualOpportunityValue) : formatCurrency(opp.amount)}
               </span>
             </div>
 
@@ -262,7 +217,7 @@ export default function OpportunityDetailPage() {
             </h1>
             <div className="flex flex-wrap items-center gap-2.5 mt-2 text-xs md:text-sm text-[var(--ink-600)]">
               <span className="font-mono-num text-base md:text-lg font-bold text-[var(--ledger-800)]">
-                {financials.expectedDealValue !== null ? formatCurrency(financials.expectedDealValue) : formatCurrency(opp.amount)}
+                {financials.expectedOpportunityValue !== null ? formatCurrency(financials.expectedOpportunityValue) : formatCurrency(opp.amount)}
               </span>
               <span>·</span>
               <span className="font-medium">Assigned to: {opp.owner?.firstName} {opp.owner?.lastName}</span>
@@ -283,14 +238,9 @@ export default function OpportunityDetailPage() {
           </div>
         </div>
 
-        {/* Pipeline Stepper */}
+        {/* Pipeline Stage Change */}
         <Card className="p-4">
-          <Stepper
-            stages={opp.pipeline!.stages}
-            currentStageId={opp.stageId}
-            onSelectStage={handleStageSelect}
-          />
-          <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-[var(--ink-100)]">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="text-xs font-medium text-[var(--ink-500)]">Change Opportunity Stage to:</span>
             <select
               value={opp.stageId}
@@ -325,9 +275,9 @@ export default function OpportunityDetailPage() {
                 </div>
 
                 <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-[var(--ink-400)]">Expected Deal Value</dt>
+                  <dt className="text-xs font-medium uppercase tracking-wider text-[var(--ink-400)]">Expected Opportunity Value</dt>
                   <dd className="mt-1 font-mono-num font-bold text-base text-[var(--ledger-700)]">
-                    {financials.expectedDealValue !== null ? formatCurrency(financials.expectedDealValue) : formatCurrency(opp.amount)}
+                    {financials.expectedOpportunityValue !== null ? formatCurrency(financials.expectedOpportunityValue) : formatCurrency(opp.amount)}
                   </dd>
                 </div>
 
@@ -359,9 +309,9 @@ export default function OpportunityDetailPage() {
                 </div>
 
                 <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-[var(--ink-400)]">Deal Type</dt>
+                  <dt className="text-xs font-medium uppercase tracking-wider text-[var(--ink-400)]">Opportunity Type</dt>
                   <dd className="mt-1 font-medium text-[var(--ink-800)]">
-                    {opp.dealType || opp.opportunityType || "NEW_BUSINESS"}
+                    {opp.opportunityTypeLegacy || opp.opportunityType || "NEW_BUSINESS"}
                   </dd>
                 </div>
 
@@ -508,7 +458,7 @@ export default function OpportunityDetailPage() {
                     <div className="text-[11px] text-[var(--ink-400)]">Commercial revenue value</div>
                   </div>
                   <div className="font-mono-num text-base font-bold text-slate-900">
-                    {financials.actualDealValue !== null ? formatCurrency(financials.actualDealValue) : formatCurrency(opp.amount)}
+                    {financials.actualOpportunityValue !== null ? formatCurrency(financials.actualOpportunityValue) : formatCurrency(opp.amount)}
                   </div>
                 </div>
 
@@ -789,12 +739,6 @@ export default function OpportunityDetailPage() {
           accountName={opp.account?.name}
           onClose={() => setModal(null)}
           onCreated={() => qc.invalidateQueries({ queryKey: ["opportunity", id] })}
-        />
-      )}
-      {modal === "log" && (
-        <LogActivityModal
-          context={{ objectType: "OPPORTUNITY", opportunityId: opp.id, label: opp.name }}
-          onClose={() => setModal(null)}
         />
       )}
       {modal === "lineItem" && (

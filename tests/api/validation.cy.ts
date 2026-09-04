@@ -78,14 +78,14 @@ describe("API Validation & Data Integrity", () => {
     const costIncurred = 600000;
     cy.createOpportunity(accountId, undefined, {
       amount: proposalSentValue,
-      actualDealValue: proposalSentValue,
+      actualOpportunityValue: proposalSentValue,
       bottomLineCost: costIncurred,
     }).then((opp) => {
       expect(opp.amount).to.eq(proposalSentValue);
       expect(opp.bottomLineCost).to.eq(costIncurred);
-      const marginValue = (opp.actualDealValue || opp.amount) - (opp.bottomLineCost || 0);
+      const marginValue = (opp.actualOpportunityValue || opp.amount) - (opp.bottomLineCost || 0);
       expect(marginValue).to.eq(400000);
-      const marginPct = (marginValue / (opp.actualDealValue || opp.amount)) * 100;
+      const marginPct = (marginValue / (opp.actualOpportunityValue || opp.amount)) * 100;
       expect(marginPct).to.eq(40);
     });
   });

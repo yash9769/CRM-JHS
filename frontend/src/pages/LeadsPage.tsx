@@ -68,7 +68,6 @@ export default function LeadsPage() {
     <div>
       <PageHeader
         title="Leads"
-        subtitle="Unqualified prospects — before they become an Account, Contact, or Opportunity."
         action={
           <div className="flex items-center gap-2">
             <Button variant="secondary" onClick={() => setShowImport(true)}>

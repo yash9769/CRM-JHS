@@ -44,7 +44,7 @@ export default async function authRoutes(app: FastifyInstance) {
         },
       });
 
-      // Seed default Opportunity + Deal pipelines with canonical 10 stages.
+      // Seed default Opportunity pipelines with canonical 10 stages.
       const canonicalStages = [
         { name: "Prospect", order: 1, probability: 10, isClosed: false, isWon: false },
         { name: "Lead", order: 2, probability: 20, isClosed: false, isWon: false },

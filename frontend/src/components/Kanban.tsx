@@ -10,8 +10,8 @@ interface KanbanItem {
   id: string;
   name: string;
   amount: string;
-  expectedDealValue?: string | number | null;
-  actualDealValue?: string | number | null;
+  expectedOpportunityValue?: string | number | null;
+  actualOpportunityValue?: string | number | null;
   bottomLineCost?: string | number | null;
   expectedMargin?: string | number | null;
   grossMargin?: string | number | null;
@@ -143,17 +143,17 @@ export function KanbanBoard<T extends KanbanItem>({
                         </div>
                       )}
 
-                      {/* Deal Value & Margin */}
+                      {/* Opportunity Value & Margin */}
                       <div className="pt-2 border-t space-y-1" style={{ borderColor: "var(--ink-50)" }}>
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-semibold text-[var(--ink-500)]">
-                            {item.actualDealValue !== null && item.actualDealValue !== undefined ? "Actual:" : "Expected:"}
+                            {item.actualOpportunityValue !== null && item.actualOpportunityValue !== undefined ? "Actual:" : "Expected:"}
                           </span>
                           <span className="font-mono-num font-bold text-sm text-[var(--ledger-800)]">
-                            {item.actualDealValue !== null && item.actualDealValue !== undefined
-                              ? formatCurrency(item.actualDealValue)
-                              : item.expectedDealValue !== null && item.expectedDealValue !== undefined
-                              ? formatCurrency(item.expectedDealValue)
+                            {item.actualOpportunityValue !== null && item.actualOpportunityValue !== undefined
+                              ? formatCurrency(item.actualOpportunityValue)
+                              : item.expectedOpportunityValue !== null && item.expectedOpportunityValue !== undefined
+                              ? formatCurrency(item.expectedOpportunityValue)
                               : formatCurrency(item.amount)}
                           </span>
                         </div>
