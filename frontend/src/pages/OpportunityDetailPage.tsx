@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { Card, Button, Badge, StageBadge } from "../components/ui";
+import { Card, Button, Badge, StageBadge, BackButton } from "../components/ui";
 import { NotesOnlyPanel } from "../components/NotesOnlyPanel";
 import { ClosedWonModal } from "../components/ClosedWonModal";
 import { ClosedLostModal } from "../components/ClosedLostModal";
@@ -198,6 +198,8 @@ export default function OpportunityDetailPage() {
 
         {/* Header Title & Actions */}
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+          <div className="flex items-start gap-2">
+            <BackButton className="mt-0.5" />
           <div>
             <div className="flex flex-wrap items-center gap-2 text-xs mb-1.5 text-[var(--ink-400)]">
               <Link to={`/accounts/${opp.account?.id}`} className="flex items-center gap-1 font-medium hover:underline text-[var(--ledger-700)]">
@@ -230,6 +232,7 @@ export default function OpportunityDetailPage() {
                 </>
               )}
             </div>
+          </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

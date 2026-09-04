@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient as useQC2 } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { Card, Button } from "../components/ui";
+import { Card, Button, BackButton } from "../components/ui";
 import { Timeline } from "../components/Timeline";
 import { NewOpportunityModal } from "../components/CreateModals";
 import { EditContactModal, ArchiveConfirmModal } from "../components/EditModals";
@@ -34,6 +34,7 @@ export default function ContactDetailPage() {
     <div className="px-4 md:px-8 py-5 md:py-7 max-w-6xl mx-auto space-y-5 pb-24 md:pb-8">
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div className="flex items-center gap-3">
+          <BackButton />
           <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-semibold text-white bg-[var(--ink-600)]">
             {initials(contact.firstName, contact.lastName)}
           </div>
