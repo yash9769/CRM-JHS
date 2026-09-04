@@ -19,6 +19,7 @@ import { Plus, Search, Archive, Download, UploadCloud, Building2, User, FileSpre
 
 const OPPORTUNITY_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Opportunity Name", permanent: true },
+  { key: "owner", label: "Assigned To" },
   { key: "account", label: "Account Name" },
   { key: "contact", label: "Contact Person" },
   { key: "stage", label: "Stage" },
@@ -26,11 +27,13 @@ const OPPORTUNITY_COLUMNS: ColumnDef[] = [
   { key: "bottomLineCost", label: "Cost Incurred to Company" },
   { key: "marginValue", label: "Margin Value" },
   { key: "marginPercentage", label: "Margin Percentage" },
-  { key: "owner", label: "Assigned To" },
   { key: "createdAt", label: "Created Date" },
   { key: "closeDate", label: "Close Date" },
   { key: "remarks", label: "Remarks", defaultVisible: false },
 ];
+
+/** Stages shown in the "Open" tab — mid-pipeline only, per product decision. */
+const OPEN_TAB_STAGE_NAMES = new Set(["Scope Discussion", "Proposal Sent", "Negotiation"]);
 
 export default function OpportunitiesPage() {
   const { user } = useAuth();
@@ -78,7 +81,7 @@ export default function OpportunitiesPage() {
 
   const opportunitiesList = data?.data || [];
   const filteredData = opportunitiesList.filter(o => {
-    if (activeTab === "open") return !o.stage?.isClosed;
+    if (activeTab === "open") return !!o.stage?.name && OPEN_TAB_STAGE_NAMES.has(o.stage.name);
     return true;
   });
 
@@ -282,6 +285,11 @@ export default function OpportunitiesPage() {
                           Opportunity Name
                         </th>
                       )}
+                      {isVisible("owner") && (
+                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
+                          Assigned To
+                        </th>
+                      )}
                       {isVisible("account") && (
                         <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
                           Account Name
@@ -315,11 +323,6 @@ export default function OpportunitiesPage() {
                       {isVisible("marginPercentage") && (
                         <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
                           Margin Percentage
-                        </th>
-                      )}
-                      {isVisible("owner") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
-                          Assigned To
                         </th>
                       )}
                       {isVisible("createdAt") && (
@@ -366,6 +369,11 @@ export default function OpportunitiesPage() {
                               </Link>
                             </td>
                           )}
+                          {isVisible("owner") && (
+                            <td className="px-4 py-3 text-[var(--ink-600)]">
+                              {o.owner ? `${o.owner.firstName} ${o.owner.lastName}` : "—"}
+                            </td>
+                          )}
                           {isVisible("account") && (
                             <td className="px-4 py-3 font-medium text-[var(--ink-700)]">
                               {o.account?.name || "—"}
@@ -399,11 +407,6 @@ export default function OpportunitiesPage() {
                           {isVisible("marginPercentage") && (
                             <td className={`px-4 py-3 font-mono-num ${marginColorClass}`}>
                               {mp !== null ? `${mp.toFixed(1)}%` : "—"}
-                            </td>
-                          )}
-                          {isVisible("owner") && (
-                            <td className="px-4 py-3 text-[var(--ink-600)]">
-                              {o.owner ? `${o.owner.firstName} ${o.owner.lastName}` : "—"}
                             </td>
                           )}
                           {isVisible("createdAt") && (
