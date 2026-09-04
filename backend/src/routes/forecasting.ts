@@ -35,23 +35,41 @@ export default async function forecastingRoutes(app: FastifyInstance) {
     const ownerFilter = ownerId ? { ownerId } : {};
     const rbacFilter = await getCreatedByFilter(req.authUser);
 
-    // Get forecast targets
+    // Get forecast targets.
+    // ForecastTarget has no createdById field (only ownerId), so getCreatedByFilter's
+    // createdById/ownerId OR clause would throw a Prisma "unknown argument" error here.
+    // Scope by ownerId directly using the same visibility rules as GET /forecast/targets.
+    const targetRbacFilter =
+      req.authUser.orgRole === "SENIOR_PARTNER"
+        ? {}
+        : { ownerId: { in: await getVisibleUserIds(req.authUser) } };
     const targets = await prisma.forecastTarget.findMany({
-      where: { tenantId, period: targetPeriodFilter, ...(ownerId ? { ownerId } : {}) },
+      where: {
+        tenantId,
+        period: targetPeriodFilter,
+        AND: [targetRbacFilter, ...(ownerId ? [{ ownerId }] : [])],
+      },
     });
 
-    // Get opportunities
+    // Get opportunities.
+    // `rbacFilter` contains an `OR` clause, and so do the period-window filters
+    // below. Spreading both into one object literal would let the period `OR`
+    // silently overwrite the RBAC `OR`, so compose them under `AND` instead.
     const [closedWonOpps, closedLostOpps, openOpps] = await Promise.all([
       prisma.opportunity.findMany({
         where: {
           tenantId,
-          ...rbacFilter,
           ...ownerFilter,
           stage: { isWon: true },
-          OR: [
-            { wonDate: { gte: periodStart, lte: periodEnd } },
-            { actualCloseDate: { gte: periodStart, lte: periodEnd } },
-            { updatedAt: { gte: periodStart, lte: periodEnd } },
+          AND: [
+            rbacFilter,
+            {
+              OR: [
+                { wonDate: { gte: periodStart, lte: periodEnd } },
+                { actualCloseDate: { gte: periodStart, lte: periodEnd } },
+                { updatedAt: { gte: periodStart, lte: periodEnd } },
+              ],
+            },
           ],
         },
         include: {
@@ -62,12 +80,16 @@ export default async function forecastingRoutes(app: FastifyInstance) {
       prisma.opportunity.findMany({
         where: {
           tenantId,
-          ...rbacFilter,
           ...ownerFilter,
           stage: { isClosed: true, isWon: false },
-          OR: [
-            { actualCloseDate: { gte: periodStart, lte: periodEnd } },
-            { updatedAt: { gte: periodStart, lte: periodEnd } },
+          AND: [
+            rbacFilter,
+            {
+              OR: [
+                { actualCloseDate: { gte: periodStart, lte: periodEnd } },
+                { updatedAt: { gte: periodStart, lte: periodEnd } },
+              ],
+            },
           ],
         },
         include: {
@@ -78,10 +100,10 @@ export default async function forecastingRoutes(app: FastifyInstance) {
       prisma.opportunity.findMany({
         where: {
           tenantId,
-          ...rbacFilter,
           ...ownerFilter,
           stage: { isClosed: false },
           expectedCloseDate: { gte: periodStart, lte: periodEnd },
+          AND: [rbacFilter],
         },
         include: {
           stage: true,
@@ -144,17 +166,32 @@ export default async function forecastingRoutes(app: FastifyInstance) {
   // Set forecast target
   app.post("/api/v1/forecast/targets", { preHandler: [app.authenticate] }, async (req: any, reply) => {
     const body = SetTargetSchema.parse(req.body);
+
+    // A caller may only set a target for a user inside their own visibility scope:
+    // a Manager for themselves, a Partner for themselves or one of their Managers,
+    // a Senior Partner for anyone in the tenant. Without this check any
+    // authenticated user could overwrite anyone else's target.
+    const targetOwnerId = body.ownerId || req.authUser.id;
+    if (targetOwnerId !== req.authUser.id) {
+      const visibleUserIds = await getVisibleUserIds(req.authUser);
+      if (!visibleUserIds.includes(targetOwnerId)) {
+        return reply
+          .code(403)
+          .send({ error: "Access denied: You do not have permission to set a forecast target for this user." });
+      }
+    }
+
     const target = await prisma.forecastTarget.upsert({
       where: {
         tenantId_ownerId_period: {
           tenantId: req.authUser.tenantId,
-          ownerId: body.ownerId || req.authUser.id,
+          ownerId: targetOwnerId,
           period: body.period,
         },
       },
       create: {
         tenantId: req.authUser.tenantId,
-        ownerId: body.ownerId || req.authUser.id,
+        ownerId: targetOwnerId,
         period: body.period,
         targetAmount: body.targetAmount,
       },
@@ -204,15 +241,23 @@ export default async function forecastingRoutes(app: FastifyInstance) {
           where: { tenantId, period, ...targetRbacFilter },
           _sum: { targetAmount: true },
         }),
+        // `rbacFilter` and the period window both use `OR`; compose them under
+        // `AND` so the period filter cannot silently overwrite the RBAC filter.
+        // Without this the ACTUAL series was tenant-wide while the TARGET series
+        // was correctly scoped, inflating every non-Senior-Partner's trend chart.
         prisma.opportunity.aggregate({
           where: {
             tenantId,
-            ...rbacFilter,
             stage: { isWon: true },
-            OR: [
-              { wonDate: { gte: periodStart, lte: periodEnd } },
-              { actualCloseDate: { gte: periodStart, lte: periodEnd } },
-              { updatedAt: { gte: periodStart, lte: periodEnd } },
+            AND: [
+              rbacFilter,
+              {
+                OR: [
+                  { wonDate: { gte: periodStart, lte: periodEnd } },
+                  { actualCloseDate: { gte: periodStart, lte: periodEnd } },
+                  { updatedAt: { gte: periodStart, lte: periodEnd } },
+                ],
+              },
             ],
           },
           _sum: { amount: true },
