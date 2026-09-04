@@ -74,6 +74,27 @@ export default async function approvalRoutes(app: FastifyInstance) {
     return { data: approvals };
   });
 
+  // GET /api/v1/opportunities/approvals/counts -- pending vs approved, same visibility scope as the list above
+  app.get("/api/v1/opportunities/approvals/counts", { preHandler: app.authenticate }, async (req) => {
+    const isManager = req.authUser.orgRole === "MANAGER";
+    const visibilityFilter = isManager
+      ? { requestedById: req.authUser.id }
+      : {
+          OR: [
+            { approverId: req.authUser.id },
+            { approverId: null },
+            ...(req.authUser.orgRole === "SENIOR_PARTNER" ? [{ tenantId: req.authUser.tenantId }] : []),
+          ],
+        };
+
+    const [pending, approved] = await Promise.all([
+      prisma.stageApproval.count({ where: { tenantId: req.authUser.tenantId, status: "PENDING", ...visibilityFilter } }),
+      prisma.stageApproval.count({ where: { tenantId: req.authUser.tenantId, status: "APPROVED", ...visibilityFilter } }),
+    ]);
+
+    return { pending, approved };
+  });
+
   // POST /api/v1/opportunities/approvals/:id/approve (Partner / Senior Partner only)
   app.post("/api/v1/opportunities/approvals/:id/approve", { preHandler: app.authenticate }, async (req, reply) => {
     if (req.authUser.orgRole === "MANAGER") {
@@ -332,9 +353,8 @@ export default async function approvalRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: "Pending stage approval request not found" });
     }
 
-    const isPartner = req.authUser.orgRole === "PARTNER" || req.authUser.orgRole === "SENIOR_PARTNER";
-    if (approval.requestedById !== req.authUser.id && !isPartner) {
-      return reply.code(403).send({ error: "Only the requester or a Partner can cancel this request." });
+    if (approval.requestedById !== req.authUser.id) {
+      return reply.code(403).send({ error: "Only the original requester can revoke this request." });
     }
 
     const cancelled = await prisma.stageApproval.update({

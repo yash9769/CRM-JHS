@@ -5,7 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { Button, Badge } from "./ui";
 import type { StageApproval } from "../lib/types";
 import { ApprovalReviewModal } from "./ApprovalReviewModal";
-import { Clock, ChevronDown, ShieldAlert, Eye } from "lucide-react";
+import { Clock, ChevronDown, ShieldAlert, Eye, XCircle } from "lucide-react";
 
 export function StageApprovalsWidget() {
   const { user } = useAuth();
@@ -37,6 +37,14 @@ export function StageApprovalsWidget() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["opportunities"] });
       qc.invalidateQueries({ queryKey: ["opportunity"] });
+      qc.invalidateQueries({ queryKey: ["stage-approvals"] });
+    },
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/opportunities/approvals/${id}/cancel`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["opportunities"] });
       qc.invalidateQueries({ queryKey: ["stage-approvals"] });
     },
   });
@@ -103,6 +111,16 @@ export function StageApprovalsWidget() {
                   </div>
 
                   <div className="flex items-center justify-end gap-2 pt-1">
+                    {appr.requestedById === user?.id && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => revokeMutation.mutate(appr.id)}
+                        disabled={revokeMutation.isPending}
+                      >
+                        <XCircle size={13} /> Revoke
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="secondary"
