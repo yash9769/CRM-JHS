@@ -122,7 +122,7 @@ export default function ForecastingPage() {
         {s && (
           <div className="grid grid-cols-4 gap-3">
             <Card className="p-4">
-              <div className="flex items-center gap-2 mb-1.5"><Target size={14} style={{ color: "var(--ink-400)" }} /><span className="text-xs" style={{ color: "var(--ink-400)" }}>Target</span></div>
+              <div className="flex items-center gap-2 mb-1.5"><Target size={14} style={{ color: "var(--ink-400)" }} /><span className="text-xs" style={{ color: "var(--ink-400)" }}>Total Target</span></div>
               <div className="font-mono-num text-2xl font-semibold">{s.target > 0 ? formatCurrency(s.target) : "Not set"}</div>
             </Card>
             <Card className="p-4">
