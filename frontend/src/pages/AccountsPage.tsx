@@ -103,16 +103,18 @@ export default function AccountsPage() {
           </div>
 
           <div className="w-52">
-            <RelationshipSelector
-              value={ownerId}
-              valueLabel={ownerLabel}
-              onChange={(id, opt) => {
-                setOwnerId(id);
-                setOwnerLabel(opt?.label || null);
-              }}
-              fetchOptions={fetchOwnerOptions}
-              placeholder="Filter by owner…"
-            />
+            {user?.orgRole !== "MANAGER" && (
+              <RelationshipSelector
+                value={ownerId}
+                valueLabel={ownerLabel}
+                onChange={(id, opt) => {
+                  setOwnerId(id);
+                  setOwnerLabel(opt?.label || null);
+                }}
+                fetchOptions={fetchOwnerOptions}
+                placeholder="Filter by owner…"
+              />
+            )}
           </div>
         </div>
 
