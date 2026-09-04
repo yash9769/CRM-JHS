@@ -48,22 +48,26 @@ export default async function accountRoutes(app: FastifyInstance) {
     const pageSize = Math.min(1000, Math.max(1, parseInt(q.pageSize || "25")));
 
     const rbacFilter = await getCreatedByFilter(req.authUser);
-    const where = {
+    // The RBAC filter and the search filter BOTH produce an `OR` key. Spreading
+    // them into the same object literal makes the later one silently overwrite
+    // the earlier one, deleting the RBAC restriction. Compose them with `AND`
+    // (an array) so both are always applied.
+    const where: any = {
       tenantId: req.authUser.tenantId,
-      ...rbacFilter,
+      AND: [rbacFilter],
       ...(q.includeArchived === "true" ? {} : { archived: false }),
       ...(q.accountType ? { accountType: q.accountType as any } : {}),
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
       ...(q.industry ? { industry: q.industry } : {}),
-      ...(q.search
-        ? {
-            OR: [
-              { name: { contains: q.search, mode: "insensitive" as const } },
-              { domain: { contains: q.search, mode: "insensitive" as const } },
-            ],
-          }
-        : {}),
     };
+    if (q.search) {
+      where.AND.push({
+        OR: [
+          { name: { contains: q.search, mode: "insensitive" as const } },
+          { domain: { contains: q.search, mode: "insensitive" as const } },
+        ],
+      });
+    }
 
     const sortBy = ["name", "createdAt", "updatedAt", "annualRevenue", "employeeCount"].includes(q.sortBy || "") ? q.sortBy! : "updatedAt";
 
@@ -98,15 +102,23 @@ export default async function accountRoutes(app: FastifyInstance) {
 
     const q = req.query as { search?: string; accountType?: string; ownerId?: string; industry?: string; includeArchived?: string };
     const rbacFilter = await getCreatedByFilter(req.authUser);
-    const where = {
+    // Compose RBAC + search under `AND` — see the note on the LIST handler above.
+    const where: any = {
       tenantId: req.authUser.tenantId,
-      ...rbacFilter,
+      AND: [rbacFilter],
       ...(q.includeArchived === "true" ? {} : { archived: false }),
       ...(q.accountType ? { accountType: q.accountType as any } : {}),
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
       ...(q.industry ? { industry: q.industry } : {}),
-      ...(q.search ? { OR: [{ name: { contains: q.search, mode: "insensitive" as const } }, { domain: { contains: q.search, mode: "insensitive" as const } }] } : {}),
     };
+    if (q.search) {
+      where.AND.push({
+        OR: [
+          { name: { contains: q.search, mode: "insensitive" as const } },
+          { domain: { contains: q.search, mode: "insensitive" as const } },
+        ],
+      });
+    }
     const accounts = await prisma.account.findMany({ where, include: { owner: { select: { firstName: true, lastName: true } } }, orderBy: { updatedAt: "desc" } });
     const rows = accounts.map((a) => ({
       name: a.name,

@@ -9,8 +9,10 @@ import { fetchOwnerOptions } from "../lib/pickers";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
 import type { Opportunity, Pipeline, Paginated } from "../lib/types";
 import { Plus, Search } from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
 
 export default function PipelinePage() {
+  const { user } = useAuth();
   const qc = useQueryClient();
   const [showNew, setShowNew] = useState(false);
   const [search, setSearch] = useState("");
@@ -106,16 +108,18 @@ export default function PipelinePage() {
           </div>
 
           <div className="w-56">
-            <RelationshipSelector
-              value={ownerId}
-              valueLabel={ownerLabel}
-              onChange={(id, opt) => {
-                setOwnerId(id);
-                setOwnerLabel(opt?.label || null);
-              }}
-              fetchOptions={fetchOwnerOptions}
-              placeholder="Filter by owner…"
-            />
+            {user?.orgRole !== "MANAGER" && (
+              <RelationshipSelector
+                value={ownerId}
+                valueLabel={ownerLabel}
+                onChange={(id, opt) => {
+                  setOwnerId(id);
+                  setOwnerLabel(opt?.label || null);
+                }}
+                fetchOptions={fetchOwnerOptions}
+                placeholder="Filter by owner…"
+              />
+            )}
           </div>
         </div>
 

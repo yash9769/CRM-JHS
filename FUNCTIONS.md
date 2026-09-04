@@ -61,7 +61,7 @@ A comprehensive registry of every function, class, component, and API route acro
 | :--- | :--- | :--- | :--- | :--- |
 | `GET /api/v1/contacts` | `backend/src/routes/contacts.ts` | Lists contacts with filtering and pagination | `?page&pageSize&search&accountId&lifecycleStage` | `{ data: Contact[], pagination }` |
 | `POST /api/v1/contacts/check-duplicate` | `backend/src/routes/contacts.ts` | Checks for existing email conflicts | `{ email }` | `{ duplicate: boolean, existing?: Contact }` |
-| `GET /api/v1/contacts/export` | `backend/src/routes/contacts.ts` | Exports filtered contacts to CSV | `?search&accountId&lifecycleStage` | `text/csv` |
+| `GET /api/v1/contacts/export` | `backend/src/routes/contacts.ts` | Exports filtered contacts to CSV, scoped to the caller's RBAC visibility | `?search&accountId&lifecycleStage` | `text/csv` |
 | `POST /api/v1/contacts/import` | `backend/src/routes/contacts.ts` | Bulk imports contacts with mapping, account auto-creation, and duplicate check | `{ rows, mapping, commit, createMissingAccount, duplicateStrategy, rowDecisions }` | `{ summary, results }` |
 | `POST /api/v1/contacts` | `backend/src/routes/contacts.ts` | Creates a new contact record | Contact payload (firstName, lastName, email, etc.) | `Contact` (201) |
 | `GET /api/v1/contacts/:id` | `backend/src/routes/contacts.ts` | Gets contact detail, account link, activities | None | `Contact` |
@@ -75,7 +75,7 @@ A comprehensive registry of every function, class, component, and API route acro
 | `GET /api/v1/leads` | `backend/src/routes/leads.ts` | Lists leads with scoring & status filtering | `?page&pageSize&search&status&minScore&ownerId` | `{ data: Lead[], pagination }` |
 | `GET /api/v1/leads/export` | `backend/src/routes/leads.ts` | Exports filtered leads to CSV | Query filters | `text/csv` |
 | `POST /api/v1/leads/import` | `backend/src/routes/leads.ts` | Bulk imports leads from parsed CSV rows with duplicate actions | `{ rows, mapping, commit, duplicateStrategy, rowDecisions }` | `{ summary, results }` |
-| `POST /api/v1/leads/check-duplicate` | `backend/src/routes/leads.ts` | Checks email duplicate status | `{ email }` | `{ duplicate: boolean }` |
+| `POST /api/v1/leads/check-duplicate` | `backend/src/routes/leads.ts` | Checks email duplicate status. Matching is scoped to leads within the caller's RBAC visibility, so it never returns PII for leads the caller cannot otherwise read | `{ email }` | `{ duplicate: boolean }` |
 | `POST /api/v1/leads` | `backend/src/routes/leads.ts` | Creates a new prospect lead | Lead payload | `Lead` (201) |
 | `GET /api/v1/leads/:id` | `backend/src/routes/leads.ts` | Gets single lead detail with timeline | None | `Lead` |
 | `PATCH /api/v1/leads/:id` | `backend/src/routes/leads.ts` | Updates lead properties or status | Partial lead payload | `Lead` |
@@ -151,7 +151,7 @@ A comprehensive registry of every function, class, component, and API route acro
 | `GET /api/v1/dashboard` | `backend/src/routes/dashboard.ts` | Aggregates pipeline KPIs, revenue trend, and owner stats | None | `{ kpis, charts }` |
 | `GET /api/v1/dashboard/action-center`| `backend/src/routes/dashboard.ts` | Returns action items: overdue tasks, closing deals, risk | None | `{ todaysWork, recentLeads, upcomingTasks, dealsAtRisk }` |
 | `GET /api/v1/forecast` | `backend/src/routes/forecasting.ts` | Computes rep attainment vs monthly target | `?period` | `{ reps, totals }` |
-| `POST /api/v1/forecast/targets` | `backend/src/routes/forecasting.ts` | Sets monthly quota target for a sales rep | `{ ownerId?, period, targetAmount }` | `ForecastTarget` |
+| `POST /api/v1/forecast/targets` | `backend/src/routes/forecasting.ts` | Sets monthly quota target for a sales rep. `ownerId` must be within the caller's RBAC visibility (`getVisibleUserIds`) or the request is rejected with 403 | `{ ownerId?, period, targetAmount }` | `ForecastTarget` |
 | `GET /api/v1/forecast/trend` | `backend/src/routes/forecasting.ts` | Calculates 12-month rolling attainment trend | None | `ForecastTrendPoint[]` |
 | `GET /api/v1/reports/pipeline-health`| `backend/src/routes/reports.ts` | Stage conversion volume and probability breakdown | None | `{ stages: ReportStage[] }` |
 | `GET /api/v1/reports/owner-performance`| `backend/src/routes/reports.ts` | Sales rep leaderboard (deals won, win rate, avg size) | None | `{ reps: RepPerformance[] }` |

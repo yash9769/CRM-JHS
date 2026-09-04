@@ -3,7 +3,8 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { logAudit, notify } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
-import { getCreatedByFilter, requireExportPermission } from "../lib/rbac.js";
+import { getCreatedByFilter, requireExportPermission, requireCanAccess, getVisibleUserIds } from "../lib/rbac.js";
+import type { AuthUser } from "../plugins/auth.js";
 
 const LEAD_STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "NURTURING", "UNQUALIFIED", "CONVERTED"] as const;
 
@@ -54,7 +55,18 @@ const convertSchema = z.object({
     .optional(),
 });
 
-async function findDuplicateLeads(tenantId: string, data: { email?: string | null; phone?: string | null; firstName: string; lastName: string; companyName?: string | null }) {
+/**
+ * Duplicate detection is scoped to the leads the caller can already see. Without
+ * the RBAC filter this returned id/email/phone/companyName/status for leads the
+ * caller has no other way to read (GET /leads/:id returns 403 for them), turning
+ * duplicate-detection into a tenant-wide PII read. The trade-off is that dedup
+ * only checks within the caller's own visible leads, consistent with every other
+ * list in this codebase.
+ */
+async function findDuplicateLeads(
+  user: AuthUser,
+  data: { email?: string | null; phone?: string | null; firstName: string; lastName: string; companyName?: string | null }
+) {
   const or: any[] = [];
   if (data.email) or.push({ email: { equals: data.email, mode: "insensitive" as const } });
   if (data.phone) or.push({ phone: data.phone });
@@ -68,8 +80,10 @@ async function findDuplicateLeads(tenantId: string, data: { email?: string | nul
     });
   }
   if (!or.length) return [];
+  const rbacFilter = await getCreatedByFilter(user);
+  // Both `rbacFilter` and the match clauses use `OR`; compose them under `AND`.
   return prisma.lead.findMany({
-    where: { tenantId, archived: false, OR: or },
+    where: { tenantId: user.tenantId, archived: false, AND: [rbacFilter, { OR: or }] },
     take: 5,
     select: { id: true, firstName: true, lastName: true, email: true, phone: true, companyName: true, status: true },
   });
@@ -87,25 +101,29 @@ export default async function leadRoutes(app: FastifyInstance) {
     const pageSize = Math.min(1000, Math.max(1, parseInt(q.pageSize || "25")));
 
     const rbacFilter = await getCreatedByFilter(req.authUser);
-    const where = {
+    // The RBAC filter and the search filter BOTH produce an `OR` key. Spreading
+    // them into the same object literal makes the later one silently overwrite
+    // the earlier one, deleting the RBAC restriction. Compose them with `AND`
+    // (an array) so both are always applied.
+    const where: any = {
       tenantId: req.authUser.tenantId,
-      ...rbacFilter,
+      AND: [rbacFilter],
       ...(q.includeArchived === "true" ? {} : { archived: false }),
       ...(q.status ? { status: q.status as any } : {}),
       ...(q.source ? { source: q.source } : {}),
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
-      ...(q.search
-        ? {
-            OR: [
-              { firstName: { contains: q.search, mode: "insensitive" as const } },
-              { lastName: { contains: q.search, mode: "insensitive" as const } },
-              { email: { contains: q.search, mode: "insensitive" as const } },
-              { companyName: { contains: q.search, mode: "insensitive" as const } },
-              { phone: { contains: q.search, mode: "insensitive" as const } },
-            ],
-          }
-        : {}),
     };
+    if (q.search) {
+      where.AND.push({
+        OR: [
+          { firstName: { contains: q.search, mode: "insensitive" as const } },
+          { lastName: { contains: q.search, mode: "insensitive" as const } },
+          { email: { contains: q.search, mode: "insensitive" as const } },
+          { companyName: { contains: q.search, mode: "insensitive" as const } },
+          { phone: { contains: q.search, mode: "insensitive" as const } },
+        ],
+      });
+    }
 
     const sortBy = ["createdAt", "updatedAt", "score", "firstName", "lastName", "status", "companyName"].includes(q.sortBy || "")
       ? q.sortBy!
@@ -130,21 +148,26 @@ export default async function leadRoutes(app: FastifyInstance) {
     requireExportPermission(req.authUser);
 
     const q = req.query as { search?: string; status?: string; source?: string; ownerId?: string; includeArchived?: string };
-    const where = {
+    const rbacFilter = await getCreatedByFilter(req.authUser);
+    // Compose RBAC + search under `AND` — see the note on the LIST handler above.
+    const where: any = {
       tenantId: req.authUser.tenantId,
+      AND: [rbacFilter],
       ...(q.includeArchived === "true" ? {} : { archived: false }),
       ...(q.status ? { status: q.status as any } : {}),
       ...(q.source ? { source: q.source } : {}),
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
-      ...(q.search
-        ? { OR: [
-            { firstName: { contains: q.search, mode: "insensitive" as const } },
-            { lastName: { contains: q.search, mode: "insensitive" as const } },
-            { email: { contains: q.search, mode: "insensitive" as const } },
-            { companyName: { contains: q.search, mode: "insensitive" as const } },
-          ] }
-        : {}),
     };
+    if (q.search) {
+      where.AND.push({
+        OR: [
+          { firstName: { contains: q.search, mode: "insensitive" as const } },
+          { lastName: { contains: q.search, mode: "insensitive" as const } },
+          { email: { contains: q.search, mode: "insensitive" as const } },
+          { companyName: { contains: q.search, mode: "insensitive" as const } },
+        ],
+      });
+    }
     const leads = await prisma.lead.findMany({ where, include: { owner: { select: { firstName: true, lastName: true } } }, orderBy: { createdAt: "desc" } });
     const rows = leads.map((l) => ({
       firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, companyName: l.companyName,
@@ -283,7 +306,7 @@ export default async function leadRoutes(app: FastifyInstance) {
   });
   app.post("/api/v1/leads/check-duplicate", { preHandler: app.authenticate }, async (req) => {
     const body = leadSchema.pick({ firstName: true, lastName: true, email: true, phone: true, companyName: true }).parse(req.body);
-    const duplicates = await findDuplicateLeads(req.authUser.tenantId, body);
+    const duplicates = await findDuplicateLeads(req.authUser, body);
     return { duplicates };
   });
 
@@ -294,7 +317,7 @@ export default async function leadRoutes(app: FastifyInstance) {
     const email = body.email || null;
 
     if (!force) {
-      const duplicates = await findDuplicateLeads(req.authUser.tenantId, { ...body, email });
+      const duplicates = await findDuplicateLeads(req.authUser, { ...body, email });
       if (duplicates.length) {
         return reply.code(409).send({ error: "Possible duplicate lead", duplicates });
       }
@@ -335,6 +358,7 @@ export default async function leadRoutes(app: FastifyInstance) {
       },
     });
     if (!lead) return reply.code(404).send({ error: "Lead not found" });
+    await requireCanAccess(req.authUser, lead);
 
     // Resolve conversion targets for display, if converted
     let convertedAccount = null, convertedContact = null, convertedOpportunity = null;
@@ -351,6 +375,7 @@ export default async function leadRoutes(app: FastifyInstance) {
     const body = leadSchema.partial().parse(req.body);
     const existing = await prisma.lead.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Lead not found" });
+    await requireCanAccess(req.authUser, existing);
 
     const lead = await prisma.lead.update({
       where: { id },
@@ -365,6 +390,7 @@ export default async function leadRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const existing = await prisma.lead.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Lead not found" });
+    await requireCanAccess(req.authUser, existing);
     const lead = await prisma.lead.update({ where: { id }, data: { archived: true } });
     await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "LEAD", recordId: id, action: "ARCHIVED" });
     return lead;
@@ -380,8 +406,24 @@ export default async function leadRoutes(app: FastifyInstance) {
     }).parse(req.body);
 
     const tenantId = req.authUser.tenantId;
-    const scoped = await prisma.lead.findMany({ where: { id: { in: body.ids }, tenantId }, select: { id: true } });
-    const ids = scoped.map((l) => l.id);
+    const scoped = await prisma.lead.findMany({
+      where: { id: { in: body.ids }, tenantId },
+      select: { id: true, createdById: true, ownerId: true },
+    });
+
+    let visibleScoped = scoped;
+    let skippedIds: string[] = [];
+    if (req.authUser.orgRole !== "SENIOR_PARTNER") {
+      const visibleUserIds = await getVisibleUserIds(req.authUser);
+      visibleScoped = scoped.filter(
+        (l) =>
+          (l.createdById && visibleUserIds.includes(l.createdById)) ||
+          (l.ownerId && visibleUserIds.includes(l.ownerId))
+      );
+      skippedIds = scoped.filter((l) => !visibleScoped.includes(l)).map((l) => l.id);
+    }
+
+    const ids = visibleScoped.map((l) => l.id);
     if (!ids.length) return reply.code(404).send({ error: "No matching leads found" });
 
     let data: any = {};
@@ -397,13 +439,14 @@ export default async function leadRoutes(app: FastifyInstance) {
 
     await prisma.lead.updateMany({ where: { id: { in: ids }, tenantId }, data });
     await logAudit({ tenantId, userId: req.authUser.id, objectType: "LEAD", recordId: ids.join(","), action: `BULK_${body.action.toUpperCase()}`, newValues: data });
-    return { updated: ids.length };
+    return { updated: ids.length, skipped: skippedIds };
   });
 
   app.delete("/api/v1/leads/:id", { preHandler: app.authenticate }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const existing = await prisma.lead.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Lead not found" });
+    await requireCanAccess(req.authUser, existing);
     await prisma.lead.delete({ where: { id } });
     await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "LEAD", recordId: id, action: "DELETED", oldValues: existing });
     return reply.code(204).send();
@@ -417,6 +460,7 @@ export default async function leadRoutes(app: FastifyInstance) {
 
     const lead = await prisma.lead.findFirst({ where: { id, tenantId } });
     if (!lead) return reply.code(404).send({ error: "Lead not found" });
+    await requireCanAccess(req.authUser, lead);
     if (lead.status === "CONVERTED") return reply.code(409).send({ error: "Lead has already been converted" });
 
     if (body.createOpportunity && !body.opportunity) {

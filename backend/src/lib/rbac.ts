@@ -33,9 +33,16 @@ export async function getVisibleUserIds(user: AuthUser): Promise<string[]> {
  * Returns a Prisma `where` fragment that restricts entity queries to records
  * created by users visible to `user`.
  *
- * Usage:
+ * IMPORTANT: the returned fragment contains an `OR` key. NEVER spread it into
+ * the same object literal as another conditional filter that also produces an
+ * `OR` key (a `search` clause, a `won` clause, a date window, ...) — in a JS
+ * object literal the later `OR` silently REPLACES the earlier one, deleting the
+ * RBAC restriction with no error. Always compose with `AND`, which is an array
+ * and therefore cannot collide:
+ *
  *   const rbacFilter = await getCreatedByFilter(req.authUser);
- *   const where = { tenantId: ..., ...rbacFilter, ... };
+ *   const where: any = { tenantId: ..., AND: [rbacFilter] };
+ *   if (q.search) where.AND.push({ OR: [ ...search clauses... ] });
  */
 export async function getCreatedByFilter(user: AuthUser): Promise<any> {
   if (user.orgRole === "SENIOR_PARTNER") return {}; // no restriction

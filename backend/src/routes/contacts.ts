@@ -52,24 +52,28 @@ export default async function contactRoutes(app: FastifyInstance) {
     const pageSize = Math.min(1000, Math.max(1, parseInt(q.pageSize || "25")));
 
     const rbacFilter = await getCreatedByFilter(req.authUser);
-    const where = {
+    // The RBAC filter and the search filter BOTH produce an `OR` key. Spreading
+    // them into the same object literal makes the later one silently overwrite
+    // the earlier one, deleting the RBAC restriction. Compose them with `AND`
+    // (an array) so both are always applied.
+    const where: any = {
       tenantId: req.authUser.tenantId,
-      ...rbacFilter,
+      AND: [rbacFilter],
       ...(q.includeArchived === "true" ? {} : { archived: false }),
       ...(q.accountId ? { accountId: q.accountId } : {}),
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
       ...(q.lifecycleStage ? { lifecycleStage: q.lifecycleStage as any } : {}),
       ...(q.leadSource ? { leadSource: q.leadSource } : {}),
-      ...(q.search
-        ? {
-            OR: [
-              { firstName: { contains: q.search, mode: "insensitive" as const } },
-              { lastName: { contains: q.search, mode: "insensitive" as const } },
-              { email: { contains: q.search, mode: "insensitive" as const } },
-            ],
-          }
-        : {}),
     };
+    if (q.search) {
+      where.AND.push({
+        OR: [
+          { firstName: { contains: q.search, mode: "insensitive" as const } },
+          { lastName: { contains: q.search, mode: "insensitive" as const } },
+          { email: { contains: q.search, mode: "insensitive" as const } },
+        ],
+      });
+    }
 
     const [total, data] = await prisma.$transaction([
       prisma.contact.count({ where }),
@@ -99,20 +103,26 @@ export default async function contactRoutes(app: FastifyInstance) {
     requireExportPermission(req.authUser);
 
     const q = req.query as { search?: string; accountId?: string; ownerId?: string; lifecycleStage?: string; includeArchived?: string };
-    const where = {
+    // Export must be scoped to the caller's visible users exactly like the LIST
+    // handler above; composed under `AND` so the search `OR` cannot overwrite it.
+    const rbacFilter = await getCreatedByFilter(req.authUser);
+    const where: any = {
       tenantId: req.authUser.tenantId,
+      AND: [rbacFilter],
       ...(q.includeArchived === "true" ? {} : { archived: false }),
       ...(q.accountId ? { accountId: q.accountId } : {}),
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
       ...(q.lifecycleStage ? { lifecycleStage: q.lifecycleStage as any } : {}),
-      ...(q.search
-        ? { OR: [
-            { firstName: { contains: q.search, mode: "insensitive" as const } },
-            { lastName: { contains: q.search, mode: "insensitive" as const } },
-            { email: { contains: q.search, mode: "insensitive" as const } },
-          ] }
-        : {}),
     };
+    if (q.search) {
+      where.AND.push({
+        OR: [
+          { firstName: { contains: q.search, mode: "insensitive" as const } },
+          { lastName: { contains: q.search, mode: "insensitive" as const } },
+          { email: { contains: q.search, mode: "insensitive" as const } },
+        ],
+      });
+    }
     const contacts = await prisma.contact.findMany({ where, include: { account: { select: { name: true } }, owner: { select: { firstName: true, lastName: true } } }, orderBy: { updatedAt: "desc" } });
     const rows = contacts.map((c) => ({
       firstName: c.firstName,

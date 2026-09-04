@@ -230,16 +230,18 @@ export default function OpportunitiesPage() {
             ))}
           </select>
           <div className="w-full sm:w-52">
-            <RelationshipSelector
-              value={ownerId}
-              valueLabel={ownerLabel}
-              onChange={(id, opt) => {
-                setOwnerId(id);
-                setOwnerLabel(opt?.label || null);
-              }}
-              fetchOptions={fetchOwnerOptions}
-              placeholder="Filter by owner…"
-            />
+            {user?.orgRole !== "MANAGER" && (
+              <RelationshipSelector
+                value={ownerId}
+                valueLabel={ownerLabel}
+                onChange={(id, opt) => {
+                  setOwnerId(id);
+                  setOwnerLabel(opt?.label || null);
+                }}
+                fetchOptions={fetchOwnerOptions}
+                placeholder="Filter by owner…"
+              />
+            )}
           </div>
         </div>
 

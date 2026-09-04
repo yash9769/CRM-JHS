@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { getCreatedByFilter } from "../lib/rbac.js";
+import { getCreatedByFilter, requireCanAccess } from "../lib/rbac.js";
 
 const productSchema = z.object({
   name: z.string().min(1),
@@ -19,16 +19,25 @@ export default async function productRoutes(app: FastifyInstance) {
   app.get("/api/v1/products", { preHandler: app.authenticate }, async (req) => {
     const q = req.query as { search?: string; category?: string; serviceId?: string; active?: string };
     const rbacFilter = await getCreatedByFilter(req.authUser);
-    const where = {
+    // The RBAC filter and the search filter BOTH produce an `OR` key. Spreading
+    // them into the same object literal makes the later one silently overwrite
+    // the earlier one, deleting the RBAC restriction. Compose them with `AND`
+    // (an array) so both are always applied.
+    const where: any = {
       tenantId: req.authUser.tenantId,
-      ...rbacFilter,
+      AND: [rbacFilter],
       ...(q.serviceId ? { serviceId: q.serviceId } : {}),
       ...(q.category ? { category: q.category } : {}),
       ...(q.active !== undefined ? { active: q.active === "true" } : {}),
-      ...(q.search
-        ? { OR: [{ name: { contains: q.search, mode: "insensitive" as const } }, { sku: { contains: q.search, mode: "insensitive" as const } }] }
-        : {}),
     };
+    if (q.search) {
+      where.AND.push({
+        OR: [
+          { name: { contains: q.search, mode: "insensitive" as const } },
+          { sku: { contains: q.search, mode: "insensitive" as const } },
+        ],
+      });
+    }
     const data = await prisma.product.findMany({
       where,
       orderBy: { name: "asc" },
@@ -56,15 +65,7 @@ export default async function productRoutes(app: FastifyInstance) {
     const existing = await prisma.product.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Product not found" });
 
-    // Role check: unitPrice can only be updated by SENIOR_PARTNER, PARTNER, or MANAGER
-    if (body.unitPrice !== undefined && Number(body.unitPrice) !== Number(existing.unitPrice)) {
-      const allowedRoles = ["SENIOR_PARTNER", "PARTNER", "MANAGER"];
-      if (!allowedRoles.includes(req.authUser.orgRole)) {
-        return reply.code(403).send({
-          error: "Permission denied: Only Senior Partner, Partner, or Manager roles can edit unit prices.",
-        });
-      }
-    }
+    await requireCanAccess(req.authUser, existing);
 
     const updated = await prisma.product.update({
       where: { id },

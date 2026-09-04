@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { logAudit, notify } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
-import { getCreatedByFilter, requireCanAccess, requireExportPermission } from "../lib/rbac.js";
+import { getCreatedByFilter, requireCanAccess, requireExportPermission, getVisibleUserIds } from "../lib/rbac.js";
 import { computeOpportunityFinancials } from "../lib/financial.js";
 
 export function isApprovalRequiredStage(stageName: string, userRole: string = "MANAGER"): boolean {
@@ -112,23 +112,18 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     const pageSize = Math.min(1000, Math.max(1, parseInt(q.pageSize || "25")));
 
     const rbacFilter = await getCreatedByFilter(req.authUser);
-    const where = {
+    // The RBAC filter and the `won` filter BOTH produce an `OR` key. Spreading
+    // them into the same object literal makes the later one silently overwrite
+    // the earlier one, deleting the RBAC restriction. Compose them with `AND`
+    // (an array) so both are always applied.
+    const where: any = {
       tenantId: req.authUser.tenantId,
-      ...rbacFilter,
+      AND: [rbacFilter],
       ...(q.includeArchived === "true" ? {} : { archived: false }),
       ...(q.accountId ? { accountId: q.accountId } : {}),
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
       ...(q.stageId ? { stageId: q.stageId } : {}),
       ...(q.pipelineId ? { pipelineId: q.pipelineId } : {}),
-      ...(q.won === "true"
-        ? {
-            OR: [
-              { stage: { isWon: true } },
-              { stage: { name: { in: ["Proposal Won", "Closed Won", "Won"], mode: "insensitive" as const } } },
-              { forecastCategory: "CLOSED_WON" as const },
-            ],
-          }
-        : {}),
       ...(q.forecastCategory ? { forecastCategory: q.forecastCategory as any } : {}),
       ...(q.leadSource ? { leadSource: q.leadSource } : {}),
       ...(q.amountMin || q.amountMax
@@ -136,6 +131,15 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         : {}),
       ...(q.search ? { name: { contains: q.search, mode: "insensitive" as const } } : {}),
     };
+    if (q.won === "true") {
+      where.AND.push({
+        OR: [
+          { stage: { isWon: true } },
+          { stage: { name: { in: ["Proposal Won", "Closed Won", "Won"], mode: "insensitive" as const } } },
+          { forecastCategory: "CLOSED_WON" as const },
+        ],
+      });
+    }
 
     const [total, data] = await prisma.$transaction([
       prisma.opportunity.count({ where }),
@@ -186,23 +190,25 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     requireExportPermission(req.authUser);
 
     const q = req.query as { search?: string; accountId?: string; ownerId?: string; stageId?: string; includeArchived?: string; won?: string };
-    const where = {
+    // Compose RBAC + `won` under `AND` — see the note on the LIST handler above.
+    const where: any = {
       tenantId: req.authUser.tenantId,
+      AND: [await getCreatedByFilter(req.authUser)],
       ...(q.includeArchived === "true" ? {} : { archived: false }),
       ...(q.accountId ? { accountId: q.accountId } : {}),
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
       ...(q.stageId ? { stageId: q.stageId } : {}),
-      ...(q.won === "true"
-        ? {
-            OR: [
-              { stage: { isWon: true } },
-              { stage: { name: { in: ["Closed Won", "Won"], mode: "insensitive" as const } } },
-              { forecastCategory: "CLOSED_WON" as const },
-            ],
-          }
-        : {}),
       ...(q.search ? { name: { contains: q.search, mode: "insensitive" as const } } : {}),
     };
+    if (q.won === "true") {
+      where.AND.push({
+        OR: [
+          { stage: { isWon: true } },
+          { stage: { name: { in: ["Closed Won", "Won"], mode: "insensitive" as const } } },
+          { forecastCategory: "CLOSED_WON" as const },
+        ],
+      });
+    }
     const opps = await prisma.opportunity.findMany({
       where,
       include: {
@@ -1180,6 +1186,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     const body = attachSchema.parse(req.body);
     const opp = await prisma.opportunity.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!opp) return reply.code(404).send({ error: "Opportunity not found" });
+    await requireCanAccess(req.authUser, opp);
 
     const attachment = await prisma.opportunityAttachment.create({
       data: {
@@ -1200,6 +1207,10 @@ export default async function opportunityRoutes(app: FastifyInstance) {
 
   app.delete("/api/v1/opportunities/:id/attachments/:attachmentId", { preHandler: app.authenticate }, async (req, reply) => {
     const { id, attachmentId } = req.params as { id: string; attachmentId: string };
+    const opp = await prisma.opportunity.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
+    if (!opp) return reply.code(404).send({ error: "Opportunity not found" });
+    await requireCanAccess(req.authUser, opp);
+
     const attachment = await prisma.opportunityAttachment.findFirst({
       where: { id: attachmentId, opportunityId: id, tenantId: req.authUser.tenantId },
     });
@@ -1213,6 +1224,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const existing = await prisma.opportunity.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Opportunity not found" });
+    await requireCanAccess(req.authUser, existing);
     await prisma.opportunity.delete({ where: { id } });
     await logAudit({
       tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "OPPORTUNITY",
@@ -1227,6 +1239,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     const body = lineItemSchema.parse(req.body);
     const opp = await prisma.opportunity.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!opp) return reply.code(404).send({ error: "Opportunity not found" });
+    await requireCanAccess(req.authUser, opp);
     const product = await prisma.product.findFirst({ where: { id: body.productId, tenantId: req.authUser.tenantId } });
     if (!product) return reply.code(400).send({ error: "Product not found" });
     if (!product.active) return reply.code(400).send({ error: "Inactive products cannot be added" });
@@ -1260,6 +1273,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     const { opportunityId, lineItemId } = req.params as { opportunityId: string; lineItemId: string };
     const opp = await prisma.opportunity.findFirst({ where: { id: opportunityId, tenantId: req.authUser.tenantId } });
     if (!opp) return reply.code(404).send({ error: "Opportunity not found" });
+    await requireCanAccess(req.authUser, opp);
     await prisma.lineItem.delete({ where: { id: lineItemId } });
     const items = await prisma.lineItem.findMany({ where: { opportunityId } });
     const newAmount = items.reduce((sum, li) => sum + Number(li.total), 0);
@@ -1271,6 +1285,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const existing = await prisma.opportunity.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Opportunity not found" });
+    await requireCanAccess(req.authUser, existing);
     const opp = await prisma.opportunity.update({ where: { id }, data: { archived: true } });
     await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "OPPORTUNITY", recordId: id, action: "ARCHIVED" });
     return opp;
@@ -1286,8 +1301,24 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     }).parse(req.body);
 
     const tenantId = req.authUser.tenantId;
-    const scoped = await prisma.opportunity.findMany({ where: { id: { in: body.ids }, tenantId }, select: { id: true } });
-    const ids = scoped.map((o) => o.id);
+    const scoped = await prisma.opportunity.findMany({
+      where: { id: { in: body.ids }, tenantId },
+      select: { id: true, createdById: true, ownerId: true },
+    });
+
+    let visibleScoped = scoped;
+    let skippedIds: string[] = [];
+    if (req.authUser.orgRole !== "SENIOR_PARTNER") {
+      const visibleUserIds = await getVisibleUserIds(req.authUser);
+      visibleScoped = scoped.filter(
+        (o) =>
+          (o.createdById && visibleUserIds.includes(o.createdById)) ||
+          (o.ownerId && visibleUserIds.includes(o.ownerId))
+      );
+      skippedIds = scoped.filter((o) => !visibleScoped.includes(o)).map((o) => o.id);
+    }
+
+    const ids = visibleScoped.map((o) => o.id);
     if (!ids.length) return reply.code(404).send({ error: "No matching opportunities found" });
 
     let data: any = {};
@@ -1359,7 +1390,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
           });
         }
 
-        return { updated: 0, pendingApproval: pendingCount, message: `${pendingCount} stage approval request(s) submitted to Partner for approval` };
+        return { updated: 0, pendingApproval: pendingCount, skipped: skippedIds, message: `${pendingCount} stage approval request(s) submitted to Partner for approval` };
       }
 
       data = { ...data, stageId: body.stageId, probability: stage.probability };
@@ -1369,6 +1400,6 @@ export default async function opportunityRoutes(app: FastifyInstance) {
 
     await prisma.opportunity.updateMany({ where: { id: { in: ids }, tenantId }, data });
     await logAudit({ tenantId, userId: req.authUser.id, objectType: "OPPORTUNITY", recordId: ids.join(","), action: `BULK_${body.action.toUpperCase()}`, newValues: data });
-    return { updated: ids.length };
+    return { updated: ids.length, skipped: skippedIds };
   });
 }

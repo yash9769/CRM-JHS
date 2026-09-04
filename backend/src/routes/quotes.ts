@@ -4,7 +4,7 @@ import { prisma } from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { generateQuotePdf } from "../lib/quotePdf.js";
 import { toCsv } from "../lib/csv.js";
-import { requireExportPermission } from "../lib/rbac.js";
+import { requireExportPermission, getCreatedByFilter, requireCanAccess } from "../lib/rbac.js";
 
 const CreateQuoteSchema = z.object({
   opportunityId: z.string(),
@@ -32,7 +32,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
   // List quotes
   app.get("/api/v1/quotes", { preHandler: [app.authenticate] }, async (req: any, reply) => {
     const { opportunityId, accountId, status, page = "1", pageSize = "20" } = req.query as any;
-    const where: any = { tenantId: req.authUser.tenantId };
+    const where: any = { tenantId: req.authUser.tenantId, ...(await getCreatedByFilter(req.authUser)) };
     if (opportunityId) where.opportunityId = opportunityId;
     if (accountId) where.accountId = accountId;
     if (status) where.status = status;
@@ -60,14 +60,17 @@ export default async function quoteRoutes(app: FastifyInstance) {
   app.get("/api/v1/quotes/export", { preHandler: [app.authenticate] }, async (req: any, reply) => {
     requireExportPermission(req.authUser);
     const { status, opportunityId, accountId, search } = req.query as any;
-    const where: any = { tenantId: req.authUser.tenantId };
+    const rbacFilter = await getCreatedByFilter(req.authUser);
+    const where: any = { tenantId: req.authUser.tenantId, AND: [rbacFilter] };
     if (status) where.status = status;
     if (opportunityId) where.opportunityId = opportunityId;
     if (accountId) where.accountId = accountId;
     if (search) {
-      where.OR = [
-        { quoteNumber: { contains: search, mode: "insensitive" } },
-      ];
+      where.AND.push({
+        OR: [
+          { quoteNumber: { contains: search, mode: "insensitive" } },
+        ],
+      });
     }
     const quotes = await prisma.quote.findMany({
       where,
@@ -120,6 +123,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
       },
     });
     if (!quote) return reply.code(404).send({ error: "Quote not found" });
+    await requireCanAccess(req.authUser, quote);
     return quote;
   });
 
@@ -213,6 +217,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
     const body = UpdateQuoteSchema.parse(req.body);
     const existing = await prisma.quote.findFirst({ where: { id: req.params.id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Quote not found" });
+    await requireCanAccess(req.authUser, existing);
     if (existing.status === "ACCEPTED" && body.status && body.status !== "ACCEPTED") {
       return reply.code(400).send({ error: "Cannot change status of an accepted quote" });
     }
@@ -241,6 +246,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
   app.delete("/api/v1/quotes/:id", { preHandler: [app.authenticate] }, async (req: any, reply) => {
     const existing = await prisma.quote.findFirst({ where: { id: req.params.id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Quote not found" });
+    await requireCanAccess(req.authUser, existing);
     if (existing.status !== "DRAFT") return reply.code(400).send({ error: "Only draft quotes can be deleted" });
     await prisma.lineItem.deleteMany({ where: { quoteId: req.params.id } });
     await prisma.quote.delete({ where: { id: req.params.id } });
@@ -260,6 +266,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
       },
     });
     if (!quote) return reply.code(404).send({ error: "Quote not found" });
+    await requireCanAccess(req.authUser, quote);
 
     const pdfBuffer = await generateQuotePdf({
       quoteNumber: quote.quoteNumber,
@@ -295,6 +302,7 @@ export default async function quoteRoutes(app: FastifyInstance) {
       include: { lineItems: true },
     });
     if (!existing) return reply.code(404).send({ error: "Quote not found" });
+    await requireCanAccess(req.authUser, existing);
 
     const count = await prisma.quote.count({ where: { tenantId: req.authUser.tenantId } });
     const quoteNumber = `Q-${String(count + 1).padStart(5, "0")}`;

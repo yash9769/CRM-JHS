@@ -40,13 +40,8 @@ export default async function userRoutes(app: FastifyInstance) {
   app.get("/api/v1/users", { preHandler: [app.authenticate] }, async (req: any) => {
     const actor = req.authUser;
 
-    let where: any = { tenantId: actor.tenantId };
-
-    if (actor.orgRole === "PARTNER") {
-      where = { tenantId: actor.tenantId, OR: [{ id: actor.id }, { partnerId: actor.id }] };
-    } else if (actor.orgRole === "MANAGER") {
-      where = { tenantId: actor.tenantId, id: actor.id };
-    }
+    const visibleIds = await getVisibleUserIds(actor);
+    const where: any = { tenantId: actor.tenantId, id: { in: visibleIds } };
 
     const users = await prisma.user.findMany({
       where,
