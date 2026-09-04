@@ -4,17 +4,18 @@ import { prisma } from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
 import { getCreatedByFilter, requireCanAccess, requireExportPermission } from "../lib/rbac.js";
+import { phoneSchema } from "../lib/validators.js";
 
 const accountSchema = z.object({
   name: z.string().min(1),
   domain: z.string().optional().nullable(),
   industry: z.string().optional().nullable(),
-  employeeCount: z.number().int().optional().nullable(),
-  annualRevenue: z.number().optional().nullable(),
+  employeeCount: z.number().int().nonnegative("Employee count must be non-negative").optional().nullable(),
+  annualRevenue: z.number().nonnegative("Annual revenue must be non-negative").optional().nullable(),
   ownerId: z.string().uuid().optional().nullable(),
   accountType: z.enum(["PROSPECT", "CUSTOMER", "PARTNER", "FORMER_CUSTOMER"]).optional(),
   billingAddress: z.string().optional().nullable(),
-  phone: z.string().optional().nullable(),
+  phone: phoneSchema,
   website: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
   properties: z.record(z.any()).optional(),
