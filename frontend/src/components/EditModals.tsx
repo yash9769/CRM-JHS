@@ -183,6 +183,13 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
   const initialContact = opp.contact || (opp.contacts && opp.contacts[0]?.contact) || null;
   const [contactId, setContactId] = useState<string | null>(opp.contactId || (initialContact?.id ?? null));
   const [contactLabel, setContactLabel] = useState<string | null>(initialContact ? `${initialContact.firstName} ${initialContact.lastName}` : null);
+  const [extraContacts, setExtraContacts] = useState<{ id: string; label: string }[]>(
+    (opp.contacts || [])
+      .map((c) => c.contact)
+      .filter((c) => c && c.id !== (opp.contactId || initialContact?.id))
+      .map((c) => ({ id: c!.id, label: `${c!.firstName} ${c!.lastName}` }))
+  );
+  const [addingContact, setAddingContact] = useState(false);
 
   const [ownerId, setOwnerId] = useState<string | null>(opp.ownerId || (opp.owner?.id ?? null));
   const [ownerLabel, setOwnerLabel] = useState<string | null>(opp.owner ? `${opp.owner.firstName} ${opp.owner.lastName}` : null);
@@ -244,6 +251,7 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
         name: form.name,
         accountId: accountId,
         contactId: contactId || null,
+        contactIds: extraContacts.map((c) => c.id),
         amount: proposalSent ?? Number(opp.amount),
         expectedOpportunityValue: proposalSent,
         actualOpportunityValue: proposalSent,
@@ -326,6 +334,46 @@ export function EditOpportunityModal({ opp, onClose }: { opp: Opportunity; onClo
               createLabel="+ Create new contact"
             />
             <FieldError message={fieldErrors.contactId} />
+
+            {extraContacts.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {extraContacts.map((c) => (
+                  <span key={c.id} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-[var(--ink-100)] text-[var(--ink-700)]">
+                    {c.label}
+                    <button type="button" onClick={() => setExtraContacts((cs) => cs.filter((x) => x.id !== c.id))} className="hover:text-rose-600">
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {(contactId ? 1 : 0) + extraContacts.length < 5 && (
+              addingContact ? (
+                <div className="mt-2">
+                  <RelationshipSelector
+                    value={null}
+                    valueLabel={null}
+                    onChange={(id, opt) => {
+                      if (id && opt?.label && id !== contactId && !extraContacts.some((c) => c.id === id)) {
+                        setExtraContacts((cs) => [...cs, { id, label: opt.label }]);
+                      }
+                      setAddingContact(false);
+                    }}
+                    fetchOptions={(search) => fetchContactOptions(search, accountId || undefined)}
+                    placeholder="Search another contact…"
+                  />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setAddingContact(true)}
+                  className="mt-2 text-xs font-medium text-[var(--ledger-700)] hover:underline"
+                >
+                  + Add another contact
+                </button>
+              )
+            )}
           </Field>
 
           <Field label="Opportunity Name" required>
