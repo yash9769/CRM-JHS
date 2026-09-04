@@ -65,7 +65,9 @@ export default async function reportRoutes(app: FastifyInstance) {
           select: { amount: true, probability: true },
         }),
         prisma.opportunity.findMany({
-          where: { tenantId, ...rbacFilter, ownerId: user.id, stage: { isClosed: true, isWon: true }, OR: [{ wonDate: { gte: periodStart, lte: periodEnd } }, { actualCloseDate: { gte: periodStart, lte: periodEnd } }, { updatedAt: { gte: periodStart, lte: periodEnd } }] },
+          // `rbacFilter` and the date-window filter both use `OR`; compose them
+          // with `AND` so the RBAC restriction is not silently overwritten.
+          where: { tenantId, AND: [rbacFilter, { OR: [{ wonDate: { gte: periodStart, lte: periodEnd } }, { actualCloseDate: { gte: periodStart, lte: periodEnd } }, { updatedAt: { gte: periodStart, lte: periodEnd } }] }], ownerId: user.id, stage: { isClosed: true, isWon: true } },
           select: { amount: true },
         }),
         prisma.opportunity.findMany({
@@ -166,7 +168,9 @@ export default async function reportRoutes(app: FastifyInstance) {
     const rbacFilter = await getCreatedByFilter(req.authUser);
     const [wonOpps, lostOpps] = await Promise.all([
       prisma.opportunity.findMany({
-        where: { tenantId, ...rbacFilter, OR: [{ wonDate: { gte: since } }, { actualCloseDate: { gte: since } }], stage: { isClosed: true, isWon: true } },
+        // `rbacFilter` and the date-window filter both use `OR`; compose them
+        // with `AND` so the RBAC restriction is not silently overwritten.
+        where: { tenantId, AND: [rbacFilter, { OR: [{ wonDate: { gte: since } }, { actualCloseDate: { gte: since } }] }], stage: { isClosed: true, isWon: true } },
         include: { stage: true, owner: { select: { id: true, firstName: true, lastName: true } } },
       }),
       prisma.opportunity.findMany({

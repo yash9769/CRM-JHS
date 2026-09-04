@@ -12,15 +12,22 @@ export default async function searchRoutes(app: FastifyInstance) {
     const take = Math.min(Number(limit), 20);
     const rbacFilter = await getCreatedByFilter(req.authUser);
 
+    // `rbacFilter` itself contains an `OR` clause, as does every search term
+    // filter below. Spreading both into one object literal makes the search `OR`
+    // silently overwrite the RBAC `OR`, so compose them under `AND` instead.
     const [accounts, contacts, opportunities, leads] = await Promise.all([
       prisma.account.findMany({
         where: {
           tenantId,
-          ...rbacFilter,
-          OR: [
-            { name: { contains: search, mode: "insensitive" } },
-            { domain: { contains: search, mode: "insensitive" } },
-            { industry: { contains: search, mode: "insensitive" } },
+          AND: [
+            rbacFilter,
+            {
+              OR: [
+                { name: { contains: search, mode: "insensitive" } },
+                { domain: { contains: search, mode: "insensitive" } },
+                { industry: { contains: search, mode: "insensitive" } },
+              ],
+            },
           ],
         },
         select: { id: true, name: true, industry: true, accountType: true },
@@ -29,12 +36,16 @@ export default async function searchRoutes(app: FastifyInstance) {
       prisma.contact.findMany({
         where: {
           tenantId,
-          ...rbacFilter,
-          OR: [
-            { firstName: { contains: search, mode: "insensitive" } },
-            { lastName: { contains: search, mode: "insensitive" } },
-            { email: { contains: search, mode: "insensitive" } },
-            { jobTitle: { contains: search, mode: "insensitive" } },
+          AND: [
+            rbacFilter,
+            {
+              OR: [
+                { firstName: { contains: search, mode: "insensitive" } },
+                { lastName: { contains: search, mode: "insensitive" } },
+                { email: { contains: search, mode: "insensitive" } },
+                { jobTitle: { contains: search, mode: "insensitive" } },
+              ],
+            },
           ],
         },
         select: {
@@ -46,9 +57,13 @@ export default async function searchRoutes(app: FastifyInstance) {
       prisma.opportunity.findMany({
         where: {
           tenantId,
-          ...rbacFilter,
-          OR: [
-            { name: { contains: search, mode: "insensitive" } },
+          AND: [
+            rbacFilter,
+            {
+              OR: [
+                { name: { contains: search, mode: "insensitive" } },
+              ],
+            },
           ],
         },
         select: {
@@ -61,13 +76,17 @@ export default async function searchRoutes(app: FastifyInstance) {
       prisma.lead.findMany({
         where: {
           tenantId,
-          ...rbacFilter,
           archived: false,
-          OR: [
-            { firstName: { contains: search, mode: "insensitive" } },
-            { lastName: { contains: search, mode: "insensitive" } },
-            { email: { contains: search, mode: "insensitive" } },
-            { companyName: { contains: search, mode: "insensitive" } },
+          AND: [
+            rbacFilter,
+            {
+              OR: [
+                { firstName: { contains: search, mode: "insensitive" } },
+                { lastName: { contains: search, mode: "insensitive" } },
+                { email: { contains: search, mode: "insensitive" } },
+                { companyName: { contains: search, mode: "insensitive" } },
+              ],
+            },
           ],
         },
         select: { id: true, firstName: true, lastName: true, companyName: true, status: true },

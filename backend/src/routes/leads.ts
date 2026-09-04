@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma.js";
 import { logAudit, notify } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
 import { getCreatedByFilter, requireExportPermission, requireCanAccess, getVisibleUserIds } from "../lib/rbac.js";
+import type { AuthUser } from "../plugins/auth.js";
 
 const LEAD_STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "NURTURING", "UNQUALIFIED", "CONVERTED"] as const;
 
@@ -54,7 +55,18 @@ const convertSchema = z.object({
     .optional(),
 });
 
-async function findDuplicateLeads(tenantId: string, data: { email?: string | null; phone?: string | null; firstName: string; lastName: string; companyName?: string | null }) {
+/**
+ * Duplicate detection is scoped to the leads the caller can already see. Without
+ * the RBAC filter this returned id/email/phone/companyName/status for leads the
+ * caller has no other way to read (GET /leads/:id returns 403 for them), turning
+ * duplicate-detection into a tenant-wide PII read. The trade-off is that dedup
+ * only checks within the caller's own visible leads, consistent with every other
+ * list in this codebase.
+ */
+async function findDuplicateLeads(
+  user: AuthUser,
+  data: { email?: string | null; phone?: string | null; firstName: string; lastName: string; companyName?: string | null }
+) {
   const or: any[] = [];
   if (data.email) or.push({ email: { equals: data.email, mode: "insensitive" as const } });
   if (data.phone) or.push({ phone: data.phone });
@@ -68,8 +80,10 @@ async function findDuplicateLeads(tenantId: string, data: { email?: string | nul
     });
   }
   if (!or.length) return [];
+  const rbacFilter = await getCreatedByFilter(user);
+  // Both `rbacFilter` and the match clauses use `OR`; compose them under `AND`.
   return prisma.lead.findMany({
-    where: { tenantId, archived: false, OR: or },
+    where: { tenantId: user.tenantId, archived: false, AND: [rbacFilter, { OR: or }] },
     take: 5,
     select: { id: true, firstName: true, lastName: true, email: true, phone: true, companyName: true, status: true },
   });
@@ -87,25 +101,29 @@ export default async function leadRoutes(app: FastifyInstance) {
     const pageSize = Math.min(1000, Math.max(1, parseInt(q.pageSize || "25")));
 
     const rbacFilter = await getCreatedByFilter(req.authUser);
-    const where = {
+    // The RBAC filter and the search filter BOTH produce an `OR` key. Spreading
+    // them into the same object literal makes the later one silently overwrite
+    // the earlier one, deleting the RBAC restriction. Compose them with `AND`
+    // (an array) so both are always applied.
+    const where: any = {
       tenantId: req.authUser.tenantId,
-      ...rbacFilter,
+      AND: [rbacFilter],
       ...(q.includeArchived === "true" ? {} : { archived: false }),
       ...(q.status ? { status: q.status as any } : {}),
       ...(q.source ? { source: q.source } : {}),
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
-      ...(q.search
-        ? {
-            OR: [
-              { firstName: { contains: q.search, mode: "insensitive" as const } },
-              { lastName: { contains: q.search, mode: "insensitive" as const } },
-              { email: { contains: q.search, mode: "insensitive" as const } },
-              { companyName: { contains: q.search, mode: "insensitive" as const } },
-              { phone: { contains: q.search, mode: "insensitive" as const } },
-            ],
-          }
-        : {}),
     };
+    if (q.search) {
+      where.AND.push({
+        OR: [
+          { firstName: { contains: q.search, mode: "insensitive" as const } },
+          { lastName: { contains: q.search, mode: "insensitive" as const } },
+          { email: { contains: q.search, mode: "insensitive" as const } },
+          { companyName: { contains: q.search, mode: "insensitive" as const } },
+          { phone: { contains: q.search, mode: "insensitive" as const } },
+        ],
+      });
+    }
 
     const sortBy = ["createdAt", "updatedAt", "score", "firstName", "lastName", "status", "companyName"].includes(q.sortBy || "")
       ? q.sortBy!
@@ -131,22 +149,25 @@ export default async function leadRoutes(app: FastifyInstance) {
 
     const q = req.query as { search?: string; status?: string; source?: string; ownerId?: string; includeArchived?: string };
     const rbacFilter = await getCreatedByFilter(req.authUser);
-    const where = {
+    // Compose RBAC + search under `AND` — see the note on the LIST handler above.
+    const where: any = {
       tenantId: req.authUser.tenantId,
-      ...rbacFilter,
+      AND: [rbacFilter],
       ...(q.includeArchived === "true" ? {} : { archived: false }),
       ...(q.status ? { status: q.status as any } : {}),
       ...(q.source ? { source: q.source } : {}),
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
-      ...(q.search
-        ? { OR: [
-            { firstName: { contains: q.search, mode: "insensitive" as const } },
-            { lastName: { contains: q.search, mode: "insensitive" as const } },
-            { email: { contains: q.search, mode: "insensitive" as const } },
-            { companyName: { contains: q.search, mode: "insensitive" as const } },
-          ] }
-        : {}),
     };
+    if (q.search) {
+      where.AND.push({
+        OR: [
+          { firstName: { contains: q.search, mode: "insensitive" as const } },
+          { lastName: { contains: q.search, mode: "insensitive" as const } },
+          { email: { contains: q.search, mode: "insensitive" as const } },
+          { companyName: { contains: q.search, mode: "insensitive" as const } },
+        ],
+      });
+    }
     const leads = await prisma.lead.findMany({ where, include: { owner: { select: { firstName: true, lastName: true } } }, orderBy: { createdAt: "desc" } });
     const rows = leads.map((l) => ({
       firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, companyName: l.companyName,
@@ -285,7 +306,7 @@ export default async function leadRoutes(app: FastifyInstance) {
   });
   app.post("/api/v1/leads/check-duplicate", { preHandler: app.authenticate }, async (req) => {
     const body = leadSchema.pick({ firstName: true, lastName: true, email: true, phone: true, companyName: true }).parse(req.body);
-    const duplicates = await findDuplicateLeads(req.authUser.tenantId, body);
+    const duplicates = await findDuplicateLeads(req.authUser, body);
     return { duplicates };
   });
 
@@ -296,7 +317,7 @@ export default async function leadRoutes(app: FastifyInstance) {
     const email = body.email || null;
 
     if (!force) {
-      const duplicates = await findDuplicateLeads(req.authUser.tenantId, { ...body, email });
+      const duplicates = await findDuplicateLeads(req.authUser, { ...body, email });
       if (duplicates.length) {
         return reply.code(409).send({ error: "Possible duplicate lead", duplicates });
       }

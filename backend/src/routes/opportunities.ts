@@ -112,23 +112,18 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     const pageSize = Math.min(1000, Math.max(1, parseInt(q.pageSize || "25")));
 
     const rbacFilter = await getCreatedByFilter(req.authUser);
-    const where = {
+    // The RBAC filter and the `won` filter BOTH produce an `OR` key. Spreading
+    // them into the same object literal makes the later one silently overwrite
+    // the earlier one, deleting the RBAC restriction. Compose them with `AND`
+    // (an array) so both are always applied.
+    const where: any = {
       tenantId: req.authUser.tenantId,
-      ...rbacFilter,
+      AND: [rbacFilter],
       ...(q.includeArchived === "true" ? {} : { archived: false }),
       ...(q.accountId ? { accountId: q.accountId } : {}),
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
       ...(q.stageId ? { stageId: q.stageId } : {}),
       ...(q.pipelineId ? { pipelineId: q.pipelineId } : {}),
-      ...(q.won === "true"
-        ? {
-            OR: [
-              { stage: { isWon: true } },
-              { stage: { name: { in: ["Proposal Won", "Closed Won", "Won"], mode: "insensitive" as const } } },
-              { forecastCategory: "CLOSED_WON" as const },
-            ],
-          }
-        : {}),
       ...(q.forecastCategory ? { forecastCategory: q.forecastCategory as any } : {}),
       ...(q.leadSource ? { leadSource: q.leadSource } : {}),
       ...(q.amountMin || q.amountMax
@@ -136,6 +131,15 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         : {}),
       ...(q.search ? { name: { contains: q.search, mode: "insensitive" as const } } : {}),
     };
+    if (q.won === "true") {
+      where.AND.push({
+        OR: [
+          { stage: { isWon: true } },
+          { stage: { name: { in: ["Proposal Won", "Closed Won", "Won"], mode: "insensitive" as const } } },
+          { forecastCategory: "CLOSED_WON" as const },
+        ],
+      });
+    }
 
     const [total, data] = await prisma.$transaction([
       prisma.opportunity.count({ where }),
@@ -186,24 +190,25 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     requireExportPermission(req.authUser);
 
     const q = req.query as { search?: string; accountId?: string; ownerId?: string; stageId?: string; includeArchived?: string; won?: string };
-    const where = {
+    // Compose RBAC + `won` under `AND` — see the note on the LIST handler above.
+    const where: any = {
       tenantId: req.authUser.tenantId,
-      ...(await getCreatedByFilter(req.authUser)),
+      AND: [await getCreatedByFilter(req.authUser)],
       ...(q.includeArchived === "true" ? {} : { archived: false }),
       ...(q.accountId ? { accountId: q.accountId } : {}),
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
       ...(q.stageId ? { stageId: q.stageId } : {}),
-      ...(q.won === "true"
-        ? {
-            OR: [
-              { stage: { isWon: true } },
-              { stage: { name: { in: ["Closed Won", "Won"], mode: "insensitive" as const } } },
-              { forecastCategory: "CLOSED_WON" as const },
-            ],
-          }
-        : {}),
       ...(q.search ? { name: { contains: q.search, mode: "insensitive" as const } } : {}),
     };
+    if (q.won === "true") {
+      where.AND.push({
+        OR: [
+          { stage: { isWon: true } },
+          { stage: { name: { in: ["Closed Won", "Won"], mode: "insensitive" as const } } },
+          { forecastCategory: "CLOSED_WON" as const },
+        ],
+      });
+    }
     const opps = await prisma.opportunity.findMany({
       where,
       include: {

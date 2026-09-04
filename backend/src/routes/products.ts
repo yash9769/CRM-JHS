@@ -19,16 +19,25 @@ export default async function productRoutes(app: FastifyInstance) {
   app.get("/api/v1/products", { preHandler: app.authenticate }, async (req) => {
     const q = req.query as { search?: string; category?: string; serviceId?: string; active?: string };
     const rbacFilter = await getCreatedByFilter(req.authUser);
-    const where = {
+    // The RBAC filter and the search filter BOTH produce an `OR` key. Spreading
+    // them into the same object literal makes the later one silently overwrite
+    // the earlier one, deleting the RBAC restriction. Compose them with `AND`
+    // (an array) so both are always applied.
+    const where: any = {
       tenantId: req.authUser.tenantId,
-      ...rbacFilter,
+      AND: [rbacFilter],
       ...(q.serviceId ? { serviceId: q.serviceId } : {}),
       ...(q.category ? { category: q.category } : {}),
       ...(q.active !== undefined ? { active: q.active === "true" } : {}),
-      ...(q.search
-        ? { OR: [{ name: { contains: q.search, mode: "insensitive" as const } }, { sku: { contains: q.search, mode: "insensitive" as const } }] }
-        : {}),
     };
+    if (q.search) {
+      where.AND.push({
+        OR: [
+          { name: { contains: q.search, mode: "insensitive" as const } },
+          { sku: { contains: q.search, mode: "insensitive" as const } },
+        ],
+      });
+    }
     const data = await prisma.product.findMany({
       where,
       orderBy: { name: "asc" },
