@@ -1,6 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { useReducedMotion } from "motion/react";
+import { gsap } from "gsap";
 import { api } from "../lib/api";
 import { PageHeader, Card, Button, Field, inputClass, inputStyle } from "../components/ui";
 import { formatCurrency, relativeTime } from "../lib/format";
@@ -44,7 +46,37 @@ interface DashboardData {
   };
 }
 
-function Kpi({ icon: Icon, label, value, url, tone = "ink" }: { icon: any; label: string; value: string; url?: string; tone?: "ink" | "green" }) {
+/** Animates a KPI's displayed number counting up from 0 on mount -- draws attention to the figure that just loaded. */
+function useCountUp(target: number, format: (n: number) => string) {
+  const ref = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (reduceMotion) {
+      el.textContent = format(target);
+      return;
+    }
+    const obj = { value: 0 };
+    const tween = gsap.to(obj, {
+      value: target,
+      duration: 0.9,
+      ease: "power2.out",
+      onUpdate: () => {
+        el.textContent = format(obj.value);
+      },
+    });
+    return () => {
+      tween.kill();
+    };
+  }, [target, format, reduceMotion]);
+
+  return ref;
+}
+
+function Kpi({ icon: Icon, label, value, format, url, tone = "ink" }: { icon: any; label: string; value: number; format: (n: number) => string; url?: string; tone?: "ink" | "green" }) {
+  const countRef = useCountUp(value, format);
   const content = (
     <Card className="p-4 h-full hover:shadow-md transition-all cursor-pointer group">
       <div className="flex items-center gap-2 mb-2">
@@ -56,7 +88,7 @@ function Kpi({ icon: Icon, label, value, url, tone = "ink" }: { icon: any; label
         </div>
         <span className="text-xs font-medium text-[var(--ink-500)] group-hover:text-[var(--ledger-700)] transition-colors">{label}</span>
       </div>
-      <div className="font-mono-num text-xl md:text-2xl font-semibold text-[var(--ink-900)]">{value}</div>
+      <div ref={countRef} className="font-mono-num text-xl md:text-2xl font-semibold text-[var(--ink-900)]">{format(0)}</div>
     </Card>
   );
 
@@ -101,7 +133,7 @@ function SetTargetModal({ period, users, onClose }: { period: string; users: any
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(20,23,26,0.5)" }} onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-[var(--surface-raised)] rounded-xl shadow-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
         <h3 className="font-semibold mb-4">Set Forecast Target — {periodLabel(period)}</h3>
         <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
           <Field label="Team member (leave blank for team total)">
@@ -160,7 +192,7 @@ function ForecastSection() {
         <select
           value={viewType}
           onChange={(e) => setViewType(e.target.value as "MONTHLY" | "YEARLY")}
-          className="text-sm px-2.5 py-1 rounded-md border font-medium bg-white"
+          className="text-sm px-2.5 py-1 rounded-md border font-medium bg-[var(--surface-raised)]"
           style={{ borderColor: "var(--ink-200)" }}
         >
           <option value="MONTHLY">Monthly View</option>
@@ -171,14 +203,14 @@ function ForecastSection() {
             type="month"
             value={monthlyPeriod}
             onChange={(e) => setMonthlyPeriod(e.target.value)}
-            className="text-sm px-2.5 py-1 rounded-md border bg-white font-medium"
+            className="text-sm px-2.5 py-1 rounded-md border bg-[var(--surface-raised)] font-medium"
             style={{ borderColor: "var(--ink-200)" }}
           />
         ) : (
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
-            className="text-sm px-2.5 py-1 rounded-md border bg-white font-medium"
+            className="text-sm px-2.5 py-1 rounded-md border bg-[var(--surface-raised)] font-medium"
             style={{ borderColor: "var(--ink-200)" }}
           >
             {[2026, 2025, 2024, 2023].map((y) => (
@@ -532,14 +564,14 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            <Kpi icon={Wallet} label="Total Pipeline" value={formatCurrency(data.kpis.totalPipeline)} url="/opportunities" />
-            <Kpi icon={TrendingUp} label="Weighted Pipeline" value={formatCurrency(data.kpis.weightedPipeline)} url="/opportunities" />
-            <Kpi icon={Target} label="Open Opportunities" value={String(data.kpis.openOpportunities)} url="/opportunities" />
-            <Kpi icon={Trophy} label="Closed Won Revenue" value={formatCurrency(data.kpis.closedWonRevenue)} tone="green" url="/opportunities" />
-            <Kpi icon={Percent} label="Win Rate" value={`${Math.round(data.kpis.winRate * 100)}%`} />
-            <Kpi icon={Wallet} label="Avg Opportunity Size" value={formatCurrency(data.kpis.avgOpportunitySize)} url="/opportunities" />
-            <Kpi icon={TrendingUp} label="Margin Value" value={formatCurrency((data.kpis.totalGrossMargin || 0) + (data.kpis.totalExpectedMargin || 0))} tone="green" url="/opportunities" />
-            <Kpi icon={CalendarClock} label="Cost Incurred to Company" value={formatCurrency(data.kpis.totalBottomLineCost || 0)} url="/opportunities" />
+            <Kpi icon={Wallet} label="Total Pipeline" value={data.kpis.totalPipeline} format={formatCurrency} url="/opportunities" />
+            <Kpi icon={TrendingUp} label="Weighted Pipeline" value={data.kpis.weightedPipeline} format={formatCurrency} url="/opportunities" />
+            <Kpi icon={Target} label="Open Opportunities" value={data.kpis.openOpportunities} format={(n) => String(Math.round(n))} url="/opportunities" />
+            <Kpi icon={Trophy} label="Closed Won Revenue" value={data.kpis.closedWonRevenue} format={formatCurrency} tone="green" url="/opportunities" />
+            <Kpi icon={Percent} label="Win Rate" value={data.kpis.winRate * 100} format={(n) => `${Math.round(n)}%`} />
+            <Kpi icon={Wallet} label="Avg Opportunity Size" value={data.kpis.avgOpportunitySize} format={formatCurrency} url="/opportunities" />
+            <Kpi icon={TrendingUp} label="Margin Value" value={(data.kpis.totalGrossMargin || 0) + (data.kpis.totalExpectedMargin || 0)} format={formatCurrency} tone="green" url="/opportunities" />
+            <Kpi icon={CalendarClock} label="Cost Incurred to Company" value={data.kpis.totalBottomLineCost || 0} format={formatCurrency} url="/opportunities" />
           </div>
         )}
 
@@ -617,7 +649,7 @@ export default function DashboardPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                 {recentLeads.map((l) => (
-                  <div key={l.id} className="p-3 rounded-lg border border-[var(--ink-100)] bg-white">
+                  <div key={l.id} className="p-3 rounded-lg border border-[var(--ink-100)] bg-[var(--surface-raised)]">
                     <div className="font-medium text-sm text-[var(--ink-900)] truncate">{l.firstName} {l.lastName}</div>
                     <div className="text-xs text-[var(--ink-500)] truncate mt-0.5">{l.companyName || "Independent"}</div>
                     <div className="text-[10px] mt-2 inline-block px-2 py-0.5 rounded-full bg-[var(--ledger-50)] text-[var(--ledger-700)] font-medium">
