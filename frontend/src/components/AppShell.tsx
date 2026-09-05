@@ -6,7 +6,8 @@ import {
 } from "lucide-react";
 import { useAuth, canViewOrgChart, roleLabel } from "../hooks/useAuth";
 import { initials } from "../lib/format";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useClickOutside } from "../hooks/useClickOutside";
 import { api } from "../lib/api";
 import { QuickCreateButton } from "./QuickCreate";
 import { StageApprovalsWidget } from "./StageApprovalsWidget";
@@ -27,6 +28,8 @@ function NotificationBell() {
   const [count, setCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [notifs, setNotifs] = useState<any[]>([]);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useClickOutside(rootRef, open, () => setOpen(false));
 
   useEffect(() => {
     const poll = async () => {
@@ -49,7 +52,7 @@ function NotificationBell() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative" ref={rootRef}>
       <button onClick={openPanel} className="relative p-2 rounded-full hover:bg-[var(--ink-50)] min-h-[44px] min-w-[44px] flex items-center justify-center">
         <Bell size={18} className="text-[var(--ink-500)]" />
         {count > 0 && (
@@ -106,6 +109,8 @@ export default function AppShell() {
     }
   });
   const [isResizing, setIsResizing] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  useClickOutside(userMenuRef, menuOpen, () => setMenuOpen(false));
 
   useEffect(() => {
     try { localStorage.setItem("crm_sidebar_width", String(sidebarWidth)); } catch { /* ignore */ }
@@ -310,7 +315,7 @@ export default function AppShell() {
             <StageApprovalsWidget />
             <QuickCreateButton />
             <NotificationBell />
-            <div className="relative">
+            <div className="relative" ref={userMenuRef}>
               <button
                 onClick={() => setMenuOpen((v) => !v)}
                 className="flex items-center gap-1.5 p-1 rounded-full hover:bg-[var(--ink-50)] min-h-[44px]"

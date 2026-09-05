@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { StickyNote as StickyIcon, Plus, X, Minus, Maximize2, Palette, Check, Pin, PinOff } from "lucide-react";
 import { api } from "../lib/api";
+import { useClickOutside } from "../hooks/useClickOutside";
 
 export interface StickyNoteItem {
   id: string;
@@ -165,6 +166,8 @@ function SingleNoteCard({
   const [content, setContent] = useState(note.content || "");
   const [showColorPicker, setShowColorPicker] = useState(false);
   const debounceTimer = useRef<any>(null);
+  const colorPickerRef = useRef<HTMLDivElement>(null);
+  useClickOutside(colorPickerRef, showColorPicker, () => setShowColorPicker(false));
 
   useEffect(() => {
     setTitle(note.title || "");
@@ -227,7 +230,7 @@ function SingleNoteCard({
           className="bg-transparent border-none text-xs font-semibold outline-none w-full mr-2 placeholder:text-black/30"
         />
         <div className="flex items-center gap-1 shrink-0">
-          <div className="relative">
+          <div className="relative" ref={colorPickerRef}>
             <button
               onClick={() => setShowColorPicker((v) => !v)}
               className="p-1 hover:bg-black/10 rounded text-black/60"

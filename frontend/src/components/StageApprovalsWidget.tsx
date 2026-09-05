@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";
+import { useClickOutside } from "../hooks/useClickOutside";
 import { Button, Badge } from "./ui";
 import type { StageApproval } from "../lib/types";
 import { ApprovalReviewModal } from "./ApprovalReviewModal";
@@ -12,6 +13,8 @@ export function StageApprovalsWidget() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [selectedApproval, setSelectedApproval] = useState<StageApproval | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useClickOutside(rootRef, open, () => setOpen(false));
 
   const { data } = useQuery<{ data: StageApproval[] }>({
     queryKey: ["stage-approvals", "pending"],
@@ -54,7 +57,7 @@ export function StageApprovalsWidget() {
   if (!count && !isPartner) return null;
 
   return (
-    <div className="relative">
+    <div className="relative" ref={rootRef}>
       <button
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--gold-50)] text-[var(--gold-800)] border border-[var(--gold-200)] hover:bg-[var(--gold-100)] transition-all shadow-xs"

@@ -213,8 +213,8 @@ export function BirdsEyeModal({
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs">
-        <div className="bg-white rounded-2xl p-8 max-w-sm text-center shadow-2xl space-y-3">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs" onClick={onClose}>
+        <div className="bg-white rounded-2xl p-8 max-w-sm text-center shadow-2xl space-y-3" onClick={(e) => e.stopPropagation()}>
           <Eye size={32} className="mx-auto animate-pulse text-[var(--ledger-600)]" />
           <p className="text-sm font-semibold text-[var(--ink-800)]">Loading Bird's-Eye Activity…</p>
         </div>
@@ -224,8 +224,8 @@ export function BirdsEyeModal({
 
   if (error || !data) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs">
-        <div className="bg-white rounded-2xl p-6 max-w-sm text-center shadow-2xl space-y-3">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs" onClick={onClose}>
+        <div className="bg-white rounded-2xl p-6 max-w-sm text-center shadow-2xl space-y-3" onClick={(e) => e.stopPropagation()}>
           <p className="text-sm font-medium text-rose-600">Could not load user activity details.</p>
           <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--ink-100)]">Close</button>
         </div>
@@ -247,8 +247,8 @@ export function BirdsEyeModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-[var(--ink-100)]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-[var(--ink-100)]" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="p-6 border-b flex items-start justify-between bg-[var(--ink-50)] border-[var(--ink-100)]">
           <div className="flex items-center gap-4">
@@ -645,8 +645,8 @@ function AddUserModal({
   const inputStyle = { borderColor: "var(--ink-200)", background: "var(--ink-50)" };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--ink-100)]">
           <h2 className="font-semibold text-base flex items-center gap-2">
             <UserPlus size={16} className="text-[var(--ledger-600)]" />
@@ -775,8 +775,8 @@ function EditUserModal({
   const inputStyle = { borderColor: "var(--ink-200)", background: "var(--ink-50)" };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--ink-100)]">
           <h2 className="font-semibold text-base flex items-center gap-2">
             <Edit2 size={16} className="text-[var(--ledger-600)]" />
@@ -1227,8 +1227,8 @@ export default function OrgChartPage() {
 
       {/* Confirm Delete Modal */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setDeleteTarget(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6" onClick={(e) => e.stopPropagation()}>
             <h2 className="font-bold text-base mb-2 text-[var(--ink-900)]">Remove {deleteTarget.firstName} {deleteTarget.lastName}?</h2>
             <p className="text-xs mb-4 text-[var(--ink-500)]">
               This will permanently remove this user. Their owned CRM records will be reassigned to you.
