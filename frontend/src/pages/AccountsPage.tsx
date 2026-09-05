@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment, type ReactElement } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
@@ -33,7 +33,7 @@ export default function AccountsPage() {
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [ownerLabel, setOwnerLabel] = useState<string | null>(null);
 
-  const { visibleKeys, toggle, showAll, reset, isVisible } = useColumnVisibility(
+  const { visibleKeys, toggle, showAll, reset, isVisible, orderedColumns, reorder } = useColumnVisibility(
     "accounts-table",
     ACCOUNT_COLUMNS
   );
@@ -67,11 +67,12 @@ export default function AccountsPage() {
         action={
           <div className="flex items-center gap-2">
             <ColumnFilterDropdown
-              columns={ACCOUNT_COLUMNS}
+              columns={orderedColumns}
               visibleKeys={visibleKeys}
               onToggle={toggle}
               onShowAll={showAll}
               onReset={reset}
+              onReorder={reorder}
               label="Columns"
             />
             <Button variant="secondary" onClick={() => setShowImport(true)}>
@@ -132,47 +133,17 @@ export default function AccountsPage() {
               <table className="w-full text-sm border-separate border-spacing-0">
                 <thead className="sticky top-0 z-10 bg-white">
                   <tr className="text-left border-b bg-white" style={{ borderColor: "var(--ink-100)" }}>
-                    {isVisible("name") && (
-                      <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide border-b bg-white" style={{ color: "var(--ink-400)", borderColor: "var(--ink-100)" }}>
-                        Account Name
+                    {orderedColumns.filter((c) => isVisible(c.key)).map((col) => (
+                      <th key={col.key} className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide border-b bg-white" style={{ color: "var(--ink-400)", borderColor: "var(--ink-100)" }}>
+                        {col.label}
                       </th>
-                    )}
-                  {isVisible("industry") && (
-                    <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: "var(--ink-400)" }}>
-                      Industry
-                    </th>
-                  )}
-                  {isVisible("createdBy") && (
-                    <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: "var(--ink-400)" }}>
-                      Created By
-                    </th>
-                  )}
-                  {isVisible("assignedTo") && (
-                    <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: "var(--ink-400)" }}>
-                      Assigned To
-                    </th>
-                  )}
-                  {isVisible("contacts") && (
-                    <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: "var(--ink-400)" }}>
-                      Contacts
-                    </th>
-                  )}
-                  {isVisible("opportunities") && (
-                    <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: "var(--ink-400)" }}>
-                      Open Opps
-                    </th>
-                  )}
-                  {isVisible("updatedAt") && (
-                    <th className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide" style={{ color: "var(--ink-400)" }}>
-                      Updated
-                    </th>
-                  )}
+                    ))}
                 </tr>
               </thead>
               <tbody>
-                {data.data.map((a: any) => (
-                  <tr key={a.id} className="border-b last:border-0 hover:bg-[var(--ink-50)]" style={{ borderColor: "var(--ink-100)" }}>
-                    {isVisible("name") && (
+                {data.data.map((a: any) => {
+                  const cellRenderers: Record<string, () => ReactElement> = {
+                    name: () => (
                       <td className="px-4 py-3">
                         <Link to={`/accounts/${a.id}`} className="flex items-center gap-2.5 font-medium" style={{ color: "var(--ink-900)" }}>
                           <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0" style={{ background: "var(--ink-50)" }}>
@@ -181,39 +152,46 @@ export default function AccountsPage() {
                           {a.name}
                         </Link>
                       </td>
-                    )}
-                    {isVisible("industry") && (
+                    ),
+                    industry: () => (
                       <td className="px-4 py-3" style={{ color: "var(--ink-600)" }}>
                         {a.industry || "—"}
                       </td>
-                    )}
-                    {isVisible("createdBy") && (
+                    ),
+                    createdBy: () => (
                       <td className="px-4 py-3 text-xs" style={{ color: "var(--ink-600)" }}>
                         {a.createdBy ? `${a.createdBy.firstName} ${a.createdBy.lastName}` : "—"}
                       </td>
-                    )}
-                    {isVisible("assignedTo") && (
+                    ),
+                    assignedTo: () => (
                       <td className="px-4 py-3 font-medium text-xs" style={{ color: "var(--ink-700)" }}>
                         {a.owner ? `${a.owner.firstName} ${a.owner.lastName}` : "—"}
                       </td>
-                    )}
-                    {isVisible("contacts") && (
+                    ),
+                    contacts: () => (
                       <td className="px-4 py-3 font-mono-num" style={{ color: "var(--ink-600)" }}>
                         {a._count?.contacts ?? 0}
                       </td>
-                    )}
-                    {isVisible("opportunities") && (
+                    ),
+                    opportunities: () => (
                       <td className="px-4 py-3 font-mono-num" style={{ color: "var(--ink-600)" }}>
                         {a._count?.opportunities ?? 0}
                       </td>
-                    )}
-                    {isVisible("updatedAt") && (
+                    ),
+                    updatedAt: () => (
                       <td className="px-4 py-3 font-mono-num text-xs" style={{ color: "var(--ink-400)" }}>
                         {formatDate(a.updatedAt)}
                       </td>
-                    )}
-                  </tr>
-                ))}
+                    ),
+                  };
+                  return (
+                    <tr key={a.id} className="border-b last:border-0 hover:bg-[var(--ink-50)]" style={{ borderColor: "var(--ink-100)" }}>
+                      {orderedColumns.filter((c) => isVisible(c.key)).map((col) => (
+                        <Fragment key={col.key}>{cellRenderers[col.key]?.()}</Fragment>
+                      ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             </div>
