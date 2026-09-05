@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment, type ReactElement } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
@@ -33,7 +33,7 @@ export default function ContactsPage() {
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [ownerLabel, setOwnerLabel] = useState<string | null>(null);
 
-  const { visibleKeys, toggle, showAll, reset, isVisible } = useColumnVisibility(
+  const { visibleKeys, toggle, showAll, reset, isVisible, orderedColumns, reorder } = useColumnVisibility(
     "contacts-table",
     CONTACT_COLUMNS
   );
@@ -63,11 +63,12 @@ export default function ContactsPage() {
         action={
           <div className="flex items-center gap-2">
             <ColumnFilterDropdown
-              columns={CONTACT_COLUMNS}
+              columns={orderedColumns}
               visibleKeys={visibleKeys}
               onToggle={toggle}
               onShowAll={showAll}
               onReset={reset}
+              onReorder={reorder}
               label="Columns"
             />
             <Button variant="secondary" onClick={() => setShowImport(true)}>
@@ -125,47 +126,17 @@ export default function ContactsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left border-b" style={{ borderColor: "var(--ink-100)" }}>
-                  {isVisible("name") && (
-                    <th className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      Name
+                  {orderedColumns.filter((col) => isVisible(col.key)).map((col) => (
+                    <th key={col.key} className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
+                      {col.label}
                     </th>
-                  )}
-                  {isVisible("designation") && (
-                    <th className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      Designation
-                    </th>
-                  )}
-                  {isVisible("account") && (
-                    <th className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      Account
-                    </th>
-                  )}
-                  {isVisible("email") && (
-                    <th className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      Email
-                    </th>
-                  )}
-                  {isVisible("phone") && (
-                    <th className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      Phone Number
-                    </th>
-                  )}
-                  {isVisible("owner") && (
-                    <th className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      Created By
-                    </th>
-                  )}
-                  {isVisible("createdAt") && (
-                    <th className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      Created Date
-                    </th>
-                  )}
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {data.data.map((c) => (
-                  <tr key={c.id} className="border-b last:border-0 hover:bg-[var(--ink-50)]" style={{ borderColor: "var(--ink-100)" }}>
-                    {isVisible("name") && (
+                {data.data.map((c) => {
+                  const cellRenderers: Record<string, () => ReactElement> = {
+                    name: () => (
                       <td className="px-4 py-3">
                         <Link to={`/contacts/${c.id}`} className="flex items-center gap-2.5 font-medium">
                           <div
@@ -177,13 +148,13 @@ export default function ContactsPage() {
                           {c.firstName} {c.lastName}
                         </Link>
                       </td>
-                    )}
-                    {isVisible("designation") && (
+                    ),
+                    designation: () => (
                       <td className="px-4 py-3" style={{ color: "var(--ink-600)" }}>
                         {c.jobTitle || "—"}
                       </td>
-                    )}
-                    {isVisible("account") && (
+                    ),
+                    account: () => (
                       <td className="px-4 py-3">
                         {c.account ? (
                           <Link to={`/accounts/${c.account.id}`} style={{ color: "var(--ledger-700)" }}>
@@ -193,29 +164,36 @@ export default function ContactsPage() {
                           "—"
                         )}
                       </td>
-                    )}
-                    {isVisible("email") && (
+                    ),
+                    email: () => (
                       <td className="px-4 py-3" style={{ color: "var(--ink-600)" }}>
                         {c.email || "—"}
                       </td>
-                    )}
-                    {isVisible("phone") && (
+                    ),
+                    phone: () => (
                       <td className="px-4 py-3 font-mono-num" style={{ color: "var(--ink-700)" }}>
                         {c.phone || "—"}
                       </td>
-                    )}
-                    {isVisible("owner") && (
+                    ),
+                    owner: () => (
                       <td className="px-4 py-3" style={{ color: "var(--ink-600)" }}>
                         {c.owner ? `${c.owner.firstName} ${c.owner.lastName}` : "—"}
                       </td>
-                    )}
-                    {isVisible("createdAt") && (
+                    ),
+                    createdAt: () => (
                       <td className="px-4 py-3 font-mono-num text-xs" style={{ color: "var(--ink-400)" }}>
                         {formatDate(c.createdAt)}
                       </td>
-                    )}
-                  </tr>
-                ))}
+                    ),
+                  };
+                  return (
+                    <tr key={c.id} className="border-b last:border-0 hover:bg-[var(--ink-50)]" style={{ borderColor: "var(--ink-100)" }}>
+                      {orderedColumns.filter((col) => isVisible(col.key)).map((col) => (
+                        <Fragment key={col.key}>{cellRenderers[col.key]?.()}</Fragment>
+                      ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

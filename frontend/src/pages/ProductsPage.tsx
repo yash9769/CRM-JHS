@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment, type ReactElement } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { PageHeader, Card, Button, Badge, Modal, Field, inputClass, inputStyle, EmptyState } from "../components/ui";
@@ -356,7 +356,7 @@ export default function ProductsPage() {
   const [showNew, setShowNew] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
 
-  const { visibleKeys, toggle, showAll, reset, isVisible } = useColumnVisibility(
+  const { visibleKeys, toggle, showAll, reset, isVisible, orderedColumns, reorder } = useColumnVisibility(
     "products-table",
     PRODUCT_COLUMNS
   );
@@ -373,11 +373,12 @@ export default function ProductsPage() {
         action={
           <div className="flex flex-wrap items-center gap-2">
             <ColumnFilterDropdown
-              columns={PRODUCT_COLUMNS}
+              columns={orderedColumns}
               visibleKeys={visibleKeys}
               onToggle={toggle}
               onShowAll={showAll}
               onReset={reset}
+              onReorder={reorder}
               label="Columns"
             />
             <Button onClick={() => setShowNew(true)}>
@@ -407,53 +408,18 @@ export default function ProductsPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left border-b border-[var(--ink-100)]">
-                      {isVisible("name") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                          Name
+                      {orderedColumns.filter((col) => isVisible(col.key)).map((col) => (
+                        <th key={col.key} className={`px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)] ${col.key === "actions" ? "text-right" : ""}`}>
+                          {col.label}
                         </th>
-                      )}
-                      {isVisible("service") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                          Service
-                        </th>
-                      )}
-                      {isVisible("sku") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                          SKU
-                        </th>
-                      )}
-                      {isVisible("category") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                          Category
-                        </th>
-                      )}
-                      {isVisible("description") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                          Description
-                        </th>
-                      )}
-                      {isVisible("unitPrice") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                          Unit Price
-                        </th>
-                      )}
-                      {isVisible("status") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                          Status
-                        </th>
-                      )}
-                      {isVisible("actions") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)] text-right">
-                          Actions
-                        </th>
-                      )}
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {data.data.map((p) => (
-                      <tr key={p.id} className="border-b last:border-0 hover:bg-[var(--ink-50)] border-[var(--ink-100)]">
-                        {isVisible("name") && <td className="px-4 py-3 font-medium text-[var(--ink-900)]">{p.name}</td>}
-                        {isVisible("service") && (
+                    {data.data.map((p) => {
+                      const cellRenderers: Record<string, () => ReactElement> = {
+                        name: () => <td className="px-4 py-3 font-medium text-[var(--ink-900)]">{p.name}</td>,
+                        service: () => (
                           <td className="px-4 py-3 text-xs">
                             {p.service ? (
                               <span className="inline-flex items-center gap-1 font-medium text-[var(--ledger-700)] bg-[var(--ledger-50)] px-2 py-0.5 rounded-md">
@@ -463,23 +429,23 @@ export default function ProductsPage() {
                               "—"
                             )}
                           </td>
-                        )}
-                        {isVisible("sku") && <td className="px-4 py-3 text-[var(--ink-600)]">{p.sku || "—"}</td>}
-                        {isVisible("category") && <td className="px-4 py-3 text-[var(--ink-600)]">{p.category || "—"}</td>}
-                        {isVisible("description") && (
+                        ),
+                        sku: () => <td className="px-4 py-3 text-[var(--ink-600)]">{p.sku || "—"}</td>,
+                        category: () => <td className="px-4 py-3 text-[var(--ink-600)]">{p.category || "—"}</td>,
+                        description: () => (
                           <td className="px-4 py-3 text-xs max-w-xs truncate text-[var(--ink-600)]">
                             {p.description || "—"}
                           </td>
-                        )}
-                        {isVisible("unitPrice") && (
+                        ),
+                        unitPrice: () => (
                           <td className="px-4 py-3 font-mono-num">{formatCurrency(p.unitPrice, p.currency)}</td>
-                        )}
-                        {isVisible("status") && (
+                        ),
+                        status: () => (
                           <td className="px-4 py-3">
                             <Badge tone={p.active ? "green" : "neutral"}>{p.active ? "Active" : "Inactive"}</Badge>
                           </td>
-                        )}
-                        {isVisible("actions") && (
+                        ),
+                        actions: () => (
                           <td className="px-4 py-3 text-right">
                             <button
                               onClick={() => setEditProduct(p)}
@@ -489,9 +455,16 @@ export default function ProductsPage() {
                               <Pencil size={14} />
                             </button>
                           </td>
-                        )}
-                      </tr>
-                    ))}
+                        ),
+                      };
+                      return (
+                        <tr key={p.id} className="border-b last:border-0 hover:bg-[var(--ink-50)] border-[var(--ink-100)]">
+                          {orderedColumns.filter((col) => isVisible(col.key)).map((col) => (
+                            <Fragment key={col.key}>{cellRenderers[col.key]?.()}</Fragment>
+                          ))}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
