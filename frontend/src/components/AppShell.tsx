@@ -59,7 +59,7 @@ function NotificationBell() {
         )}
       </button>
       {open && (
-        <div className="absolute right-0 top-12 w-80 rounded-xl border shadow-xl bg-white overflow-hidden z-50 border-[var(--ink-100)]">
+        <div className="absolute right-0 top-12 w-80 rounded-xl border shadow-xl overflow-hidden z-50 border-[var(--border-default)]" style={{ background: "var(--surface-raised)" }}>
           <div className="px-4 py-3 border-b flex items-center justify-between border-[var(--ink-100)]">
             <span className="text-sm font-semibold">Notifications</span>
             <button onClick={() => setOpen(false)} className="text-xs text-[var(--ink-400)] p-1">Close</button>
@@ -188,7 +188,7 @@ export default function AppShell() {
 
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        <header className="h-14 shrink-0 flex items-center justify-between px-3 md:px-5 border-b border-[var(--ink-100)] bg-white">
+        <header className="h-14 shrink-0 flex items-center justify-between px-3 md:px-5 border-b border-[var(--border-default)]" style={{ background: "var(--surface-raised)" }}>
           <div className="flex items-center gap-2 flex-1 max-w-lg">
             <button
               onClick={() => setMobileDrawerOpen(true)}
@@ -223,7 +223,7 @@ export default function AppShell() {
                 <ChevronDown size={13} className="text-[var(--ink-400)] hidden sm:block" />
               </button>
               {menuOpen && (
-                <div className="absolute right-0 top-12 w-52 rounded-lg border shadow-lg bg-white overflow-hidden z-50 border-[var(--ink-100)]">
+                <div className="absolute right-0 top-12 w-52 rounded-lg border shadow-lg overflow-hidden z-50 border-[var(--border-default)]" style={{ background: "var(--surface-raised)" }}>
                   <div className="px-3 py-2.5 border-b border-[var(--ink-100)]">
                     <div className="text-sm font-medium">{user?.firstName} {user?.lastName}</div>
                     <div className="text-xs text-[var(--ink-400)] truncate">{user?.email}</div>
