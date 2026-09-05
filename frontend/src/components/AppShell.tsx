@@ -1,7 +1,7 @@
 import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, KanbanSquare, Target, Package, Building2, Users,
-  Search, ChevronDown, LogOut, FileText, TrendingUp, BarChart2,
+  Search, ChevronDown, LogOut, FileText,
   Settings, Bell, GitBranch, Menu, X, Layers
 } from "lucide-react";
 import { useAuth, canViewOrgChart, roleLabel } from "../hooks/useAuth";
@@ -21,8 +21,6 @@ const navigationItems = [
   { to: "/services",       label: "Services",      icon: Layers },
   { to: "/products",       label: "Products",      icon: Package },
   { to: "/quotes",         label: "Quotes",        icon: FileText },
-  { to: "/forecasting",    label: "Forecast",      icon: TrendingUp },
-  { to: "/reports",        label: "Reports",       icon: BarChart2 },
 ];
 
 function NotificationBell() {
