@@ -51,7 +51,15 @@ export async function buildApp(opts = {}) {
 
     app.log.error(err);
     const status = err.statusCode || (err.status && typeof err.status === "number" ? err.status : 500);
-    reply.code(status).send({ error: err.message || "Internal server error" });
+    // Below 500, err.message is an intentional, developer-authored message (e.g. a
+    // 403/404 thrown by route/rbac code) safe to return as-is. For unhandled 500s,
+    // don't leak internal details (Prisma constraint/column names, stack info) to
+    // the client outside development.
+    const message =
+      status < 500 || process.env.NODE_ENV !== "production"
+        ? err.message || "Internal server error"
+        : "Internal server error";
+    reply.code(status).send({ error: message });
   });
 
   await app.register(authRoutes);

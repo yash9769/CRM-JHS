@@ -428,6 +428,7 @@ export default async function contactRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const existing = await prisma.contact.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Contact not found" });
+    await requireCanAccess(req.authUser, existing, "write");
     const contact = await prisma.contact.update({ where: { id }, data: { archived: true } });
     await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "CONTACT", recordId: id, action: "ARCHIVED" });
     return contact;

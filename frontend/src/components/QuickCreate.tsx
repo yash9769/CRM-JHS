@@ -44,7 +44,7 @@ export function QuickCreateButton() {
         style={{ background: "var(--ledger-600)" }}
       >
         <Plus size={14} /> Create
-        <span className="ml-1 text-[10px] px-1 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.2)" }}>⌘K</span>
+        <span className="ml-1 text-[10px] px-1 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.2)" }}>Ctrl+K</span>
       </button>
 
       {menuOpen && (

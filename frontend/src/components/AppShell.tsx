@@ -2,7 +2,7 @@ import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, KanbanSquare, Target, Package, Building2, Users,
   Search, ChevronDown, LogOut, FileText,
-  Settings, Bell, GitBranch, Menu, X, Layers
+  Settings, Bell, GitBranch, Menu, X, Layers, PanelLeftClose, PanelLeftOpen
 } from "lucide-react";
 import { useAuth, canViewOrgChart, roleLabel } from "../hooks/useAuth";
 import { initials } from "../lib/format";
@@ -79,6 +79,10 @@ function NotificationBell() {
   );
 }
 
+const SIDEBAR_MIN_WIDTH = 180;
+const SIDEBAR_MAX_WIDTH = 420;
+const SIDEBAR_DEFAULT_WIDTH = 224;
+
 export default function AppShell() {
   const { user, tenant, logout } = useAuth();
   const navigate = useNavigate();
@@ -86,6 +90,60 @@ export default function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    try {
+      const saved = Number(localStorage.getItem("crm_sidebar_width"));
+      return saved >= SIDEBAR_MIN_WIDTH && saved <= SIDEBAR_MAX_WIDTH ? saved : SIDEBAR_DEFAULT_WIDTH;
+    } catch {
+      return SIDEBAR_DEFAULT_WIDTH;
+    }
+  });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("crm_sidebar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [isResizing, setIsResizing] = useState(false);
+
+  useEffect(() => {
+    try { localStorage.setItem("crm_sidebar_width", String(sidebarWidth)); } catch { /* ignore */ }
+  }, [sidebarWidth]);
+
+  useEffect(() => {
+    try { localStorage.setItem("crm_sidebar_collapsed", String(sidebarCollapsed)); } catch { /* ignore */ }
+  }, [sidebarCollapsed]);
+
+  // Ctrl+B (or Cmd+B on Mac) toggles the sidebar, same shortcut as Claude Code / VS Code.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        setSidebarCollapsed((v) => !v);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  function startSidebarResize(e: React.MouseEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+    setIsResizing(true);
+    function onMove(ev: MouseEvent) {
+      const next = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, startWidth + (ev.clientX - startX)));
+      setSidebarWidth(next);
+    }
+    function onUp() {
+      setIsResizing(false);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -102,9 +160,18 @@ export default function AppShell() {
         <Link to="/" onClick={onItemClick} className="block">
           <img src="/envista_logo.png" alt="Envista Cyber Defence" className="h-10 w-auto max-w-[180px] object-contain" />
         </Link>
-        {onItemClick && (
+        {onItemClick ? (
           <button onClick={onItemClick} className="text-[var(--ink-400)] hover:text-white p-2">
             <X size={20} />
+          </button>
+        ) : (
+          <button
+            onClick={() => setSidebarCollapsed(true)}
+            className="hidden md:flex text-[var(--ink-400)] hover:text-white p-2 rounded-md hover:bg-[var(--ink-900)]"
+            aria-label="Hide sidebar"
+            title="Hide sidebar (Ctrl+B)"
+          >
+            <PanelLeftClose size={18} />
           </button>
         )}
       </div>
@@ -170,10 +237,31 @@ export default function AppShell() {
   );
 
   return (
-    <div className="flex h-screen bg-[var(--paper)]">
+    <div
+      className="flex h-screen bg-[var(--paper)]"
+      style={isResizing ? { cursor: "col-resize", userSelect: "none" } : undefined}
+    >
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-56 shrink-0 flex-col overflow-y-auto bg-[var(--ink-950)]">
-        {renderSidebarContent()}
+      <aside
+        className="hidden md:flex shrink-0 flex-col overflow-y-auto bg-[var(--ink-950)] relative"
+        style={{
+          width: sidebarCollapsed ? 0 : sidebarWidth,
+          minWidth: sidebarCollapsed ? 0 : sidebarWidth,
+          transition: isResizing ? "none" : "width 150ms ease, min-width 150ms ease",
+        }}
+      >
+        {!sidebarCollapsed && (
+          <>
+            {renderSidebarContent()}
+            <div
+              onMouseDown={startSidebarResize}
+              className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-[var(--ledger-600)]/50 active:bg-[var(--ledger-600)]"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize sidebar"
+            />
+          </>
+        )}
       </aside>
 
       {/* Mobile Sidebar Overlay Drawer */}
@@ -197,6 +285,16 @@ export default function AppShell() {
             >
               <Menu size={20} />
             </button>
+            {sidebarCollapsed && (
+              <button
+                onClick={() => setSidebarCollapsed(false)}
+                className="hidden md:flex p-2 rounded-lg hover:bg-[var(--ink-50)] text-[var(--ink-700)] min-h-[40px] min-w-[40px] items-center justify-center"
+                aria-label="Show sidebar"
+                title="Show sidebar (Ctrl+B)"
+              >
+                <PanelLeftOpen size={18} />
+              </button>
+            )}
             <form onSubmit={handleSearch} className="relative flex-1">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-400)]" />
               <input

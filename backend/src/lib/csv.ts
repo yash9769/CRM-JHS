@@ -2,7 +2,12 @@
 export function toCsv(rows: Record<string, any>[], columns: { key: string; label: string }[]): string {
   const escape = (val: any) => {
     if (val === null || val === undefined) return "";
-    const s = String(val);
+    let s = String(val);
+    // Neutralize CSV formula injection: a value starting with =, +, -, @, or a tab/CR
+    // is interpreted as a formula by Excel/Sheets when the file is opened. User-entered
+    // fields (opportunity/quote names, descriptions, etc.) flow into these exports, so
+    // prefix with a leading apostrophe to force plain-text interpretation.
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
     if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
     return s;
   };

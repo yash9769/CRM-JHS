@@ -426,6 +426,7 @@ export default async function accountRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const existing = await prisma.account.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Account not found" });
+    await requireCanAccess(req.authUser, existing, "read");
     const [contacts, opportunities, activities] = await Promise.all([
       prisma.contact.count({ where: { accountId: id } }),
       prisma.opportunity.count({ where: { accountId: id } }),
@@ -438,6 +439,7 @@ export default async function accountRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const existing = await prisma.account.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Account not found" });
+    await requireCanAccess(req.authUser, existing, "write");
     const account = await prisma.account.update({ where: { id }, data: { archived: true } });
     await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "ACCOUNT", recordId: id, action: "ARCHIVED" });
     return account;
@@ -447,6 +449,7 @@ export default async function accountRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const existing = await prisma.account.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Account not found" });
+    await requireCanAccess(req.authUser, existing, "write");
     const account = await prisma.account.update({ where: { id }, data: { archived: false } });
     await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "ACCOUNT", recordId: id, action: "UNARCHIVED" });
     return account;

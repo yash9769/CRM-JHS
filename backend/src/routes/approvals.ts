@@ -122,6 +122,17 @@ export default async function approvalRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "You cannot approve your own stage change request." });
     }
 
+    // STRICT RULE: Only the assigned approver (or an unassigned request, or a Senior
+    // Partner) may act on this request — a Partner outside the requester's chain
+    // must not be able to approve/disapprove a request routed to someone else.
+    if (
+      req.authUser.orgRole !== "SENIOR_PARTNER" &&
+      approval.approverId !== null &&
+      approval.approverId !== req.authUser.id
+    ) {
+      return reply.code(403).send({ error: "This request was not routed to you for approval." });
+    }
+
     const targetStage = approval.toStage;
     const isClosingWon = targetStage.isClosed && targetStage.isWon;
     const isClosingLost = targetStage.isClosed && !targetStage.isWon;
@@ -251,6 +262,16 @@ export default async function approvalRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "You cannot disapprove your own stage change request." });
     }
 
+    // STRICT RULE: Only the assigned approver (or an unassigned request, or a Senior
+    // Partner) may act on this request.
+    if (
+      req.authUser.orgRole !== "SENIOR_PARTNER" &&
+      approval.approverId !== null &&
+      approval.approverId !== req.authUser.id
+    ) {
+      return reply.code(403).send({ error: "This request was not routed to you for approval." });
+    }
+
     const updatedApproval = await prisma.$transaction(async (tx) => {
       const current = await tx.stageApproval.findUnique({ where: { id } });
       if (!current || current.status !== "PENDING") {
@@ -310,6 +331,13 @@ export default async function approvalRoutes(app: FastifyInstance) {
     if (!approval) return reply.code(404).send({ error: "Stage approval request not found" });
     if (approval.status !== "PENDING") return reply.code(400).send({ error: "This approval request has already been processed." });
     if (approval.requestedById === req.authUser.id) return reply.code(403).send({ error: "You cannot disapprove your own stage change request." });
+    if (
+      req.authUser.orgRole !== "SENIOR_PARTNER" &&
+      approval.approverId !== null &&
+      approval.approverId !== req.authUser.id
+    ) {
+      return reply.code(403).send({ error: "This request was not routed to you for approval." });
+    }
 
     const updatedApproval = await prisma.stageApproval.update({
       where: { id },
