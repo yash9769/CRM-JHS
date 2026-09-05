@@ -7,6 +7,17 @@ export function formatCurrency(value: number | string, _currency?: string): stri
   }).format(n || 0);
 }
 
+/** Compact Indian-notation currency for badges/captions, e.g. ₹8.9L, ₹1.9Cr. */
+export function formatCurrencyCompact(value: number): string {
+  const n = value || 0;
+  const sign = n < 0 ? "-" : "";
+  const abs = Math.abs(n);
+  if (abs >= 1_00_00_000) return `${sign}₹${(abs / 1_00_00_000).toFixed(1)}Cr`;
+  if (abs >= 1_00_000) return `${sign}₹${(abs / 1_00_000).toFixed(1)}L`;
+  if (abs >= 1_000) return `${sign}₹${(abs / 1_000).toFixed(1)}k`;
+  return `${sign}₹${abs.toFixed(0)}`;
+}
+
 export function formatDate(value?: string | Date | null): string {
   if (!value) return "—";
   const d = typeof value === "string" ? new Date(value) : value;

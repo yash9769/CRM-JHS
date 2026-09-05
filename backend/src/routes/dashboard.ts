@@ -7,8 +7,8 @@ import { generateDashboardPdf } from "../lib/dashboardPdf.js";
 async function computeDashboardData(tenantId: string, rbacFilter: any) {
     const [openOpps, closedWonOpps, closedLostOpps] = await Promise.all([
       prisma.opportunity.findMany({ where: { tenantId, ...rbacFilter, stage: { isClosed: false } }, include: { stage: true, account: true, owner: true } }),
-      prisma.opportunity.findMany({ where: { tenantId, ...rbacFilter, stage: { isClosed: true, isWon: true } } }),
-      prisma.opportunity.count({ where: { tenantId, ...rbacFilter, stage: { isClosed: true, isWon: false } } }),
+      prisma.opportunity.findMany({ where: { tenantId, ...rbacFilter, stage: { isClosed: true, isWon: true } }, include: { owner: { select: { id: true, firstName: true, lastName: true } } } }),
+      prisma.opportunity.findMany({ where: { tenantId, ...rbacFilter, stage: { isClosed: true, isWon: false } }, select: { ownerId: true, owner: { select: { id: true, firstName: true, lastName: true } } } }),
     ]);
 
     const openOppsFinancials = openOpps.map((o) => computeOpportunityFinancials(o));
@@ -17,16 +17,71 @@ async function computeDashboardData(tenantId: string, rbacFilter: any) {
     const totalPipeline = openOppsFinancials.reduce((s, f) => s + (f.expectedOpportunityValue || 0), 0);
     const weightedPipeline = openOpps.reduce((s, o, idx) => s + (openOppsFinancials[idx].expectedOpportunityValue || 0) * (o.probability / 100), 0);
     const closedWonRevenue = closedWonFinancials.reduce((s, f) => s + (f.actualOpportunityValue !== null ? f.actualOpportunityValue : (f.expectedOpportunityValue || 0)), 0);
-    
+
     const totalExpectedMargin = openOppsFinancials.reduce((s, f) => s + (f.expectedMargin || 0), 0);
     const totalGrossMargin = closedWonFinancials.reduce((s, f) => s + (f.grossMargin || 0), 0);
     const totalMarginLoss = closedWonFinancials.reduce((s, f) => s + (f.marginLoss || 0), 0);
     const totalBottomLineCost = [...openOppsFinancials, ...closedWonFinancials].reduce((s, f) => s + (f.bottomLineCost || 0), 0);
 
-    const winRate = closedWonOpps.length + closedLostOpps > 0
-      ? closedWonOpps.length / (closedWonOpps.length + closedLostOpps)
+    const winRate = closedWonOpps.length + closedLostOpps.length > 0
+      ? closedWonOpps.length / (closedWonOpps.length + closedLostOpps.length)
       : 0;
     const avgOpportunitySize = closedWonOpps.length > 0 ? closedWonRevenue / closedWonOpps.length : 0;
+
+    // Per-team-member breakdown of every KPI above, for the drill-down modal Partners/
+    // Senior Partners get when they click a KPI tile. Built from the exact same
+    // financial computations as the aggregate figures, so the numbers always add up.
+    type OwnerBreakdown = {
+      ownerId: string; ownerName: string;
+      totalPipeline: number; weightedPipeline: number; openOpportunities: number;
+      closedWonRevenue: number; closedWonCount: number; closedLostCount: number;
+      winRate: number; avgOpportunitySize: number; marginValue: number; costIncurred: number;
+    };
+    const ownerMap = new Map<string, OwnerBreakdown>();
+    function ownerEntry(id: string, name: string): OwnerBreakdown {
+      let entry = ownerMap.get(id);
+      if (!entry) {
+        entry = {
+          ownerId: id, ownerName: name,
+          totalPipeline: 0, weightedPipeline: 0, openOpportunities: 0,
+          closedWonRevenue: 0, closedWonCount: 0, closedLostCount: 0,
+          winRate: 0, avgOpportunitySize: 0, marginValue: 0, costIncurred: 0,
+        };
+        ownerMap.set(id, entry);
+      }
+      return entry;
+    }
+    for (let i = 0; i < openOpps.length; i++) {
+      const o = openOpps[i];
+      const f = openOppsFinancials[i];
+      const e = ownerEntry(o.ownerId, `${o.owner.firstName} ${o.owner.lastName}`);
+      e.openOpportunities += 1;
+      e.totalPipeline += f.expectedOpportunityValue || 0;
+      e.weightedPipeline += (f.expectedOpportunityValue || 0) * (o.probability / 100);
+      e.marginValue += f.expectedMargin || 0;
+      e.costIncurred += f.bottomLineCost || 0;
+    }
+    for (let i = 0; i < closedWonOpps.length; i++) {
+      const o = closedWonOpps[i];
+      const f = closedWonFinancials[i];
+      const e = ownerEntry(o.ownerId, `${o.owner.firstName} ${o.owner.lastName}`);
+      e.closedWonCount += 1;
+      e.closedWonRevenue += f.actualOpportunityValue !== null ? f.actualOpportunityValue : (f.expectedOpportunityValue || 0);
+      e.marginValue += f.grossMargin || 0;
+      e.costIncurred += f.bottomLineCost || 0;
+    }
+    for (const o of closedLostOpps) {
+      if (!o.owner) continue;
+      const e = ownerEntry(o.ownerId, `${o.owner.firstName} ${o.owner.lastName}`);
+      e.closedLostCount += 1;
+    }
+    for (const e of ownerMap.values()) {
+      e.winRate = (e.closedWonCount + e.closedLostCount) > 0 ? e.closedWonCount / (e.closedWonCount + e.closedLostCount) : 0;
+      e.avgOpportunitySize = e.closedWonCount > 0 ? e.closedWonRevenue / e.closedWonCount : 0;
+    }
+    const byOwner = Array.from(ownerMap.values()).sort(
+      (a, b) => (b.totalPipeline + b.closedWonRevenue) - (a.totalPipeline + a.closedWonRevenue)
+    );
 
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -78,12 +133,34 @@ async function computeDashboardData(tenantId: string, rbacFilter: any) {
       byOwnerMap.set(key, cur);
     }
 
+    // New pipeline created per month (last 3 months), from open opportunities' createdAt.
+    // Distinct from `totalPipeline` (a live snapshot) — this tracks how much NEW pipeline
+    // value was added in each recent month, for a real (non-fabricated) MoM trend indicator.
+    const pipelineVelocity: { month: string; amount: number }[] = [];
+    for (let i = 2; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const label = d.toLocaleString("en-US", { month: "short", year: "2-digit" });
+      const start = new Date(d.getFullYear(), d.getMonth(), 1);
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      const amount = openOpps.reduce((s, o, idx) => {
+        if (o.createdAt >= start && o.createdAt < end) return s + (openOppsFinancials[idx].expectedOpportunityValue || 0);
+        return s;
+      }, 0);
+      pipelineVelocity.push({ month: label, amount });
+    }
+    const pipelineCreatedThisMonth = pipelineVelocity[2]?.amount || 0;
+    const pipelineCreatedLastMonth = pipelineVelocity[1]?.amount || 0;
+    const pipelineVelocityPct = pipelineCreatedLastMonth > 0
+      ? ((pipelineCreatedThisMonth - pipelineCreatedLastMonth) / pipelineCreatedLastMonth) * 100
+      : null;
+
     return {
       kpis: {
         totalPipeline,
         weightedPipeline,
         openOpportunities: openOpps.length,
         closedWonRevenue,
+        closedWonCount: closedWonOpps.length,
         winRate,
         avgOpportunitySize,
         oppsClosingThisMonth,
@@ -91,12 +168,15 @@ async function computeDashboardData(tenantId: string, rbacFilter: any) {
         totalGrossMargin,
         totalMarginLoss,
         totalBottomLineCost,
+        pipelineVelocityPct,
       },
       charts: {
         pipelineByStage: Array.from(byStageMap.values()),
         revenueByMonth,
         oppsByOwner: Array.from(byOwnerMap.values()),
+        pipelineVelocity,
       },
+      byOwner,
     };
 }
 

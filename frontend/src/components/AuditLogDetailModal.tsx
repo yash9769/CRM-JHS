@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Modal } from "./ui";
 import { relativeTime, formatCurrency } from "../lib/format";
+import { useAuth, isManager } from "../hooks/useAuth";
 import {
   History,
   User,
@@ -34,6 +35,8 @@ export function AuditLogDetailModal({
   onClose: () => void;
 }) {
   const [showRawJson, setShowRawJson] = useState(false);
+  const { user } = useAuth();
+  const canViewRawJson = !isManager(user);
 
   const formattedDate = new Date(entry.createdAt).toLocaleString("en-US", {
     dateStyle: "medium",
@@ -279,40 +282,42 @@ export function AuditLogDetailModal({
           )}
         </div>
 
-        {/* RAW JSON TOGGLE */}
-        <div className="pt-2 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={() => setShowRawJson(!showRawJson)}
-            className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800 transition-colors"
-          >
-            {showRawJson ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-            {showRawJson ? "Hide Raw Technical JSON" : "View Raw Technical JSON Payload"}
-          </button>
+        {/* RAW JSON TOGGLE — hidden for Managers, technical/debug detail not relevant to their role */}
+        {canViewRawJson && (
+          <div className="pt-2 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setShowRawJson(!showRawJson)}
+              className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800 transition-colors"
+            >
+              {showRawJson ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              {showRawJson ? "Hide Raw Technical JSON" : "View Raw Technical JSON Payload"}
+            </button>
 
-          {showRawJson && (
-            <div className="mt-2 p-3 rounded-lg bg-slate-900 text-slate-200 font-mono text-[10px] space-y-2 overflow-x-auto max-h-60">
-              <div>
-                <span className="text-slate-400 font-bold block mb-1">// Log Action Metadata</span>
-                <div>ID: {entry.id}</div>
-                <div>Action: {entry.action}</div>
-                <div>Created At: {entry.createdAt}</div>
+            {showRawJson && (
+              <div className="mt-2 p-3 rounded-lg bg-slate-900 text-slate-200 font-mono text-[10px] space-y-2 overflow-x-auto max-h-60">
+                <div>
+                  <span className="text-slate-400 font-bold block mb-1">// Log Action Metadata</span>
+                  <div>ID: {entry.id}</div>
+                  <div>Action: {entry.action}</div>
+                  <div>Created At: {entry.createdAt}</div>
+                </div>
+                {entry.oldValues && (
+                  <div>
+                    <span className="text-rose-400 font-bold block mb-1">// Old Values</span>
+                    <pre>{JSON.stringify(entry.oldValues, null, 2)}</pre>
+                  </div>
+                )}
+                {entry.newValues && (
+                  <div>
+                    <span className="text-emerald-400 font-bold block mb-1">// New Values</span>
+                    <pre>{JSON.stringify(entry.newValues, null, 2)}</pre>
+                  </div>
+                )}
               </div>
-              {entry.oldValues && (
-                <div>
-                  <span className="text-rose-400 font-bold block mb-1">// Old Values</span>
-                  <pre>{JSON.stringify(entry.oldValues, null, 2)}</pre>
-                </div>
-              )}
-              {entry.newValues && (
-                <div>
-                  <span className="text-emerald-400 font-bold block mb-1">// New Values</span>
-                  <pre>{JSON.stringify(entry.newValues, null, 2)}</pre>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </Modal>
   );

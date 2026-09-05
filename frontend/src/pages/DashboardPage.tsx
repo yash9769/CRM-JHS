@@ -2,19 +2,20 @@ import { useState, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { PageHeader, Card, Button, Field, inputClass, inputStyle } from "../components/ui";
-import { formatCurrency, relativeTime } from "../lib/format";
+import { Card, Button, Badge, Field, Modal, inputClass, inputStyle } from "../components/ui";
+import { formatCurrency, formatCurrencyCompact, relativeTime } from "../lib/format";
 import { downloadCsvExport } from "../lib/exportCsv";
 import { RoleBadge, BirdsEyeModal } from "./OrgChartPage";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-  PieChart, Pie, Cell, Legend,
+  PieChart, Pie, Cell, Legend, AreaChart, Area,
+  RadialBarChart, RadialBar, PolarAngleAxis,
 } from "recharts";
 import {
-  TrendingUp, Target, Trophy, Percent, Wallet, Timer, CalendarClock, Flame,
-  ShieldAlert, AlertCircle, Download, Eye, FileDown,
+  TrendingUp, Target, Trophy, Percent, IndianRupee, BarChart3, Timer, CalendarClock, Flame,
+  ShieldAlert, AlertCircle, Download, Eye, FileDown, Gauge,
 } from "lucide-react";
-import { useAuth } from "../hooks/useAuth";
+import { useAuth, isManager as checkIsManager } from "../hooks/useAuth";
 import { ApprovalQueueTable } from "../components/ApprovalQueueTable";
 
 interface ActionCenterData {
@@ -31,39 +32,168 @@ function activityRelated(a: ActionCenterData["recentActivity"][number]) {
   return null;
 }
 
+interface OwnerBreakdown {
+  ownerId: string; ownerName: string;
+  totalPipeline: number; weightedPipeline: number; openOpportunities: number;
+  closedWonRevenue: number; closedWonCount: number; closedLostCount: number;
+  winRate: number; avgOpportunitySize: number; marginValue: number; costIncurred: number;
+}
+
+type OwnerMetricKey = Exclude<keyof OwnerBreakdown, "ownerId" | "ownerName" | "closedWonCount" | "closedLostCount">;
+
 interface DashboardData {
   kpis: {
     totalPipeline: number; weightedPipeline: number; openOpportunities: number;
-    closedWonRevenue: number; winRate: number; avgOpportunitySize: number; oppsClosingThisMonth: number;
+    closedWonRevenue: number; closedWonCount: number; winRate: number; avgOpportunitySize: number; oppsClosingThisMonth: number;
     totalExpectedMargin?: number; totalGrossMargin?: number; totalMarginLoss?: number; totalBottomLineCost?: number;
+    pipelineVelocityPct: number | null;
   };
   charts: {
     pipelineByStage: { stageName: string; count: number; amount: number }[];
     revenueByMonth: { month: string; revenue: number }[];
     oppsByOwner: { owner: string; count: number; amount: number }[];
+    pipelineVelocity: { month: string; amount: number }[];
   };
+  byOwner: OwnerBreakdown[];
 }
 
-function Kpi({ icon: Icon, label, value, url, tone = "ink" }: { icon: any; label: string; value: string; url?: string; tone?: "ink" | "green" }) {
+function Kpi({
+  icon: Icon, label, value, url, onClick, tone = "ink", badge, footerLeft, footerRight, bar, sparkline, belowValue,
+}: {
+  icon: any; label: string; value: ReactNode; url?: string; onClick?: () => void; tone?: "ink" | "green";
+  badge?: ReactNode; footerLeft?: ReactNode; footerRight?: ReactNode; bar?: ReactNode; sparkline?: ReactNode; belowValue?: ReactNode;
+}) {
   const content = (
-    <Card className="p-4 h-full hover:shadow-md transition-all cursor-pointer group">
-      <div className="flex items-center gap-2 mb-2">
-        <div
-          className="w-7 h-7 rounded-md flex items-center justify-center transition-transform group-hover:scale-110"
-          style={{ background: tone === "green" ? "var(--ledger-100)" : "var(--ink-50)" }}
-        >
-          <Icon size={14} style={{ color: tone === "green" ? "var(--ledger-700)" : "var(--ink-500)" }} />
+    <Card className="p-4 h-full hover:shadow-md transition-all cursor-pointer group flex flex-col">
+      <div className="flex items-start justify-between gap-x-2 gap-y-1.5 mb-2 flex-wrap">
+        <div className="flex items-center gap-2 min-w-0">
+          <div
+            className="w-7 h-7 rounded-md flex items-center justify-center transition-transform group-hover:scale-110 shrink-0"
+            style={{ background: tone === "green" ? "var(--ledger-100)" : "var(--ink-50)" }}
+          >
+            <Icon size={14} style={{ color: tone === "green" ? "var(--ledger-700)" : "var(--ink-500)" }} />
+          </div>
+          <span className="text-xs font-medium text-[var(--ink-500)] group-hover:text-[var(--ledger-700)] transition-colors">{label}</span>
         </div>
-        <span className="text-xs font-medium text-[var(--ink-500)] group-hover:text-[var(--ledger-700)] transition-colors">{label}</span>
+        {badge}
       </div>
-      <div className="font-mono-num text-xl md:text-2xl font-semibold text-[var(--ink-900)]">{value}</div>
+      <div className="flex items-end justify-between gap-2">
+        <div className="font-mono-num text-xl md:text-2xl font-semibold text-[var(--ink-900)]">{value}</div>
+        {sparkline}
+      </div>
+      {belowValue && <div className="mt-1.5">{belowValue}</div>}
+      {bar}
+      {(footerLeft || footerRight) && (
+        <div className="mt-auto pt-2.5 flex items-center justify-between gap-2 text-[10px] text-[var(--ink-400)]">
+          <span className="truncate">{footerLeft}</span>
+          <span className="shrink-0 font-medium text-[var(--ink-600)]">{footerRight}</span>
+        </div>
+      )}
     </Card>
   );
 
+  if (onClick) {
+    return <button type="button" onClick={onClick} className="block h-full w-full text-left">{content}</button>;
+  }
   if (url) {
-    return <Link to={url} className="block">{content}</Link>;
+    return <Link to={url} className="block h-full">{content}</Link>;
   }
   return content;
+}
+
+function KpiPill({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "green" | "amber" | "rose" }) {
+  const styles: Record<string, React.CSSProperties> = {
+    neutral: { background: "var(--ink-50)", color: "var(--ink-500)" },
+    green: { background: "var(--ledger-50)", color: "var(--ledger-700)" },
+    amber: { background: "var(--amber-100)", color: "var(--amber-600)" },
+    rose: { background: "var(--rose-100)", color: "var(--rose-600)" },
+  };
+  return (
+    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0" style={styles[tone]}>
+      {children}
+    </span>
+  );
+}
+
+function KpiBar({ pct, tone = "green" }: { pct: number; tone?: "green" | "ink" }) {
+  const clamped = Math.max(0, Math.min(100, pct));
+  return (
+    <div className="h-1.5 rounded-full overflow-hidden mt-2.5" style={{ background: "var(--ink-100)" }}>
+      <div className="h-full rounded-full" style={{ width: `${clamped}%`, background: tone === "green" ? "var(--ledger-600)" : "var(--ink-800)" }} />
+    </div>
+  );
+}
+
+function KpiRing({ pct, centerLabel }: { pct: number; centerLabel: string }) {
+  return (
+    <div className="relative shrink-0" style={{ width: 34, height: 34 }}>
+      <ResponsiveContainer width={34} height={34}>
+        <RadialBarChart
+          cx="50%" cy="50%" innerRadius="65%" outerRadius="100%"
+          barSize={5} startAngle={90} endAngle={-270}
+          data={[{ value: Math.max(0, Math.min(100, pct)), fill: "var(--ledger-600)" }]}
+        >
+          <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
+          <RadialBar background={{ fill: "var(--ink-100)" }} dataKey="value" cornerRadius={4} />
+        </RadialBarChart>
+      </ResponsiveContainer>
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <span style={{ fontSize: 7 }} className="font-bold text-[var(--ledger-700)]">{centerLabel}</span>
+      </div>
+    </div>
+  );
+}
+
+function KpiSparkline({ data, full = false }: { data: { month: string; amount: number }[]; full?: boolean }) {
+  const height = full ? 36 : 28;
+  return (
+    <div className={full ? "w-full" : "shrink-0"} style={full ? { height } : { width: 64, height }}>
+      <ResponsiveContainer width="100%" height={height}>
+        <AreaChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+          <Area type="monotone" dataKey="amount" stroke="var(--ledger-600)" strokeWidth={1.5} fill="var(--ledger-100)" fillOpacity={0.6} dot={false} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function KpiBreakdownModal({
+  title, metricKey, format, byOwner, currentUserId, onClose,
+}: {
+  title: string; metricKey: OwnerMetricKey; format: (n: number) => string;
+  byOwner: OwnerBreakdown[]; currentUserId?: string; onClose: () => void;
+}) {
+  const rows = [...byOwner].sort((a, b) => (b[metricKey] as number) - (a[metricKey] as number));
+  const maxVal = Math.max(...rows.map((r) => r[metricKey] as number), 1);
+
+  return (
+    <Modal title={`${title} — by Team Member`} onClose={onClose} width="520px">
+      {rows.length === 0 ? (
+        <div className="text-sm text-center py-6 text-[var(--ink-400)]">No team data available for this metric.</div>
+      ) : (
+        <div className="space-y-4">
+          {rows.map((r) => {
+            const val = r[metricKey] as number;
+            const pct = maxVal > 0 ? Math.max((val / maxVal) * 100, val > 0 ? 1 : 0) : 0;
+            const isYou = r.ownerId === currentUserId;
+            return (
+              <div key={r.ownerId}>
+                <div className="flex items-center justify-between text-xs mb-1.5 gap-2">
+                  <span className="font-medium truncate" style={{ color: isYou ? "var(--ledger-700)" : "var(--ink-700)" }}>
+                    {r.ownerName} {isYou && <span className="font-semibold">(You)</span>}
+                  </span>
+                  <span className="font-mono-num text-[var(--ink-600)] shrink-0">{format(val)}</span>
+                </div>
+                <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--ink-100)" }}>
+                  <div className="h-full rounded-full" style={{ width: `${pct}%`, background: isYou ? "var(--ledger-700)" : "var(--ledger-500)" }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Modal>
+  );
 }
 
 function SectionHeader({ icon: Icon, title, action, tone = "ink" }: { icon: any; title: string; action?: ReactNode; tone?: "ink" | "rose" }) {
@@ -87,6 +217,16 @@ function periodLabel(p: string) {
 
 function currentPeriod() {
   return new Date().toISOString().slice(0, 7);
+}
+
+/** Indian fiscal year runs April-March; label e.g. "Q2 FY26 Active" for July 2025. */
+function fiscalYearQuarterLabel(d: Date) {
+  const month = d.getMonth();
+  const year = d.getFullYear();
+  const fyEndYear = month >= 3 ? year + 1 : year;
+  const monthsSinceApril = (month - 3 + 12) % 12;
+  const quarter = Math.floor(monthsSinceApril / 3) + 1;
+  return `Q${quarter} FY${String(fyEndYear).slice(-2)} Active`;
 }
 
 function SetTargetModal({ period, users, onClose }: { period: string; users: any[]; onClose: () => void }) {
@@ -123,14 +263,13 @@ function SetTargetModal({ period, users, onClose }: { period: string; users: any
   );
 }
 
-function ForecastSection() {
+function ForecastSection({ period }: { period: string }) {
   const qc = useQueryClient();
   const [viewType, setViewType] = useState<"MONTHLY" | "YEARLY">("MONTHLY");
-  const [monthlyPeriod, setMonthlyPeriod] = useState(currentPeriod());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [showTarget, setShowTarget] = useState(false);
 
-  const activePeriod = viewType === "YEARLY" ? selectedYear : monthlyPeriod;
+  const activePeriod = viewType === "YEARLY" ? selectedYear : period;
 
   const { data: forecast } = useQuery<any>({
     queryKey: ["forecast", activePeriod],
@@ -167,13 +306,9 @@ function ForecastSection() {
           <option value="YEARLY">Yearly View</option>
         </select>
         {viewType === "MONTHLY" ? (
-          <input
-            type="month"
-            value={monthlyPeriod}
-            onChange={(e) => setMonthlyPeriod(e.target.value)}
-            className="text-sm px-2.5 py-1 rounded-md border bg-white font-medium"
-            style={{ borderColor: "var(--ink-200)" }}
-          />
+          <span className="text-sm font-medium px-2.5 py-1 rounded-md" style={{ background: "var(--ink-50)", color: "var(--ink-700)" }}>
+            {periodLabel(period)} <span className="text-[var(--ink-400)] font-normal">(set via Current Cycle above)</span>
+          </span>
         ) : (
           <select
             value={selectedYear}
@@ -475,6 +610,11 @@ function OwnerPerformanceSection() {
 export default function DashboardPage() {
   const { user } = useAuth();
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [cyclePeriod, setCyclePeriod] = useState(currentPeriod());
+  const [breakdown, setBreakdown] = useState<{ title: string; key: OwnerMetricKey; format: (n: number) => string } | null>(null);
+  const isManager = checkIsManager(user);
+  const canDrillDown = !isManager;
+
   const { data, isLoading } = useQuery<DashboardData>({
     queryKey: ["dashboard"],
     queryFn: async () => (await api.get("/dashboard")).data,
@@ -483,14 +623,27 @@ export default function DashboardPage() {
     queryKey: ["dashboard", "action-center"],
     queryFn: async () => (await api.get("/dashboard/action-center")).data,
   });
+  // Cycle-scoped forecast summary — powers the "Target Achieved" badge on Closed Won
+  // Revenue for whichever month the Current Cycle picker is set to.
+  const { data: cycleForecast } = useQuery<any>({
+    queryKey: ["forecast", cyclePeriod],
+    queryFn: async () => (await api.get("/forecast", { params: { period: cyclePeriod } })).data,
+  });
+  // Peer win-rate comparison — leadership-only endpoint (403s for Managers), so only
+  // fetch it when the viewer is allowed to see it, matching OwnerPerformanceSection below.
+  const { data: ownerPerf } = useQuery<any>({
+    queryKey: ["report-owner-perf"],
+    queryFn: async () => (await api.get("/reports/owner-performance")).data,
+    enabled: !isManager,
+  });
 
   const greetingHour = new Date().getHours();
   const greeting = greetingHour < 12 ? "Good morning" : greetingHour < 18 ? "Good afternoon" : "Good evening";
+  const fyBadgeLabel = fiscalYearQuarterLabel(new Date());
 
   const recentLeads = action?.recentLeads || [];
   const recentActivity = action?.recentActivity || [];
   const opportunitiesAtRisk = action?.opportunitiesAtRisk || [];
-  const isManager = user?.orgRole === "MANAGER";
 
   async function downloadPdf() {
     setDownloadingPdf(true);
@@ -511,14 +664,29 @@ export default function DashboardPage() {
 
   return (
     <div className="pb-24 md:pb-8">
-      <PageHeader
-        title={`${greeting}, ${user?.firstName || ""}`}
-        action={
+      <div className="flex flex-wrap items-start justify-between gap-3 px-8 pt-7 pb-5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <h1 className="text-[22px] font-semibold tracking-tight" style={{ color: "var(--ink-900)" }}>
+            {greeting}, {user?.firstName || ""}
+          </h1>
+          <Badge tone="green">{fyBadgeLabel}</Badge>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="flex items-center gap-1.5 text-xs font-medium text-[var(--ink-500)]">
+            Current Cycle
+            <input
+              type="month"
+              value={cyclePeriod}
+              onChange={(e) => setCyclePeriod(e.target.value)}
+              className="text-sm px-2.5 py-1.5 rounded-md border bg-white font-medium"
+              style={{ borderColor: "var(--ink-200)" }}
+            />
+          </label>
           <Button variant="secondary" onClick={downloadPdf} disabled={downloadingPdf}>
             <FileDown size={14} /> {downloadingPdf ? "Generating…" : "Download PDF"}
           </Button>
-        }
-      />
+        </div>
+      </div>
 
       <div className="px-4 md:px-8 space-y-8">
         {/* TOP: MAIN KPI METRICS CARDS */}
@@ -530,18 +698,145 @@ export default function DashboardPage() {
               </Card>
             ))}
           </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            <Kpi icon={Wallet} label="Total Pipeline" value={formatCurrency(data.kpis.totalPipeline)} url="/opportunities" />
-            <Kpi icon={TrendingUp} label="Weighted Pipeline" value={formatCurrency(data.kpis.weightedPipeline)} url="/opportunities" />
-            <Kpi icon={Target} label="Open Opportunities" value={String(data.kpis.openOpportunities)} url="/opportunities" />
-            <Kpi icon={Trophy} label="Closed Won Revenue" value={formatCurrency(data.kpis.closedWonRevenue)} tone="green" url="/opportunities" />
-            <Kpi icon={Percent} label="Win Rate" value={`${Math.round(data.kpis.winRate * 100)}%`} />
-            <Kpi icon={Wallet} label="Avg Opportunity Size" value={formatCurrency(data.kpis.avgOpportunitySize)} url="/opportunities" />
-            <Kpi icon={TrendingUp} label="Margin Value" value={formatCurrency((data.kpis.totalGrossMargin || 0) + (data.kpis.totalExpectedMargin || 0))} tone="green" url="/opportunities" />
-            <Kpi icon={CalendarClock} label="Cost Incurred to Company" value={formatCurrency(data.kpis.totalBottomLineCost || 0)} url="/opportunities" />
-          </div>
-        )}
+        ) : (() => {
+          const marginValue = (data.kpis.totalGrossMargin || 0) + (data.kpis.totalExpectedMargin || 0);
+          const costIncurred = data.kpis.totalBottomLineCost || 0;
+          const winRatePct = Math.round(data.kpis.winRate * 100);
+          const weightedRatioPct = data.kpis.totalPipeline > 0
+            ? Math.round((data.kpis.weightedPipeline / data.kpis.totalPipeline) * 100)
+            : 0;
+          const realizedBase = marginValue + costIncurred;
+          const marginPct = realizedBase > 0 ? Math.round((marginValue / realizedBase) * 100) : 0;
+          const costPct = realizedBase > 0 ? 100 - marginPct : 0;
+          // Thresholds are ours (not a stored config) — a simple, transparent bucketing of
+          // the real margin % computed above, not a fabricated data point.
+          const marginHealthLabel = marginPct >= 20 ? "Optimal" : marginPct >= 10 ? "Moderate" : "Low";
+          const marginHealthTone = marginPct >= 20 ? "green" : marginPct >= 10 ? "amber" : "rose";
+
+          const topOpenStages = [...(data.charts.pipelineByStage || [])]
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 2);
+          const closingThisWeek = action?.todaysWork?.oppsClosingThisWeek || 0;
+
+          const cycleTarget = cycleForecast?.summary?.target || 0;
+          const cycleClosedWon = cycleForecast?.summary?.closedWon || 0;
+          const achievedPct = cycleTarget > 0 ? Math.round((cycleClosedWon / cycleTarget) * 100) : null;
+          const surplus = cycleClosedWon - cycleTarget;
+
+          const perfRows: any[] = (ownerPerf?.data || []).filter((r: any) => r.metrics.winRate != null);
+          const peerAvgWinRatePct = perfRows.length > 0
+            ? Math.round((perfRows.reduce((s: number, r: any) => s + r.metrics.winRate, 0) / perfRows.length) * 100)
+            : null;
+          const winRateDelta = peerAvgWinRatePct !== null ? winRatePct - peerAvgWinRatePct : null;
+
+          const velocityPct = data.kpis.pipelineVelocityPct;
+
+          return (
+            <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              <Kpi
+                icon={BarChart3} label="Total Pipeline" value={formatCurrency(data.kpis.totalPipeline)}
+                url={canDrillDown ? undefined : "/opportunities"}
+                onClick={canDrillDown ? () => setBreakdown({ title: "Total Pipeline", key: "totalPipeline", format: formatCurrency }) : undefined}
+                badge={velocityPct !== null ? (
+                  <KpiPill tone={velocityPct >= 0 ? "green" : "rose"}>
+                    {velocityPct >= 0 ? "+" : ""}{velocityPct.toFixed(1)}% MoM
+                  </KpiPill>
+                ) : undefined}
+                belowValue={data.charts.pipelineVelocity?.length > 0 ? <KpiSparkline data={data.charts.pipelineVelocity} full /> : undefined}
+                footerLeft="3-month velocity"
+              />
+
+              <Kpi
+                icon={TrendingUp} label="Weighted Pipeline" value={formatCurrency(data.kpis.weightedPipeline)}
+                url={canDrillDown ? undefined : "/opportunities"}
+                onClick={canDrillDown ? () => setBreakdown({ title: "Weighted Pipeline", key: "weightedPipeline", format: formatCurrency }) : undefined}
+                badge={<KpiPill tone="green">{weightedRatioPct}% ratio</KpiPill>}
+                bar={<KpiBar pct={weightedRatioPct} />}
+                footerLeft="Risk factored" footerRight={formatCurrencyCompact(data.kpis.weightedPipeline)}
+              />
+
+              <Kpi
+                icon={Target} label="Open Opportunities" value={String(data.kpis.openOpportunities)}
+                url={canDrillDown ? undefined : "/opportunities"}
+                onClick={canDrillDown ? () => setBreakdown({ title: "Open Opportunities", key: "openOpportunities", format: (n) => String(Math.round(n)) }) : undefined}
+                badge={closingThisWeek > 0 ? <KpiPill tone="amber">{closingThisWeek} closing this week</KpiPill> : undefined}
+                footerLeft="Stages"
+                footerRight={topOpenStages.length > 0 ? (
+                  <span className="flex gap-1">
+                    {topOpenStages.map((s) => <KpiPill key={s.stageName}>{s.stageName} ({s.count})</KpiPill>)}
+                  </span>
+                ) : undefined}
+              />
+
+              <Kpi
+                icon={Trophy} label="Closed Won Revenue" value={formatCurrency(data.kpis.closedWonRevenue)} tone="green"
+                url={canDrillDown ? undefined : "/opportunities"}
+                onClick={canDrillDown ? () => setBreakdown({ title: "Closed Won Revenue", key: "closedWonRevenue", format: formatCurrency }) : undefined}
+                badge={achievedPct !== null ? (
+                  <KpiPill tone={achievedPct >= 100 ? "green" : "rose"}>Target Achieved: {achievedPct}%</KpiPill>
+                ) : undefined}
+                bar={achievedPct !== null ? <KpiBar pct={Math.min(achievedPct, 100)} tone={achievedPct >= 100 ? "green" : "ink"} /> : undefined}
+                footerLeft={cycleTarget > 0 ? `Target: ${formatCurrencyCompact(cycleTarget)}` : "No target set for this cycle"}
+                footerRight={cycleTarget > 0 ? (
+                  <span style={{ color: surplus >= 0 ? "var(--ledger-700)" : "var(--rose-600)" }}>
+                    {surplus >= 0 ? "+" : ""}{formatCurrencyCompact(surplus)} {surplus >= 0 ? "surplus" : "shortfall"}
+                  </span>
+                ) : undefined}
+              />
+
+              <Kpi
+                icon={Percent} label="Win Rate"
+                value={<span style={{ color: winRateDelta === null || winRateDelta >= 0 ? "var(--ledger-700)" : "var(--rose-600)" }}>{winRatePct}%</span>}
+                onClick={canDrillDown ? () => setBreakdown({ title: "Win Rate", key: "winRate", format: (n) => `${Math.round(n * 100)}%` }) : undefined}
+                badge={winRateDelta !== null ? (
+                  <KpiPill tone={winRateDelta >= 0 ? "green" : "rose"}>{winRateDelta >= 0 ? "+" : ""}{winRateDelta}% vs peer avg</KpiPill>
+                ) : undefined}
+                sparkline={<KpiRing pct={winRatePct} centerLabel={`${(winRatePct / 10).toFixed(1)}/10`} />}
+                footerLeft={perfRows.length > 0 ? `vs ${perfRows.length} peers` : undefined}
+              />
+
+              <Kpi
+                icon={IndianRupee} label="Avg Opportunity Size" value={formatCurrency(data.kpis.avgOpportunitySize)}
+                url={canDrillDown ? undefined : "/opportunities"}
+                onClick={canDrillDown ? () => setBreakdown({ title: "Avg Opportunity Size", key: "avgOpportunitySize", format: formatCurrency }) : undefined}
+                footerLeft="Based on"
+                footerRight={`${data.kpis.closedWonCount} closed-won deal${data.kpis.closedWonCount === 1 ? "" : "s"}`}
+              />
+
+              <Kpi
+                icon={Gauge} label="Margin Value" value={formatCurrency(marginValue)} tone="green"
+                url={canDrillDown ? undefined : "/opportunities"}
+                onClick={canDrillDown ? () => setBreakdown({ title: "Margin Value", key: "marginValue", format: formatCurrency }) : undefined}
+                badge={realizedBase > 0 ? <KpiPill tone="green">{marginPct}% Net</KpiPill> : undefined}
+                bar={realizedBase > 0 ? <KpiBar pct={marginPct} /> : undefined}
+                footerLeft={realizedBase > 0 ? "Op Margin Health" : undefined}
+                footerRight={realizedBase > 0 ? <KpiPill tone={marginHealthTone as any}>{marginHealthLabel}</KpiPill> : undefined}
+              />
+
+              <Kpi
+                icon={CalendarClock} label="Cost Incurred to Company" value={formatCurrency(costIncurred)}
+                url={canDrillDown ? undefined : "/opportunities"}
+                onClick={canDrillDown ? () => setBreakdown({ title: "Cost Incurred to Company", key: "costIncurred", format: formatCurrency }) : undefined}
+                badge={realizedBase > 0 ? <KpiPill>{costPct}% of value</KpiPill> : undefined}
+                bar={realizedBase > 0 ? <KpiBar pct={costPct} tone="ink" /> : undefined}
+                footerLeft={realizedBase > 0 ? "Share of realized value" : undefined}
+              />
+            </div>
+
+            {breakdown && data?.byOwner && (
+              <KpiBreakdownModal
+                title={breakdown.title}
+                metricKey={breakdown.key}
+                format={breakdown.format}
+                byOwner={data.byOwner}
+                currentUserId={user?.id}
+                onClose={() => setBreakdown(null)}
+              />
+            )}
+            </>
+          );
+        })()}
 
         {/* RECENT ACTIVITY */}
         <div className="space-y-3">
@@ -678,7 +973,7 @@ export default function DashboardPage() {
 
         {/* FORECAST (merged from Forecasting page) */}
         <div className="pt-2 border-t border-[var(--ink-100)]">
-          <ForecastSection />
+          <ForecastSection period={cyclePeriod} />
         </div>
 
         {/* PIPELINE HEALTH (merged from Reports) */}
