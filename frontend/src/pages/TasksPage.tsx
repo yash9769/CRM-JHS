@@ -87,7 +87,7 @@ export default function TasksPage() {
       <div className="px-4 md:px-8 pb-8">
         <div className="flex gap-1 mb-5 rounded-md p-0.5 w-fit bg-[var(--ink-100)]">
           {(["mine", "team"] as const).map((s) => (
-            <button key={s} onClick={() => setScope(s)} className={`px-3 py-1.5 rounded text-xs font-medium ${scope === s ? "bg-white text-[var(--ink-900)] shadow-xs" : "text-[var(--ink-600)]"}`}>
+            <button key={s} onClick={() => setScope(s)} className={`px-3 py-1.5 rounded text-xs font-medium ${scope === s ? "bg-[var(--surface-raised)] text-[var(--ink-900)] shadow-xs" : "text-[var(--ink-600)]"}`}>
               {s === "mine" ? "My Tasks" : "Team Tasks"}
             </button>
           ))}

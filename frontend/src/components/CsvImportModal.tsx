@@ -444,7 +444,7 @@ export function CsvImportModal({
               <select
                 value={duplicateStrategy}
                 onChange={(e) => setDuplicateStrategy(e.target.value as any)}
-                className="text-xs rounded border border-ink-200 px-2 py-1 bg-white"
+                className="text-xs rounded border border-ink-200 px-2 py-1 bg-[var(--surface-raised)]"
               >
                 <option value="skip">Skip duplicates (Recommended)</option>
                 <option value="update_existing">Update existing record</option>
@@ -523,7 +523,7 @@ export function CsvImportModal({
             )}
           </div>
 
-          <div className="max-h-64 overflow-y-auto rounded-lg border border-ink-200 divide-y divide-ink-100 bg-white">
+          <div className="max-h-64 overflow-y-auto rounded-lg border border-ink-200 divide-y divide-ink-100 bg-[var(--surface-raised)]">
             {preview.results.map((r: any, idx: number) => (
               <div key={idx} className="flex items-center justify-between p-2.5 text-xs">
                 <div className="flex items-center gap-2 min-w-0 flex-1">

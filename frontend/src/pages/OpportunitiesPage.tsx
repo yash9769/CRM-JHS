@@ -170,7 +170,7 @@ export default function OpportunitiesPage() {
             onClick={() => setActiveTab("all")}
             className={`px-3 py-1.5 text-xs md:text-sm font-medium rounded-t-md transition-colors ${
               activeTab === "all"
-                ? "bg-white border border-b-0 border-[var(--ink-200)] text-[var(--ledger-700)] font-semibold"
+                ? "bg-[var(--surface-raised)] border border-b-0 border-[var(--ink-200)] text-[var(--ledger-700)] font-semibold"
                 : "text-[var(--ink-500)] hover:text-[var(--ink-900)]"
             }`}
           >
@@ -180,7 +180,7 @@ export default function OpportunitiesPage() {
             onClick={() => setActiveTab("open")}
             className={`px-3 py-1.5 text-xs md:text-sm font-medium rounded-t-md transition-colors ${
               activeTab === "open"
-                ? "bg-white border border-b-0 border-[var(--ink-200)] text-[var(--ledger-700)] font-semibold"
+                ? "bg-[var(--surface-raised)] border border-b-0 border-[var(--ink-200)] text-[var(--ledger-700)] font-semibold"
                 : "text-[var(--ink-500)] hover:text-[var(--ink-900)]"
             }`}
           >
@@ -190,7 +190,7 @@ export default function OpportunitiesPage() {
             onClick={() => setActiveTab("won")}
             className={`px-3 py-1.5 text-xs md:text-sm font-medium rounded-t-md transition-colors ${
               activeTab === "won"
-                ? "bg-white border border-b-0 border-[var(--ink-200)] text-[var(--ledger-700)] font-semibold"
+                ? "bg-[var(--surface-raised)] border border-b-0 border-[var(--ink-200)] text-[var(--ledger-700)] font-semibold"
                 : "text-[var(--ink-500)] hover:text-[var(--ink-900)]"
             }`}
           >
@@ -200,7 +200,7 @@ export default function OpportunitiesPage() {
             onClick={() => setActiveTab("lost")}
             className={`px-3 py-1.5 text-xs md:text-sm font-medium rounded-t-md transition-colors ${
               activeTab === "lost"
-                ? "bg-white border border-b-0 border-[var(--ink-200)] text-[var(--ledger-700)] font-semibold"
+                ? "bg-[var(--surface-raised)] border border-b-0 border-[var(--ink-200)] text-[var(--ledger-700)] font-semibold"
                 : "text-[var(--ink-500)] hover:text-[var(--ink-900)]"
             }`}
           >
@@ -278,13 +278,13 @@ export default function OpportunitiesPage() {
               {/* Desktop Table View */}
               <div className="hidden md:block overflow-x-auto max-h-[calc(100vh-250px)]">
                 <table className="w-full text-sm border-separate border-spacing-0">
-                  <thead className="sticky top-0 z-10 bg-white">
-                    <tr className="text-left border-b border-[var(--ink-100)] bg-white">
-                      <th className="px-4 py-2.5 w-8 border-b border-[var(--ink-100)] bg-white">
+                  <thead className="sticky top-0 z-10 bg-[var(--surface-raised)]">
+                    <tr className="text-left border-b border-[var(--ink-100)] bg-[var(--surface-raised)]">
+                      <th className="px-4 py-2.5 w-8 border-b border-[var(--ink-100)] bg-[var(--surface-raised)]">
                         <SelectAllCheckbox checked={allChecked} indeterminate={!!someChecked} onChange={toggleAll} />
                       </th>
                       {orderedColumns.filter((c) => isVisible(c.key)).map((col) => (
-                        <th key={col.key} className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
+                        <th key={col.key} className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-[var(--surface-raised)]">
                           {col.label}
                         </th>
                       ))}
@@ -442,7 +442,7 @@ export default function OpportunitiesPage() {
       </BulkActionBar>
 
       {bulkOwnerPicker && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-72 p-3 rounded-lg border shadow-xl bg-white border-[var(--ink-100)]">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-72 p-3 rounded-lg border shadow-xl bg-[var(--surface-raised)] border-[var(--ink-100)]">
           <div className="text-xs font-medium mb-2 text-[var(--ink-500)]">
             Assign {selected.size} opportunit{selected.size === 1 ? "y" : "ies"} to
           </div>
@@ -472,7 +472,7 @@ export default function OpportunitiesPage() {
       )}
 
       {bulkStagePicker && pipeline && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-72 p-3 rounded-lg border shadow-xl bg-white border-[var(--ink-100)]">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-72 p-3 rounded-lg border shadow-xl bg-[var(--surface-raised)] border-[var(--ink-100)]">
           <div className="text-xs font-medium mb-2 text-[var(--ink-500)]">
             Move {selected.size} opportunit{selected.size === 1 ? "y" : "ies"} to
           </div>

@@ -44,7 +44,7 @@ export function NotesOnlyPanel({
           onChange={(e) => setBody(e.target.value)}
           placeholder="Add an internal note or update on this opportunity…"
           rows={3}
-          className={`${inputClass} bg-white text-xs leading-relaxed resize-none`}
+          className={`${inputClass} bg-[var(--surface-raised)] text-xs leading-relaxed resize-none`}
           style={inputStyle}
         />
         <div className="flex justify-end">
@@ -69,7 +69,7 @@ export function NotesOnlyPanel({
           {notes.map((note) => (
             <div
               key={note.id}
-              className="p-3 rounded-xl border border-[var(--ink-100)] bg-white space-y-2 hover:border-[var(--ink-200)] transition-colors group"
+              className="p-3 rounded-xl border border-[var(--ink-100)] bg-[var(--surface-raised)] space-y-2 hover:border-[var(--ink-200)] transition-colors group"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2">

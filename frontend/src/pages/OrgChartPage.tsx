@@ -88,7 +88,7 @@ function EnhancedUserCard({
   return (
     <div
       onClick={() => onSelect && onSelect(user)}
-      className="group relative rounded-2xl border bg-white p-4 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer overflow-hidden"
+      className="group relative rounded-2xl border bg-[var(--surface-raised)] p-4 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer overflow-hidden"
       style={{
         borderColor: "var(--ink-100)",
         minWidth: 270,
@@ -214,7 +214,7 @@ export function BirdsEyeModal({
   if (isLoading) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs">
-        <div className="bg-white rounded-2xl p-8 max-w-sm text-center shadow-2xl space-y-3">
+        <div className="bg-[var(--surface-raised)] rounded-2xl p-8 max-w-sm text-center shadow-2xl space-y-3">
           <Eye size={32} className="mx-auto animate-pulse text-[var(--ledger-600)]" />
           <p className="text-sm font-semibold text-[var(--ink-800)]">Loading Bird's-Eye Activity…</p>
         </div>
@@ -225,7 +225,7 @@ export function BirdsEyeModal({
   if (error || !data) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs">
-        <div className="bg-white rounded-2xl p-6 max-w-sm text-center shadow-2xl space-y-3">
+        <div className="bg-[var(--surface-raised)] rounded-2xl p-6 max-w-sm text-center shadow-2xl space-y-3">
           <p className="text-sm font-medium text-rose-600">Could not load user activity details.</p>
           <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--ink-100)]">Close</button>
         </div>
@@ -248,7 +248,7 @@ export function BirdsEyeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-[var(--ink-100)]">
+      <div className="bg-[var(--surface-raised)] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-[var(--ink-100)]">
         {/* Header */}
         <div className="p-6 border-b flex items-start justify-between bg-[var(--ink-50)] border-[var(--ink-100)]">
           <div className="flex items-center gap-4">
@@ -274,7 +274,7 @@ export function BirdsEyeModal({
         </div>
 
         {/* Top KPI Summary — Clickable Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-6 bg-white border-b border-[var(--ink-100)]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-6 bg-[var(--surface-raised)] border-b border-[var(--ink-100)]">
           <div
             onClick={() => {
               navigate(`/opportunities?ownerId=${user.id}`);
@@ -580,7 +580,7 @@ export function BirdsEyeModal({
                           onSelectUser(m);
                         }
                       }}
-                      className="p-3.5 rounded-xl border flex items-center justify-between gap-3 border-[var(--ink-100)] bg-[var(--ink-50)] hover:bg-white hover:border-[var(--ledger-500)] hover:shadow-md cursor-pointer transition-all group"
+                      className="p-3.5 rounded-xl border flex items-center justify-between gap-3 border-[var(--ink-100)] bg-[var(--ink-50)] hover:bg-[var(--surface-raised)] hover:border-[var(--ledger-500)] hover:shadow-md cursor-pointer transition-all group"
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full text-white text-xs font-bold flex items-center justify-center bg-[var(--ledger-700)]">
@@ -646,7 +646,7 @@ function AddUserModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+      <div className="bg-[var(--surface-raised)] rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--ink-100)]">
           <h2 className="font-semibold text-base flex items-center gap-2">
             <UserPlus size={16} className="text-[var(--ledger-600)]" />
@@ -776,7 +776,7 @@ function EditUserModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+      <div className="bg-[var(--surface-raised)] rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--ink-100)]">
           <h2 className="font-semibold text-base flex items-center gap-2">
             <Edit2 size={16} className="text-[var(--ledger-600)]" />
@@ -928,7 +928,7 @@ export default function OrgChartPage() {
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 pb-24">
       {/* Header & Controls Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-[var(--ink-100)] shadow-xs">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[var(--surface-raised)] p-6 rounded-2xl border border-[var(--ink-100)] shadow-xs">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold text-[var(--ink-900)]">Organization Hierarchy</h1>
@@ -958,7 +958,7 @@ export default function OrgChartPage() {
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border text-xs outline-none border-[var(--ink-200)] bg-white font-medium"
+            className="px-3 py-2 rounded-xl border text-xs outline-none border-[var(--ink-200)] bg-[var(--surface-raised)] font-medium"
           >
             <option value="ALL">All Roles</option>
             <option value="SENIOR_PARTNER">Senior Partner</option>
@@ -971,7 +971,7 @@ export default function OrgChartPage() {
             <button
               onClick={() => setViewMode("tree")}
               className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                viewMode === "tree" ? "bg-white text-[var(--ledger-700)] shadow-xs" : "text-[var(--ink-500)] hover:text-[var(--ink-800)]"
+                viewMode === "tree" ? "bg-[var(--surface-raised)] text-[var(--ledger-700)] shadow-xs" : "text-[var(--ink-500)] hover:text-[var(--ink-800)]"
               }`}
             >
               <Network size={13} /> Tree
@@ -979,7 +979,7 @@ export default function OrgChartPage() {
             <button
               onClick={() => setViewMode("grid")}
               className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                viewMode === "grid" ? "bg-white text-[var(--ledger-700)] shadow-xs" : "text-[var(--ink-500)] hover:text-[var(--ink-800)]"
+                viewMode === "grid" ? "bg-[var(--surface-raised)] text-[var(--ledger-700)] shadow-xs" : "text-[var(--ink-500)] hover:text-[var(--ink-800)]"
               }`}
             >
               <Grid size={13} /> Grid
@@ -1000,7 +1000,7 @@ export default function OrgChartPage() {
 
       {/* KPI Stats Ribbon */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-3.5 rounded-xl border bg-white border-[var(--ink-100)] flex items-center gap-3">
+        <div className="p-3.5 rounded-xl border bg-[var(--surface-raised)] border-[var(--ink-100)] flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-900 text-white">
             <Crown size={18} className="text-amber-400" />
           </div>
@@ -1012,7 +1012,7 @@ export default function OrgChartPage() {
           </div>
         </div>
 
-        <div className="p-3.5 rounded-xl border bg-white border-[var(--ink-100)] flex items-center gap-3">
+        <div className="p-3.5 rounded-xl border bg-[var(--surface-raised)] border-[var(--ink-100)] flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-700 text-white">
             <ShieldCheck size={18} className="text-emerald-300" />
           </div>
@@ -1022,7 +1022,7 @@ export default function OrgChartPage() {
           </div>
         </div>
 
-        <div className="p-3.5 rounded-xl border bg-white border-[var(--ink-100)] flex items-center gap-3">
+        <div className="p-3.5 rounded-xl border bg-[var(--surface-raised)] border-[var(--ink-100)] flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-700 text-white">
             <Users size={18} className="text-indigo-300" />
           </div>
@@ -1032,7 +1032,7 @@ export default function OrgChartPage() {
           </div>
         </div>
 
-        <div className="p-3.5 rounded-xl border bg-white border-[var(--ink-100)] flex items-center gap-3">
+        <div className="p-3.5 rounded-xl border bg-[var(--surface-raised)] border-[var(--ink-100)] flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-purple-700 text-white">
             <Sparkles size={18} className="text-purple-300" />
           </div>
@@ -1048,7 +1048,7 @@ export default function OrgChartPage() {
       {/* Main View Area */}
       {viewMode === "grid" ? (
         /* GRID VIEW */
-        <div className="bg-white p-6 rounded-2xl border border-[var(--ink-100)]">
+        <div className="bg-[var(--surface-raised)] p-6 rounded-2xl border border-[var(--ink-100)]">
           {filteredUsers.length === 0 ? (
             <div className="text-center py-16 text-xs text-[var(--ink-400)]">
               No organization members match your search filter.
@@ -1070,7 +1070,7 @@ export default function OrgChartPage() {
         </div>
       ) : (
         /* HIERARCHY TREE VIEW */
-        <div className="bg-white p-6 md:p-10 rounded-2xl border border-[var(--ink-100)] shadow-xs overflow-x-auto">
+        <div className="bg-[var(--surface-raised)] p-6 md:p-10 rounded-2xl border border-[var(--ink-100)] shadow-xs overflow-x-auto">
           {/* Senior Partner Level */}
           {seniorPartner && (
             <div className="flex flex-col items-center">
@@ -1228,7 +1228,7 @@ export default function OrgChartPage() {
       {/* Confirm Delete Modal */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6">
+          <div className="bg-[var(--surface-raised)] rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6">
             <h2 className="font-bold text-base mb-2 text-[var(--ink-900)]">Remove {deleteTarget.firstName} {deleteTarget.lastName}?</h2>
             <p className="text-xs mb-4 text-[var(--ink-500)]">
               This will permanently remove this user. Their owned CRM records will be reassigned to you.

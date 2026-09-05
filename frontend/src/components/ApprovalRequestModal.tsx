@@ -70,7 +70,7 @@ export function ApprovalRequestModal({
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
             placeholder="Add context or notes for the reviewing Partner..."
-            className="w-full p-2.5 rounded-lg border text-xs outline-none focus:ring-2 focus:ring-[var(--ledger-600)] border-[var(--ink-200)] bg-white"
+            className="w-full p-2.5 rounded-lg border text-xs outline-none focus:ring-2 focus:ring-[var(--ledger-600)] border-[var(--ink-200)] bg-[var(--surface-raised)]"
           />
         </div>
 

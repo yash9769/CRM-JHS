@@ -113,7 +113,7 @@ export function StickyNotesWidget() {
       )}
 
       {/* Floating Control Bar */}
-      <div className="flex items-center gap-2 bg-white/95 backdrop-blur border border-[var(--ink-200)] shadow-lg rounded-full px-3 py-1.5 pointer-events-auto transition-all">
+      <div className="flex items-center gap-2 bg-[var(--surface-raised)]/95 backdrop-blur border border-[var(--ink-200)] shadow-lg rounded-full px-3 py-1.5 pointer-events-auto transition-all">
         <button
           onClick={handleCreateNote}
           className="flex items-center gap-1.5 text-xs font-semibold text-[var(--ledger-700)] hover:text-[var(--ledger-900)] bg-[var(--ledger-50)] hover:bg-[var(--ledger-100)] px-2.5 py-1 rounded-full transition-colors"
@@ -236,7 +236,7 @@ function SingleNoteCard({
               <Palette size={13} />
             </button>
             {showColorPicker && (
-              <div className="absolute right-0 top-6 bg-white border border-gray-200 shadow-xl rounded-lg p-1.5 flex gap-1 z-50">
+              <div className="absolute right-0 top-6 bg-[var(--surface-raised)] border border-gray-200 shadow-xl rounded-lg p-1.5 flex gap-1 z-50">
                 {NOTE_COLORS.map((c) => (
                   <button
                     key={c.name}

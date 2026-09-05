@@ -28,7 +28,7 @@ function ToggleRow({ label, checked, onChange, disabled }: { label: string; chec
         className="w-9 h-5 rounded-full relative transition-colors disabled:opacity-40"
         style={{ background: checked ? "var(--ledger-600)" : "var(--ink-200)" }}
       >
-        <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: checked ? 18 : 2 }} />
+        <span className="absolute top-0.5 w-4 h-4 rounded-full bg-[var(--surface-raised)] transition-all" style={{ left: checked ? 18 : 2 }} />
       </button>
     </label>
   );

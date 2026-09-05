@@ -107,7 +107,7 @@ export function AuditLogDetailModal({
         {/* ACTION & STATUS HEADER BANNER */}
         <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="p-2 rounded-lg bg-white border border-slate-200 text-slate-700 shadow-sm shrink-0">
+            <div className="p-2 rounded-lg bg-[var(--surface-raised)] border border-slate-200 text-slate-700 shadow-sm shrink-0">
               <History size={18} />
             </div>
             <div className="min-w-0">
@@ -126,7 +126,7 @@ export function AuditLogDetailModal({
         {/* METADATA GRID: PERFORMER & OBJECT */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* USER / PERFORMER CARD */}
-          <div className="p-3 rounded-xl border border-slate-200 bg-white space-y-1.5">
+          <div className="p-3 rounded-xl border border-slate-200 bg-[var(--surface-raised)] space-y-1.5">
             <div className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5">
               <User size={13} className="text-slate-400" /> Performed By
             </div>
@@ -148,7 +148,7 @@ export function AuditLogDetailModal({
           </div>
 
           {/* RECORD / ENTITY CARD */}
-          <div className="p-3 rounded-xl border border-slate-200 bg-white space-y-1.5">
+          <div className="p-3 rounded-xl border border-slate-200 bg-[var(--surface-raised)] space-y-1.5">
             <div className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5">
               <Layers size={13} className="text-slate-400" /> Target Record
             </div>
@@ -172,7 +172,7 @@ export function AuditLogDetailModal({
               Stage Transition
             </div>
             <div className="flex items-center gap-2 text-xs font-semibold">
-              <span className="px-2.5 py-1 rounded-lg bg-white border border-indigo-200 text-indigo-900 shadow-sm">
+              <span className="px-2.5 py-1 rounded-lg bg-[var(--surface-raised)] border border-indigo-200 text-indigo-900 shadow-sm">
                 {fromStage || "Initial Stage"}
               </span>
               <ArrowRight size={14} className="text-indigo-500 shrink-0" />
@@ -189,7 +189,7 @@ export function AuditLogDetailModal({
             <div className="font-bold text-xs flex items-center gap-1.5 text-rose-800">
               <XCircle size={15} /> Disapproval / Reviewer Reason
             </div>
-            <div className="text-xs leading-relaxed italic bg-white/80 p-2.5 rounded-lg border border-rose-200">
+            <div className="text-xs leading-relaxed italic bg-[var(--surface-raised)]/80 p-2.5 rounded-lg border border-rose-200">
               "{approverComment}"
             </div>
           </div>
@@ -201,7 +201,7 @@ export function AuditLogDetailModal({
             <div className="font-semibold text-slate-700 text-[11px] flex items-center gap-1.5">
               <FileText size={13} /> Notes / Remarks
             </div>
-            <div className="text-slate-800 text-xs leading-relaxed bg-white p-2 rounded border border-slate-200">
+            <div className="text-slate-800 text-xs leading-relaxed bg-[var(--surface-raised)] p-2 rounded border border-slate-200">
               {remarks}
             </div>
           </div>
@@ -251,7 +251,7 @@ export function AuditLogDetailModal({
                     <th className="px-3 py-2 text-emerald-700">New Value</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
+                <tbody className="divide-y divide-slate-100 bg-[var(--surface-raised)]">
                   {diffs.map((d) => (
                     <tr key={d.field} className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-3 py-2 font-medium text-slate-900 whitespace-nowrap">

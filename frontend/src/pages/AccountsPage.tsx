@@ -131,10 +131,10 @@ export default function AccountsPage() {
           ) : (
             <div className="overflow-x-auto max-h-[calc(100vh-250px)]">
               <table className="w-full text-sm border-separate border-spacing-0">
-                <thead className="sticky top-0 z-10 bg-white">
-                  <tr className="text-left border-b bg-white" style={{ borderColor: "var(--ink-100)" }}>
+                <thead className="sticky top-0 z-10 bg-[var(--surface-raised)]">
+                  <tr className="text-left border-b bg-[var(--surface-raised)]" style={{ borderColor: "var(--ink-100)" }}>
                     {orderedColumns.filter((c) => isVisible(c.key)).map((col) => (
-                      <th key={col.key} className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide border-b bg-white" style={{ color: "var(--ink-400)", borderColor: "var(--ink-100)" }}>
+                      <th key={col.key} className="px-4 py-2.5 font-medium text-xs uppercase tracking-wide border-b bg-[var(--surface-raised)]" style={{ color: "var(--ink-400)", borderColor: "var(--ink-100)" }}>
                         {col.label}
                       </th>
                     ))}
