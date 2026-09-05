@@ -103,7 +103,7 @@ export function KanbanBoard<T extends KanbanItem>({
                   <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--ink-700)" }}>
                     {stage.name}
                   </span>
-                  <span className="text-[11px] px-1.5 py-0.5 rounded-full font-mono-num font-medium bg-white" style={{ color: "var(--ink-500)", border: "1px solid var(--ink-200)" }}>
+                  <span className="text-[11px] px-1.5 py-0.5 rounded-full font-mono-num font-medium bg-[var(--surface-raised)]" style={{ color: "var(--ink-500)", border: "1px solid var(--ink-200)" }}>
                     {stageItems.length}
                   </span>
                 </div>
@@ -130,7 +130,7 @@ export function KanbanBoard<T extends KanbanItem>({
                       draggable
                       onDragStart={() => setDragId(item.id)}
                       data-dragging={dragId === item.id}
-                      className="kanban-card block rounded-lg p-3 bg-white shadow-xs hover:shadow-md transition-all cursor-grab active:cursor-grabbing"
+                      className="kanban-card block rounded-lg p-3 bg-[var(--surface-raised)] shadow-xs hover:shadow-md transition-all cursor-grab active:cursor-grabbing"
                       style={{ border: "1px solid var(--ink-100)" }}
                     >
                       {/* Opportunity Name */}

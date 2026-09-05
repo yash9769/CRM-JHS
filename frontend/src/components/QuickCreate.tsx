@@ -50,7 +50,7 @@ export function QuickCreateButton() {
       {menuOpen && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
-          <div className="absolute right-0 top-10 w-56 rounded-lg border shadow-xl bg-white overflow-hidden z-40" style={{ borderColor: "var(--ink-100)" }}>
+          <div className="absolute right-0 top-10 w-56 rounded-lg border shadow-xl bg-[var(--surface-raised)] overflow-hidden z-40" style={{ borderColor: "var(--ink-100)" }}>
             {items.map((it) => (
               <button
                 key={it.kind}

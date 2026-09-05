@@ -75,12 +75,12 @@ export function ApprovalQueueTable({ limit }: { limit?: number }) {
       {/* Pending / Approved counts */}
       {counts && (
         <div className="flex flex-wrap gap-3">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-[var(--ink-100)] shadow-xs">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--surface-raised)] border border-[var(--ink-100)] shadow-xs">
             <Clock size={14} className="text-[var(--gold-600)]" />
             <span className="text-xs text-[var(--ink-500)]">Pending:</span>
             <span className="font-mono-num font-bold text-sm">{counts.pending}</span>
           </div>
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-[var(--ink-100)] shadow-xs">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--surface-raised)] border border-[var(--ink-100)] shadow-xs">
             <CheckCircle2 size={14} className="text-emerald-600" />
             <span className="text-xs text-[var(--ink-500)]">Approved:</span>
             <span className="font-mono-num font-bold text-sm">{counts.approved}</span>
@@ -89,7 +89,7 @@ export function ApprovalQueueTable({ limit }: { limit?: number }) {
       )}
 
       {/* Filters bar */}
-      <div className="flex flex-wrap items-center gap-2 bg-white p-3 rounded-xl border border-[var(--ink-100)] shadow-xs">
+      <div className="flex flex-wrap items-center gap-2 bg-[var(--surface-raised)] p-3 rounded-xl border border-[var(--ink-100)] shadow-xs">
         <div className="relative flex-1 min-w-[200px]">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-400)]" />
           <input
@@ -106,7 +106,7 @@ export function ApprovalQueueTable({ limit }: { limit?: number }) {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-2.5 py-1.5 rounded-lg border text-xs outline-none border-[var(--ink-200)] bg-white font-medium"
+            className="px-2.5 py-1.5 rounded-lg border text-xs outline-none border-[var(--ink-200)] bg-[var(--surface-raised)] font-medium"
           >
             <option value="PENDING">Status: Pending</option>
             <option value="APPROVED">Status: Approved</option>
@@ -118,7 +118,7 @@ export function ApprovalQueueTable({ limit }: { limit?: number }) {
           <select
             value={requestedStageFilter}
             onChange={(e) => setRequestedStageFilter(e.target.value)}
-            className="px-2.5 py-1.5 rounded-lg border text-xs outline-none border-[var(--ink-200)] bg-white font-medium"
+            className="px-2.5 py-1.5 rounded-lg border text-xs outline-none border-[var(--ink-200)] bg-[var(--surface-raised)] font-medium"
           >
             <option value="">All Requested Stages</option>
             <option value="Proposal">Proposal</option>
@@ -131,11 +131,11 @@ export function ApprovalQueueTable({ limit }: { limit?: number }) {
 
       {/* List view */}
       {isLoading ? (
-        <div className="p-8 text-center text-xs text-[var(--ink-400)] bg-white rounded-xl border border-[var(--ink-100)]">
+        <div className="p-8 text-center text-xs text-[var(--ink-400)] bg-[var(--surface-raised)] rounded-xl border border-[var(--ink-100)]">
           Loading approval requests…
         </div>
       ) : displayedApprovals.length === 0 ? (
-        <div className="p-8 text-center space-y-1 bg-white rounded-xl border border-[var(--ink-100)]">
+        <div className="p-8 text-center space-y-1 bg-[var(--surface-raised)] rounded-xl border border-[var(--ink-100)]">
           <ShieldAlert size={24} className="mx-auto text-[var(--ink-300)]" />
           <div className="text-xs font-semibold text-[var(--ink-700)]">No approval requests found</div>
           <div className="text-[11px] text-[var(--ink-400)]">
@@ -152,7 +152,7 @@ export function ApprovalQueueTable({ limit }: { limit?: number }) {
             return (
               <div
                 key={appr.id}
-                className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-[var(--ink-100)] shadow-xs"
+                className="flex flex-wrap items-center justify-between gap-3 bg-[var(--surface-raised)] p-3.5 rounded-xl border border-[var(--ink-100)] shadow-xs"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">

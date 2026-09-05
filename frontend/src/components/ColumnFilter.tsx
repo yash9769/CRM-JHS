@@ -208,7 +208,7 @@ export function ColumnFilterDropdown({
 
       {open && (
         <div
-          className="absolute right-0 mt-1.5 w-60 rounded-xl border shadow-xl bg-white z-50 p-2 text-xs"
+          className="absolute right-0 mt-1.5 w-60 rounded-xl border shadow-xl bg-[var(--surface-raised)] z-50 p-2 text-xs"
           style={{ borderColor: "var(--ink-100)" }}
         >
           <div className="flex items-center justify-between px-2.5 py-1.5 border-b mb-1" style={{ borderColor: "var(--ink-100)" }}>

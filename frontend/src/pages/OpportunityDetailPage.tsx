@@ -118,7 +118,7 @@ export default function OpportunityDetailPage() {
   return (
     <div className="pb-24 md:pb-12">
       {/* 1. FROZEN / STICKY PRICING DETAILS ROW */}
-      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-[var(--ink-200)] shadow-xs px-4 md:px-8 py-2.5">
+      <div className="sticky top-0 z-30 bg-[var(--surface-raised)]/95 backdrop-blur-md border-b border-[var(--ink-200)] shadow-xs px-4 md:px-8 py-2.5">
         <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold uppercase tracking-wider text-[var(--ink-500)] flex items-center gap-1.5">
@@ -251,7 +251,7 @@ export default function OpportunityDetailPage() {
                 const target = opp.pipeline!.stages.find((s) => s.id === e.target.value);
                 if (target) handleStageSelect(target);
               }}
-              className="text-sm px-2.5 py-1.5 rounded-md border font-medium bg-white border-[var(--ink-200)] min-h-[38px]"
+              className="text-sm px-2.5 py-1.5 rounded-md border font-medium bg-[var(--surface-raised)] border-[var(--ink-200)] min-h-[38px]"
             >
               {opp.pipeline!.stages.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -487,7 +487,7 @@ export default function OpportunityDetailPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                  <div className="p-3 rounded-xl border bg-white border-[var(--ink-200)]">
+                  <div className="p-3 rounded-xl border bg-[var(--surface-raised)] border-[var(--ink-200)]">
                     <div className="flex items-center gap-1 text-xs font-semibold text-[var(--ink-600)] mb-1">
                       <span>Margin Value</span>
                       <span title="Margin Value = Revenue - Cost Incurred to Company" className="cursor-help text-[var(--ink-400)]"><Info size={11} /></span>
@@ -497,7 +497,7 @@ export default function OpportunityDetailPage() {
                     </div>
                   </div>
 
-                  <div className="p-3 rounded-xl border bg-white border-[var(--ink-200)]">
+                  <div className="p-3 rounded-xl border bg-[var(--surface-raised)] border-[var(--ink-200)]">
                     <div className="flex items-center gap-1 text-xs font-semibold text-[var(--ink-600)] mb-1">
                       <span>Margin Percentage</span>
                       <span title="Margin Percentage = (Margin Value / Revenue) * 100" className="cursor-help text-[var(--ink-400)]"><Info size={11} /></span>
@@ -592,7 +592,7 @@ export default function OpportunityDetailPage() {
                         </div>
 
                         {appr.poNumber && (
-                          <div className="text-[11px] bg-white/70 p-2 rounded border border-[var(--ink-100)] flex flex-wrap gap-3">
+                          <div className="text-[11px] bg-[var(--surface-raised)]/70 p-2 rounded border border-[var(--ink-100)] flex flex-wrap gap-3">
                             {appr.loeValue && <span><strong>LOE:</strong> {appr.loeValue} {appr.loeUnit || "Hours"}</span>}
                             <span><strong>PO Number:</strong> {appr.poNumber}</span>
                             {appr.poValue && <span><strong>PO Value:</strong> {formatCurrency(appr.poValue)}</span>}
@@ -600,13 +600,13 @@ export default function OpportunityDetailPage() {
                         )}
 
                         {appr.requesterComment && (
-                          <div className="text-[11px] italic text-[var(--ink-700)] bg-white/60 p-2 rounded">
+                          <div className="text-[11px] italic text-[var(--ink-700)] bg-[var(--surface-raised)]/60 p-2 rounded">
                             Requester Note: "{appr.requesterComment}"
                           </div>
                         )}
 
                         {isDisapproved && (appr.approverComment || appr.comments) && (
-                          <div className="p-2.5 rounded-lg bg-white border border-[var(--rose-200)] text-[var(--rose-900)]">
+                          <div className="p-2.5 rounded-lg bg-[var(--surface-raised)] border border-[var(--rose-200)] text-[var(--rose-900)]">
                             <div className="font-bold text-[11px] text-rose-800">Reason for Disapproval:</div>
                             <p className="mt-0.5 italic text-xs">"{appr.approverComment || appr.comments}"</p>
                             {appr.reviewedBy && (
@@ -697,7 +697,7 @@ export default function OpportunityDetailPage() {
               ) : (
                 <div className="space-y-2">
                   {opp.quotes.map((q: any) => (
-                    <div key={q.id} className="flex items-center justify-between p-3 rounded-lg border border-[var(--ink-100)] bg-white text-sm">
+                    <div key={q.id} className="flex items-center justify-between p-3 rounded-lg border border-[var(--ink-100)] bg-[var(--surface-raised)] text-sm">
                       <div>
                         <div className="font-medium text-[var(--ink-900)] flex items-center gap-2">
                           {q.quoteNumber}

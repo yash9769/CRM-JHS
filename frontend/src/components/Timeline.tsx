@@ -62,13 +62,13 @@ export function Timeline({ activities = [], notes = [], assoc, queryKeysToInvali
 
       {tab === "note" && (
         <div className="mb-5 p-3 rounded-lg" style={{ background: "var(--ink-50)" }}>
-          <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write a note…" rows={3} className={`${inputClass} mb-2 bg-white`} style={inputStyle} />
+          <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write a note…" rows={3} className={`${inputClass} mb-2 bg-[var(--surface-raised)]`} style={inputStyle} />
           <Button size="sm" disabled={!body || addNote.isPending} onClick={() => addNote.mutate()}>Save note</Button>
         </div>
       )}
       {tab === "task" && (
         <div className="mb-5 p-3 rounded-lg" style={{ background: "var(--ink-50)" }}>
-          <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Task…" className={`${inputClass} mb-2 bg-white`} style={inputStyle} />
+          <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Task…" className={`${inputClass} mb-2 bg-[var(--surface-raised)]`} style={inputStyle} />
           <Button size="sm" disabled={!subject || logTask.isPending} onClick={() => logTask.mutate()}>Create task</Button>
         </div>
       )}

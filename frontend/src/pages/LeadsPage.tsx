@@ -162,7 +162,7 @@ export default function LeadsPage() {
       </BulkActionBar>
 
       {bulkOwnerPicker && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-72 p-3 rounded-lg border shadow-xl bg-white" style={{ borderColor: "var(--ink-100)" }}>
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-72 p-3 rounded-lg border shadow-xl bg-[var(--surface-raised)]" style={{ borderColor: "var(--ink-100)" }}>
           <div className="text-xs font-medium mb-2" style={{ color: "var(--ink-500)" }}>Assign {selected.size} lead(s) to</div>
           <RelationshipSelector
             value={bulkOwnerId} valueLabel={bulkOwnerLabel}
@@ -178,7 +178,7 @@ export default function LeadsPage() {
       )}
 
       {bulkStatusPicker && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-64 p-3 rounded-lg border shadow-xl bg-white" style={{ borderColor: "var(--ink-100)" }}>
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-64 p-3 rounded-lg border shadow-xl bg-[var(--surface-raised)]" style={{ borderColor: "var(--ink-100)" }}>
           <div className="text-xs font-medium mb-2" style={{ color: "var(--ink-500)" }}>Change status for {selected.size} lead(s)</div>
           <div className="flex flex-wrap gap-1.5">
             {STATUSES.filter((s) => s !== "ALL").map((s) => (

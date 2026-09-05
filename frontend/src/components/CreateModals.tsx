@@ -631,7 +631,7 @@ export function NewOpportunityModal({
 
             {/* Auto-Calculated Output Margins Bar */}
             <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[var(--ink-200)] text-xs">
-              <div className="p-3 rounded-lg bg-white border border-[var(--ink-100)] flex flex-col justify-between">
+              <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--ink-100)] flex flex-col justify-between">
                 <div className="flex items-center gap-1 text-[11px] text-[var(--ink-500)] font-medium mb-1">
                   <span>Margin Value (Auto-Calculated)</span>
                   <span title="Margin Value = Proposal Sent Value - Cost Incurred to Company" className="cursor-help text-[var(--ink-400)]"><Info size={11} /></span>
@@ -641,7 +641,7 @@ export function NewOpportunityModal({
                 </div>
               </div>
 
-              <div className="p-3 rounded-lg bg-white border border-[var(--ink-100)] flex flex-col justify-between">
+              <div className="p-3 rounded-lg bg-[var(--surface-raised)] border border-[var(--ink-100)] flex flex-col justify-between">
                 <div className="flex items-center gap-1 text-[11px] text-[var(--ink-500)] font-medium mb-1">
                   <span>Margin Percentage (Auto-Calculated)</span>
                   <span title="Margin % = (Margin Value / Proposal Sent Value) * 100" className="cursor-help text-[var(--ink-400)]"><Info size={11} /></span>

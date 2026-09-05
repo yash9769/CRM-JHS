@@ -105,7 +105,7 @@ export function ApprovalReviewModal({
             </div>
 
             {/* Opportunity Summary Details */}
-            <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-white border border-[var(--ink-100)]">
+            <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-[var(--surface-raised)] border border-[var(--ink-100)]">
               <div>
                 <div className="text-[10px] text-[var(--ink-400)] uppercase font-semibold">Opportunity</div>
                 <div className="font-bold text-sm text-[var(--ink-900)]">{opp?.name || "Opportunity"}</div>
@@ -207,7 +207,7 @@ export function ApprovalReviewModal({
 
             {/* Supporting Attachments */}
             {approval.attachments && approval.attachments.length > 0 && (
-              <div className="p-3 rounded-xl bg-white border border-[var(--ink-200)] space-y-2">
+              <div className="p-3 rounded-xl bg-[var(--surface-raised)] border border-[var(--ink-200)] space-y-2">
                 <div className="text-xs font-bold text-[var(--ink-800)]">
                   Supporting Documents ({approval.attachments.length})
                 </div>
@@ -290,7 +290,7 @@ export function ApprovalReviewModal({
                 rows={4}
                 required
                 placeholder="Please explain why this request cannot be approved (e.g., pricing adjustment required, missing scope document)..."
-                className="w-full p-2.5 rounded-lg border text-xs outline-none focus:ring-2 focus:ring-rose-500 border-[var(--ink-200)] bg-white"
+                className="w-full p-2.5 rounded-lg border text-xs outline-none focus:ring-2 focus:ring-rose-500 border-[var(--ink-200)] bg-[var(--surface-raised)]"
               />
               <p className="mt-1 text-[11px] text-[var(--ink-400)]">
                 Disapproval reason is mandatory and will be communicated to the requester.

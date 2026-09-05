@@ -35,7 +35,7 @@ export default function RegisterPage() {
           <img src="/envista_logo.png" alt="Envista Cyber Defence" className="h-16 md:h-20 max-w-[280px] object-contain drop-shadow-md" />
         </div>
 
-        <div className="bg-white rounded-xl p-7 shadow-2xl">
+        <div className="bg-[var(--surface-raised)] rounded-xl p-7 shadow-2xl">
           <h1 className="text-lg font-semibold mb-1" style={{ color: "var(--ink-900)" }}>Create your workspace</h1>
           <p className="text-sm mb-5" style={{ color: "var(--ink-500)" }}>Set up your sales pipeline in under a minute.</p>
 

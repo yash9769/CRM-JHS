@@ -118,7 +118,7 @@ export function RelationshipSelector({
       )}
 
       {open && (
-        <div className="absolute z-40 mt-1 w-full rounded-md border shadow-lg bg-white max-h-64 overflow-y-auto" style={{ borderColor: "var(--ink-200)" }}>
+        <div className="absolute z-40 mt-1 w-full rounded-md border shadow-lg bg-[var(--surface-raised)] max-h-64 overflow-y-auto" style={{ borderColor: "var(--ink-200)" }}>
           {loading ? (
             <div className="px-3 py-3 text-sm flex items-center gap-2" style={{ color: "var(--ink-400)" }}>
               <Loader2 size={13} className="animate-spin" /> Searching…

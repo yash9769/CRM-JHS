@@ -70,7 +70,7 @@ export function StageApprovalsWidget() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl border shadow-xl bg-white border-[var(--ink-100)] z-50 overflow-hidden">
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl border shadow-xl bg-[var(--surface-raised)] border-[var(--ink-100)] z-50 overflow-hidden">
           <div className="p-3 bg-[var(--ink-50)] border-b border-[var(--ink-100)] flex items-center justify-between">
             <div className="flex items-center gap-1.5 font-bold text-xs text-[var(--ink-800)]">
               <ShieldAlert size={15} className="text-[var(--ledger-600)]" />
@@ -104,7 +104,7 @@ export function StageApprovalsWidget() {
                     <Badge tone="amber">Pending</Badge>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-xs bg-white p-2 rounded border border-[var(--ink-100)]">
+                  <div className="flex items-center gap-1.5 text-xs bg-[var(--surface-raised)] p-2 rounded border border-[var(--ink-100)]">
                     <span className="text-[var(--ink-500)] line-through">{appr.fromStage?.name || "Old Stage"}</span>
                     <span className="text-[var(--ink-400)]">→</span>
                     <span className="font-bold text-[var(--ledger-700)]">{appr.toStage?.name || "Target Stage"}</span>
