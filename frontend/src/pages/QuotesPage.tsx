@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment, type ReactElement } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { PageHeader, Card, Button, Badge, Modal, Field, inputClass, inputStyle, EmptyState } from "../components/ui";
@@ -134,7 +134,7 @@ export default function QuotesPage() {
   const [showNew, setShowNew] = useState(false);
   const qc = useQueryClient();
 
-  const { visibleKeys, toggle, showAll, reset, isVisible } = useColumnVisibility(
+  const { visibleKeys, toggle, showAll, reset, isVisible, orderedColumns, reorder } = useColumnVisibility(
     "quotes-table",
     QUOTE_COLUMNS
   );
@@ -177,11 +177,12 @@ export default function QuotesPage() {
         action={
           <div className="flex flex-wrap items-center gap-2">
             <ColumnFilterDropdown
-              columns={QUOTE_COLUMNS}
+              columns={orderedColumns}
               visibleKeys={visibleKeys}
               onToggle={toggle}
               onShowAll={showAll}
               onReset={reset}
+              onReorder={reorder}
               label="Columns"
             />
             <Button variant="secondary" onClick={exportCsv}>
@@ -208,97 +209,72 @@ export default function QuotesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left border-b border-[var(--ink-100)]">
-                    {isVisible("quoteNumber") && (
-                      <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                        Quote #
+                    {orderedColumns.filter((col) => isVisible(col.key)).map((col) => (
+                      <th key={col.key} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
+                        {col.label}
                       </th>
-                    )}
-                    {isVisible("opportunity") && (
-                      <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                        Opportunity
-                      </th>
-                    )}
-                    {isVisible("account") && (
-                      <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                        Account
-                      </th>
-                    )}
-                    {isVisible("amount") && (
-                      <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                        Amount
-                      </th>
-                    )}
-                    {isVisible("status") && (
-                      <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                        Status
-                      </th>
-                    )}
-                    {isVisible("expires") && (
-                      <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                        Expires
-                      </th>
-                    )}
-                    {isVisible("actions") && (
-                      <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                        Actions
-                      </th>
-                    )}
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {data.data.map((q: any) => {
                     const sc = statusConfig[q.status] || statusConfig.DRAFT;
+                    const cellRenderers: Record<string, () => ReactElement> = {
+                      quoteNumber: () => (
+                        <td className="px-4 py-3 font-mono-num font-medium">{q.quoteNumber}</td>
+                      ),
+                      opportunity: () => (
+                        <td className="px-4 py-3">
+                          <span className="font-medium text-[var(--ledger-700)]">
+                            {q.opportunity?.name || "—"}
+                          </span>
+                        </td>
+                      ),
+                      account: () => (
+                        <td className="px-4 py-3 text-[var(--ink-600)]">{q.account?.name || "—"}</td>
+                      ),
+                      amount: () => (
+                        <td className="px-4 py-3 font-mono-num font-medium">{formatCurrency(q.amount)}</td>
+                      ),
+                      status: () => (
+                        <td className="px-4 py-3"><Badge tone={sc.tone}>{sc.label}</Badge></td>
+                      ),
+                      expires: () => (
+                        <td className="px-4 py-3 text-[var(--ink-500)]">{formatDate(q.expirationDate)}</td>
+                      ),
+                      actions: () => (
+                        <td className="px-4 py-3">
+                          <div className="flex gap-1 flex-wrap">
+                            <Button size="sm" variant="secondary" onClick={() => downloadPdf(q.id, q.quoteNumber)}>
+                              <Download size={12} /> PDF
+                            </Button>
+                            {q.status === "DRAFT" && (
+                              <Button size="sm" variant="secondary" onClick={() => updateStatus.mutate({ id: q.id, status: "SENT" })}>
+                                <Send size={12} /> Send
+                              </Button>
+                            )}
+                            {q.status === "SENT" && (
+                              <>
+                                <Button size="sm" variant="secondary" onClick={() => updateStatus.mutate({ id: q.id, status: "ACCEPTED" })}>
+                                  <CheckCircle size={12} /> Accept
+                                </Button>
+                                <Button size="sm" variant="danger" onClick={() => updateStatus.mutate({ id: q.id, status: "REJECTED" })}>
+                                  <XCircle size={12} /> Reject
+                                </Button>
+                              </>
+                            )}
+                            <Button size="sm" variant="secondary" onClick={() => duplicateMutation.mutate(q.id)} disabled={duplicateMutation.isPending}>
+                              <Copy size={12} /> Duplicate
+                            </Button>
+                          </div>
+                        </td>
+                      ),
+                    };
                     return (
                       <tr key={q.id} className="border-b last:border-0 hover:bg-[var(--ink-50)] border-[var(--ink-100)]">
-                        {isVisible("quoteNumber") && (
-                          <td className="px-4 py-3 font-mono-num font-medium">{q.quoteNumber}</td>
-                        )}
-                        {isVisible("opportunity") && (
-                          <td className="px-4 py-3">
-                            <span className="font-medium text-[var(--ledger-700)]">
-                              {q.opportunity?.name || "—"}
-                            </span>
-                          </td>
-                        )}
-                        {isVisible("account") && (
-                          <td className="px-4 py-3 text-[var(--ink-600)]">{q.account?.name || "—"}</td>
-                        )}
-                        {isVisible("amount") && (
-                          <td className="px-4 py-3 font-mono-num font-medium">{formatCurrency(q.amount)}</td>
-                        )}
-                        {isVisible("status") && (
-                          <td className="px-4 py-3"><Badge tone={sc.tone}>{sc.label}</Badge></td>
-                        )}
-                        {isVisible("expires") && (
-                          <td className="px-4 py-3 text-[var(--ink-500)]">{formatDate(q.expirationDate)}</td>
-                        )}
-                        {isVisible("actions") && (
-                          <td className="px-4 py-3">
-                            <div className="flex gap-1 flex-wrap">
-                              <Button size="sm" variant="secondary" onClick={() => downloadPdf(q.id, q.quoteNumber)}>
-                                <Download size={12} /> PDF
-                              </Button>
-                              {q.status === "DRAFT" && (
-                                <Button size="sm" variant="secondary" onClick={() => updateStatus.mutate({ id: q.id, status: "SENT" })}>
-                                  <Send size={12} /> Send
-                                </Button>
-                              )}
-                              {q.status === "SENT" && (
-                                <>
-                                  <Button size="sm" variant="secondary" onClick={() => updateStatus.mutate({ id: q.id, status: "ACCEPTED" })}>
-                                    <CheckCircle size={12} /> Accept
-                                  </Button>
-                                  <Button size="sm" variant="danger" onClick={() => updateStatus.mutate({ id: q.id, status: "REJECTED" })}>
-                                    <XCircle size={12} /> Reject
-                                  </Button>
-                                </>
-                              )}
-                              <Button size="sm" variant="secondary" onClick={() => duplicateMutation.mutate(q.id)} disabled={duplicateMutation.isPending}>
-                                <Copy size={12} /> Duplicate
-                              </Button>
-                            </div>
-                          </td>
-                        )}
+                        {orderedColumns.filter((col) => isVisible(col.key)).map((col) => (
+                          <Fragment key={col.key}>{cellRenderers[col.key]?.()}</Fragment>
+                        ))}
                       </tr>
                     );
                   })}

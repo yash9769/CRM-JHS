@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment, type ReactElement } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { PageHeader, Card, Button, Badge, Modal, Field, inputClass, inputStyle, EmptyState } from "../components/ui";
@@ -168,7 +168,7 @@ export default function ServicesPage() {
   const [showNew, setShowNew] = useState(false);
   const [editTarget, setEditTarget] = useState<Service | null>(null);
 
-  const { visibleKeys, toggle, showAll, reset, isVisible } = useColumnVisibility(
+  const { visibleKeys, toggle, showAll, reset, isVisible, orderedColumns, reorder } = useColumnVisibility(
     "services-table",
     SERVICE_COLUMNS
   );
@@ -191,11 +191,12 @@ export default function ServicesPage() {
         action={
           <div className="flex flex-wrap items-center gap-2">
             <ColumnFilterDropdown
-              columns={SERVICE_COLUMNS}
+              columns={orderedColumns}
               visibleKeys={visibleKeys}
               onToggle={toggle}
               onShowAll={showAll}
               onReset={reset}
+              onReorder={reorder}
               label="Columns"
             />
             <Button onClick={() => setShowNew(true)}>
@@ -226,60 +227,40 @@ export default function ServicesPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left border-b border-[var(--ink-100)]">
-                      {isVisible("name") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                          Name
+                      {orderedColumns.filter((col) => isVisible(col.key)).map((col) => (
+                        <th key={col.key} className={`px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)] ${col.key === "actions" ? "text-right" : ""}`}>
+                          {col.label}
                         </th>
-                      )}
-                      {isVisible("description") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                          Description
-                        </th>
-                      )}
-                      {isVisible("productsCount") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                          Linked Products
-                        </th>
-                      )}
-                      {isVisible("status") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
-                          Status
-                        </th>
-                      )}
-                      {isVisible("actions") && (
-                        <th className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)] text-right">
-                          Actions
-                        </th>
-                      )}
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {data.data.map((s) => (
-                      <tr key={s.id} className="border-b last:border-0 hover:bg-[var(--ink-50)] border-[var(--ink-100)]">
-                        {isVisible("name") && (
+                    {data.data.map((s) => {
+                      const cellRenderers: Record<string, () => ReactElement> = {
+                        name: () => (
                           <td className="px-4 py-3 font-medium text-[var(--ink-900)] flex items-center gap-2">
                             <Layers size={14} className="text-[var(--ledger-600)]" />
                             {s.name}
                           </td>
-                        )}
-                        {isVisible("description") && (
+                        ),
+                        description: () => (
                           <td className="px-4 py-3 text-xs text-[var(--ink-600)] max-w-md truncate">
                             {s.description || "—"}
                           </td>
-                        )}
-                        {isVisible("productsCount") && (
+                        ),
+                        productsCount: () => (
                           <td className="px-4 py-3 font-mono-num text-[var(--ink-700)]">
                             {s._count?.products ?? 0}
                           </td>
-                        )}
-                        {isVisible("status") && (
+                        ),
+                        status: () => (
                           <td className="px-4 py-3">
                             <Badge tone={s.active ? "green" : "neutral"}>
                               {s.active ? "Active" : "Inactive"}
                             </Badge>
                           </td>
-                        )}
-                        {isVisible("actions") && (
+                        ),
+                        actions: () => (
                           <td className="px-4 py-3 text-right">
                             <div className="flex items-center justify-end gap-1">
                               <button
@@ -300,9 +281,16 @@ export default function ServicesPage() {
                               </button>
                             </div>
                           </td>
-                        )}
-                      </tr>
-                    ))}
+                        ),
+                      };
+                      return (
+                        <tr key={s.id} className="border-b last:border-0 hover:bg-[var(--ink-50)] border-[var(--ink-100)]">
+                          {orderedColumns.filter((col) => isVisible(col.key)).map((col) => (
+                            <Fragment key={col.key}>{cellRenderers[col.key]?.()}</Fragment>
+                          ))}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
