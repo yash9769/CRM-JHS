@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 :root {
   /* Ledger CRM design tokens */
@@ -16,6 +17,7 @@
   --paper: #fbfbfa;
 
   --ledger-900: #0b3d2e;
+  --ledger-800: #0d5540;
   --ledger-700: #0f6b4e;
   --ledger-600: #12805e;
   --ledger-500: #17976f;
@@ -27,8 +29,93 @@
   --rose-600: #b5423a;
   --rose-100: #fbe7e5;
 
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Semantic surface tokens (theme-aware; redefined under dark mode below) */
+  --surface: var(--paper);
+  --surface-raised: #ffffff;
+  --surface-sunken: var(--ink-50);
+  --text-primary: var(--ink-900);
+  --text-secondary: var(--ink-600);
+  --border-default: var(--ink-100);
+  --ring-focus: var(--ledger-500);
+  --shadow-color: 220 20% 30%;
+
+  /* Motion */
+  --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+
+  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink-950: #f4f5f6;
+    --ink-900: #e8eaec;
+    --ink-800: #cfd3d7;
+    --ink-700: #aeb4ba;
+    --ink-600: #8b929a;
+    --ink-500: #6f7680;
+    --ink-400: #565d66;
+    --ink-300: #3c424a;
+    --ink-200: #2a2f35;
+    --ink-100: #1e2227;
+    --ink-50: #17191d;
+    --paper: #101214;
+
+    --ledger-900: #d6f3e4;
+    --ledger-800: #a9e6c6;
+    --ledger-700: #6fd6a4;
+    --ledger-600: #3ec489;
+    --ledger-500: #17976f;
+    --ledger-100: #123b2c;
+    --ledger-50: #0e2a20;
+
+    --amber-600: #e2a94a;
+    --amber-100: #3a2c11;
+    --rose-600: #e2857c;
+    --rose-100: #3a1a17;
+
+    --surface: var(--paper);
+    --surface-raised: #16181c;
+    --surface-sunken: #0c0e10;
+    --text-primary: var(--ink-900);
+    --text-secondary: var(--ink-600);
+    --border-default: var(--ink-100);
+    --shadow-color: 0 0% 0%;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ink-950: #f4f5f6;
+  --ink-900: #e8eaec;
+  --ink-800: #cfd3d7;
+  --ink-700: #aeb4ba;
+  --ink-600: #8b929a;
+  --ink-500: #6f7680;
+  --ink-400: #565d66;
+  --ink-300: #3c424a;
+  --ink-200: #2a2f35;
+  --ink-100: #1e2227;
+  --ink-50: #17191d;
+  --paper: #101214;
+
+  --ledger-900: #d6f3e4;
+  --ledger-800: #a9e6c6;
+  --ledger-700: #6fd6a4;
+  --ledger-600: #3ec489;
+  --ledger-500: #17976f;
+  --ledger-100: #123b2c;
+  --ledger-50: #0e2a20;
+
+  --amber-600: #e2a94a;
+  --amber-100: #3a2c11;
+  --rose-600: #e2857c;
+  --rose-100: #3a1a17;
+
+  --surface: var(--paper);
+  --surface-raised: #16181c;
+  --surface-sunken: #0c0e10;
 }
 
 * {
@@ -45,6 +132,7 @@ body {
   background: var(--paper);
   color: var(--ink-900);
   -webkit-font-smoothing: antialiased;
+  transition: background-color var(--duration-base) var(--ease-standard), color var(--duration-base) var(--ease-standard);
 }
 
 .font-mono-num {
@@ -58,6 +146,16 @@ body {
   color: var(--ledger-900);
 }
 
+/* Visible keyboard focus everywhere, mouse clicks stay clean */
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid var(--ring-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* Scrollbars */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--ink-200); border-radius: 8px; }
@@ -66,4 +164,21 @@ body {
 /* Kanban drag ghost */
 .kanban-card[data-dragging="true"] {
   opacity: 0.4;
+}
+
+/* Tactile press feedback for interactive elements */
+.press-feedback {
+  transition: transform var(--duration-fast) var(--ease-standard), background-color var(--duration-base) var(--ease-standard), box-shadow var(--duration-base) var(--ease-standard);
+}
+.press-feedback:active {
+  transform: scale(0.98);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
