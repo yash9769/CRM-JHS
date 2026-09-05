@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { formatCurrency, formatDate } from "../lib/format";
+import { computeOpportunityFinancials } from "../lib/financial";
 import { Badge, Modal, Button } from "./ui";
 import { ApprovalRequestModal } from "./ApprovalRequestModal";
 import { Building2, User, Calendar } from "lucide-react";
@@ -19,6 +20,7 @@ interface KanbanItem {
   stageId: string;
   closeDate?: string | null;
   expectedCloseDate?: string | null;
+  createdAt?: string | null;
   probability: number;
   account?: { name: string } | null;
   contact?: { firstName: string; lastName: string } | null;
@@ -119,6 +121,7 @@ export function KanbanBoard<T extends KanbanItem>({
                     : (item.contacts && item.contacts[0]?.contact ? `${item.contacts[0].contact.firstName} ${item.contacts[0].contact.lastName}` : null);
                   const closeDate = item.expectedCloseDate || item.closeDate;
                   const pendingAppr = item.stageApprovals?.find((a: any) => a.status === "PENDING");
+                  const financials = computeOpportunityFinancials(item);
 
                   return (
                     <Link
@@ -143,31 +146,37 @@ export function KanbanBoard<T extends KanbanItem>({
                         </div>
                       )}
 
-                      {/* Opportunity Value & Margin */}
+                      {/* Proposal Value, Cost Incurred, Margin */}
                       <div className="pt-2 border-t space-y-1" style={{ borderColor: "var(--ink-50)" }}>
                         <div className="flex items-center justify-between text-xs">
-                          <span className="font-semibold text-[var(--ink-500)]">
-                            {item.actualOpportunityValue !== null && item.actualOpportunityValue !== undefined ? "Actual:" : "Expected:"}
-                          </span>
+                          <span className="font-semibold text-[var(--ink-500)]">Proposal Value:</span>
                           <span className="font-mono-num font-bold text-sm text-[var(--ledger-800)]">
-                            {item.actualOpportunityValue !== null && item.actualOpportunityValue !== undefined
-                              ? formatCurrency(item.actualOpportunityValue)
-                              : item.expectedOpportunityValue !== null && item.expectedOpportunityValue !== undefined
-                              ? formatCurrency(item.expectedOpportunityValue)
+                            {financials.actualOpportunityValue !== null
+                              ? formatCurrency(financials.actualOpportunityValue)
+                              : financials.expectedOpportunityValue !== null
+                              ? formatCurrency(financials.expectedOpportunityValue)
                               : formatCurrency(item.amount)}
                           </span>
                         </div>
 
                         <div className="flex items-center justify-between text-xs">
-                          <span className="font-semibold text-[var(--ink-500)]">
-                            {item.grossMargin !== null && item.grossMargin !== undefined ? "Gross Margin:" : "Margin:"}
+                          <span className="font-semibold text-[var(--ink-500)]">Cost Incurred to Company:</span>
+                          <span className="font-mono-num font-medium text-[var(--ink-600)]">
+                            {financials.bottomLineCost !== null ? formatCurrency(financials.bottomLineCost) : "—"}
                           </span>
-                          <span className={`font-mono-num font-bold ${item.grossMargin !== null && item.grossMargin !== undefined && Number(item.grossMargin) < 0 ? "text-rose-600" : "text-emerald-700"}`}>
-                            {item.grossMargin !== null && item.grossMargin !== undefined
-                              ? formatCurrency(item.grossMargin)
-                              : item.expectedMargin !== null && item.expectedMargin !== undefined
-                              ? formatCurrency(item.expectedMargin)
-                              : "—"}
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-[var(--ink-500)]">Margin Value:</span>
+                          <span className={`font-mono-num font-bold ${financials.marginValue !== null && financials.marginValue < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                            {financials.marginValue !== null ? formatCurrency(financials.marginValue) : "—"}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-[var(--ink-500)]">Margin %:</span>
+                          <span className={`font-mono-num font-bold ${financials.marginPercentage !== null && financials.marginPercentage < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                            {financials.marginPercentage !== null ? `${financials.marginPercentage.toFixed(1)}%` : "—"}
                           </span>
                         </div>
 
@@ -209,6 +218,12 @@ export function KanbanBoard<T extends KanbanItem>({
                             </span>
                           )}
                         </div>
+                        {item.createdAt && (
+                          <div className="flex items-center gap-1.5 font-mono-num text-[10px]" style={{ color: "var(--ink-400)" }}>
+                            <span>Created:</span>
+                            <span>{formatDate(item.createdAt)}</span>
+                          </div>
+                        )}
                       </div>
                     </Link>
                   );

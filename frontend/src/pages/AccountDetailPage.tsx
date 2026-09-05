@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient as useQC2 } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { Card, Badge, StageBadge, EmptyState, Button } from "../components/ui";
+import { Card, Badge, StageBadge, EmptyState, Button, BackButton } from "../components/ui";
 import { Timeline } from "../components/Timeline";
 import { NewContactModal, NewOpportunityModal } from "../components/CreateModals";
 import { EditAccountModal, ArchiveConfirmModal } from "../components/EditModals";
@@ -38,6 +38,7 @@ export default function AccountDetailPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div className="flex items-center gap-3">
+          <BackButton />
           <div className="w-11 h-11 rounded-lg flex items-center justify-center bg-[var(--ink-50)]">
             <Building2 size={20} className="text-[var(--ink-500)]" />
           </div>

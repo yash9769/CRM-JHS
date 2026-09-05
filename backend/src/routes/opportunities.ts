@@ -5,6 +5,7 @@ import { logAudit, notify } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
 import { getCreatedByFilter, requireCanAccess, requireExportPermission, getVisibleUserIds } from "../lib/rbac.js";
 import { computeOpportunityFinancials } from "../lib/financial.js";
+import { phoneSchema, nameSchema } from "../lib/validators.js";
 
 export function isApprovalRequiredStage(stageName: string, userRole: string = "MANAGER"): boolean {
   if (!stageName) return false;
@@ -47,16 +48,16 @@ const newAccountSchema = z.object({
   name: z.string().min(1),
   domain: z.string().optional().nullable(),
   industry: z.string().optional().nullable(),
-  phone: z.string().optional().nullable(),
+  phone: phoneSchema,
   website: z.string().optional().nullable(),
   ownerId: z.string().uuid().optional(),
 });
 
 const newContactSchema = z.object({
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
+  firstName: nameSchema,
+  lastName: nameSchema,
   email: z.string().email().optional().nullable().or(z.literal("")),
-  phone: z.string().regex(/^\d+$/, "Phone number must contain only numeric digits").optional().nullable().or(z.literal("")),
+  phone: phoneSchema,
   jobTitle: z.string().optional().nullable(),
 });
 
@@ -89,7 +90,7 @@ const opportunitySchema = z.object({
   leadSource: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
   remarks: z.string().optional().nullable(),
-  contactIds: z.array(z.string().uuid()).optional(),
+  contactIds: z.array(z.string().uuid()).max(5, "An opportunity can have at most 5 linked contacts").optional(),
   properties: z.record(z.any()).optional(),
 });
 
@@ -787,6 +788,9 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       const allContactIds = new Set<string>();
       if (contactId) allContactIds.add(contactId);
       if (body.contactIds) body.contactIds.forEach((id) => allContactIds.add(id));
+      if (allContactIds.size > 5) {
+        throw Object.assign(new Error("An opportunity can have at most 5 linked contacts"), { statusCode: 400 });
+      }
 
       const expectedOpportunityValue = body.expectedOpportunityValue !== undefined && body.expectedOpportunityValue !== null
         ? body.expectedOpportunityValue
@@ -1091,6 +1095,9 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       if (contactIds || rest.contactId) {
         const idsToLink = new Set<string>(contactIds || []);
         if (rest.contactId) idsToLink.add(rest.contactId);
+        if (idsToLink.size > 5) {
+          throw Object.assign(new Error("An opportunity can have at most 5 linked contacts"), { statusCode: 400 });
+        }
 
         await tx.opportunityContact.deleteMany({ where: { opportunityId: id } });
         if (idsToLink.size > 0) {
