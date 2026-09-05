@@ -1,14 +1,33 @@
 import type { ReactNode } from "react";
-import { X } from "lucide-react";
+import { X, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+export function BackButton({ className = "" }: { className?: string }) {
+  const navigate = useNavigate();
+  return (
+    <button
+      type="button"
+      onClick={() => navigate(-1)}
+      className={`inline-flex items-center justify-center rounded-lg p-1.5 hover:bg-[var(--ink-100)] transition-colors ${className}`}
+      style={{ color: "var(--ink-500)" }}
+      aria-label="Go back"
+    >
+      <ArrowLeft size={18} />
+    </button>
+  );
+}
 
 export function PageHeader({
-  title, subtitle, action,
-}: { title: string; subtitle?: string; action?: ReactNode }) {
+  title, subtitle, action, showBack = false,
+}: { title: string; subtitle?: string; action?: ReactNode; showBack?: boolean }) {
   return (
     <div className="flex items-center justify-between px-8 pt-7 pb-5">
-      <div>
-        <h1 className="text-[22px] font-semibold tracking-tight" style={{ color: "var(--ink-900)" }}>{title}</h1>
-        {subtitle && <p className="text-sm mt-0.5" style={{ color: "var(--ink-500)" }}>{subtitle}</p>}
+      <div className="flex items-center gap-2">
+        {showBack && <BackButton />}
+        <div>
+          <h1 className="text-[22px] font-semibold tracking-tight" style={{ color: "var(--ink-900)" }}>{title}</h1>
+          {subtitle && <p className="text-sm mt-0.5" style={{ color: "var(--ink-500)" }}>{subtitle}</p>}
+        </div>
       </div>
       {action}
     </div>

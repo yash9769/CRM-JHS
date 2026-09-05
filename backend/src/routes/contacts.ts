@@ -4,13 +4,14 @@ import { prisma } from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
 import { getCreatedByFilter, requireCanAccess, requireExportPermission } from "../lib/rbac.js";
+import { phoneSchema, nameSchema } from "../lib/validators.js";
 
 const contactSchema = z.object({
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
+  firstName: nameSchema,
+  lastName: nameSchema,
   email: z.string().email().optional().nullable().or(z.literal("")),
-  phone: z.string().regex(/^\d+$/, "Phone number must contain only numeric digits").optional().nullable().or(z.literal("")),
-  phoneNumber: z.string().regex(/^\d+$/, "Phone number must contain only numeric digits").optional().nullable().or(z.literal("")),
+  phone: phoneSchema,
+  phoneNumber: phoneSchema,
   jobTitle: z.string().optional().nullable(),
   designation: z.string().optional().nullable(),
   lifecycleStage: z

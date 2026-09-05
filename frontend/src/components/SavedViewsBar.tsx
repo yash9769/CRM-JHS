@@ -7,16 +7,22 @@ interface SavedView {
   id: string;
   name: string;
   filters: Record<string, any>;
+  columns?: string[] | null;
 }
 
 export function SavedViewsBar<F extends Record<string, any>>({
   objectType,
   currentFilters,
   onApply,
+  currentColumns,
+  onApplyColumns,
 }: {
   objectType: "LEAD" | "ACCOUNT" | "CONTACT" | "OPPORTUNITY";
   currentFilters: F;
   onApply: (filters: F) => void;
+  /** Current column order (visible + hidden keys, in display order) -- saved/restored alongside filters when provided. */
+  currentColumns?: string[];
+  onApplyColumns?: (columns: string[]) => void;
 }) {
   const qc = useQueryClient();
   const [saving, setSaving] = useState(false);
@@ -28,7 +34,7 @@ export function SavedViewsBar<F extends Record<string, any>>({
   });
 
   const saveMutation = useMutation({
-    mutationFn: () => api.post("/saved-views", { objectType, name, filters: currentFilters }),
+    mutationFn: () => api.post("/saved-views", { objectType, name, filters: currentFilters, columns: currentColumns }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["saved-views", objectType] }); setSaving(false); setName(""); },
   });
 
@@ -41,7 +47,13 @@ export function SavedViewsBar<F extends Record<string, any>>({
     <div className="flex items-center gap-1.5 flex-wrap">
       {data?.data.map((v) => (
         <div key={v.id} className="group flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-full text-xs font-medium" style={{ background: "var(--ink-50)", color: "var(--ink-600)" }}>
-          <button onClick={() => onApply(v.filters as F)} className="flex items-center gap-1">
+          <button
+            onClick={() => {
+              onApply(v.filters as F);
+              if (v.columns && v.columns.length > 0) onApplyColumns?.(v.columns);
+            }}
+            className="flex items-center gap-1"
+          >
             <Bookmark size={11} /> {v.name}
           </button>
           <button onClick={() => deleteMutation.mutate(v.id)} className="opacity-0 group-hover:opacity-100 p-0.5">

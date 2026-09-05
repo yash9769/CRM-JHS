@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { Card, Badge, Button, Modal, Field, inputClass, inputStyle } from "../components/ui";
+import { Card, Badge, Button, Modal, Field, inputClass, inputStyle, BackButton } from "../components/ui";
 import { RelationshipSelector } from "../components/RelationshipSelector";
 import { fetchAccountOptions, fetchContactOptions, fetchOwnerOptions } from "../lib/pickers";
 import { Timeline } from "../components/Timeline";
@@ -196,6 +196,7 @@ export default function LeadDetailPage() {
     <div className="px-8 py-7 max-w-5xl">
       <div className="flex items-start justify-between mb-6">
         <div className="flex items-center gap-3">
+          <BackButton />
           <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-semibold text-white" style={{ background: "var(--ink-600)" }}>
             {initials(lead.firstName, lead.lastName)}
           </div>

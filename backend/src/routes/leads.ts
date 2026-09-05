@@ -4,15 +4,16 @@ import { prisma } from "../lib/prisma.js";
 import { logAudit, notify } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
 import { getCreatedByFilter, requireExportPermission, requireCanAccess, getVisibleUserIds } from "../lib/rbac.js";
+import { phoneSchema, nameSchema } from "../lib/validators.js";
 import type { AuthUser } from "../plugins/auth.js";
 
 const LEAD_STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "NURTURING", "UNQUALIFIED", "CONVERTED"] as const;
 
 const leadSchema = z.object({
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
+  firstName: nameSchema,
+  lastName: nameSchema,
   email: z.string().email().optional().nullable().or(z.literal("")),
-  phone: z.string().optional().nullable(),
+  phone: phoneSchema,
   companyName: z.string().optional().nullable(),
   jobTitle: z.string().optional().nullable(),
   source: z.string().optional().nullable(),

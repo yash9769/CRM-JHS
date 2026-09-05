@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { SlidersHorizontal, RotateCcw } from "lucide-react";
+import { SlidersHorizontal, RotateCcw, GripVertical } from "lucide-react";
 import { Button } from "./ui";
 
 export interface ColumnDef {
@@ -11,6 +11,54 @@ export interface ColumnDef {
 
 export function useColumnVisibility(pageKey: string, columns: ColumnDef[]) {
   const storageKey = `crm_cols_${pageKey}`;
+  const orderStorageKey = `crm_cols_order_${pageKey}`;
+
+  const [order, setOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(orderStorageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const validKeys = parsed.filter((k: string) => columns.some((c) => c.key === k));
+          const missing = columns.map((c) => c.key).filter((k) => !validKeys.includes(k));
+          return [...validKeys, ...missing];
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return columns.map((c) => c.key);
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(orderStorageKey, JSON.stringify(order));
+    } catch {
+      // ignore
+    }
+  }, [orderStorageKey, order]);
+
+  function reorder(draggedKey: string, targetKey: string) {
+    if (draggedKey === targetKey) return;
+    setOrder((prev) => {
+      const next = prev.filter((k) => k !== draggedKey);
+      const targetIdx = next.indexOf(targetKey);
+      if (targetIdx === -1) return prev;
+      next.splice(targetIdx, 0, draggedKey);
+      return next;
+    });
+  }
+
+  const orderedColumns = order
+    .map((k) => columns.find((c) => c.key === k))
+    .filter((c): c is ColumnDef => !!c);
+
+  /** Apply a saved column order (e.g. from a SavedView), keeping any newly-added columns appended. */
+  function applyOrder(savedOrder: string[]) {
+    const validKeys = savedOrder.filter((k) => columns.some((c) => c.key === k));
+    const missing = columns.map((c) => c.key).filter((k) => !validKeys.includes(k));
+    setOrder([...validKeys, ...missing]);
+  }
 
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(() => {
     try {
@@ -98,6 +146,10 @@ export function useColumnVisibility(pageKey: string, columns: ColumnDef[]) {
     showAll,
     reset,
     isVisible,
+    order,
+    orderedColumns,
+    reorder,
+    applyOrder,
   };
 }
 
@@ -107,6 +159,7 @@ export function ColumnFilterDropdown({
   onToggle,
   onShowAll,
   onReset,
+  onReorder,
   label = "Columns",
 }: {
   columns: ColumnDef[];
@@ -114,9 +167,11 @@ export function ColumnFilterDropdown({
   onToggle: (key: string) => void;
   onShowAll: () => void;
   onReset: () => void;
+  onReorder?: (draggedKey: string, targetKey: string) => void;
   label?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [dragKey, setDragKey] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -188,10 +243,22 @@ export function ColumnFilterDropdown({
               return (
                 <label
                   key={col.key}
+                  draggable={!!onReorder}
+                  onDragStart={() => setDragKey(col.key)}
+                  onDragOver={(e) => onReorder && e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (onReorder && dragKey) onReorder(dragKey, col.key);
+                    setDragKey(null);
+                  }}
+                  onDragEnd={() => setDragKey(null)}
                   className="flex items-center justify-between px-2.5 py-1.5 rounded-md hover:bg-[var(--ink-50)] cursor-pointer select-none"
-                  style={{ color: "var(--ink-700)" }}
+                  style={{ color: "var(--ink-700)", opacity: dragKey === col.key ? 0.4 : 1 }}
                 >
-                  <span className="font-medium">{col.label}</span>
+                  <span className="flex items-center gap-1.5 font-medium">
+                    {onReorder && <GripVertical size={12} className="cursor-grab shrink-0" style={{ color: "var(--ink-300)" }} />}
+                    {col.label}
+                  </span>
                   <input
                     type="checkbox"
                     checked={active}
