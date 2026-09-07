@@ -336,12 +336,13 @@ async function main() {
 
       const createdDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 5 + w * 5);
       const wonDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 20 + w * 2);
-
       const exists = await prisma.opportunity.findFirst({
         where: { tenantId: tenant.id, name: oppName },
       });
 
       if (!exists) {
+        const costRatio = 0.48 + (((monthIndex * 2 + w) % 7) * 0.04);
+        const oppCost = Math.round(oppAmount * costRatio);
         const opp = await prisma.opportunity.create({
           data: {
             tenantId: tenant.id,
@@ -349,6 +350,9 @@ async function main() {
             accountId: acc.id,
             contactId: contactsList[(monthIndex + w) % contactsList.length]?.id || null,
             amount: oppAmount,
+            expectedOpportunityValue: oppAmount,
+            actualOpportunityValue: oppAmount,
+            bottomLineCost: oppCost,
             pipelineId: oppPipeline.id,
             stageId: oppStages["Closed Won"] || oppStages["Proposal Won"],
             probability: 100,
@@ -400,12 +404,20 @@ async function main() {
       });
 
       if (!exists) {
+        const lostAmt = Number(prod.unitPrice);
+        const isEarly = monthIndex % 4 === 0;
+        const actVal = isEarly ? null : lostAmt;
+        const costRatio = 0.50 + ((monthIndex % 5) * 0.04);
+        const cost = actVal !== null ? Math.round(actVal * costRatio) : null;
         await prisma.opportunity.create({
           data: {
             tenantId: tenant.id,
             name: oppName,
             accountId: acc.id,
-            amount: Number(prod.unitPrice),
+            amount: lostAmt,
+            expectedOpportunityValue: lostAmt,
+            actualOpportunityValue: actVal,
+            bottomLineCost: cost,
             pipelineId: oppPipeline.id,
             stageId: oppStages["Closed Lost"] || oppStages["Proposal Lost"],
             probability: 0,
@@ -417,34 +429,86 @@ async function main() {
             expectedCloseDate: lostDate,
             actualCloseDate: lostDate,
             lostReason: lostReasons[monthIndex % lostReasons.length],
-            description: `RFP proposal lost during final negotiation stage.`,
+            description: `RFP proposal lost during evaluation.`,
           },
         });
       }
     }
   }
 
-  // Active Open Opportunities in Current Pipeline (August 2026)
+  // Active Open Opportunities in Current Pipeline across all 9 stages
   const openOppsData = [
-    { name: "ICICI Securities Cloud Compliance & SOC 2026", accIdx: 5, prodIdx: 0, amount: 4500000, stage: "Negotiation", prob: 80, fc: "COMMIT" as const, daysOut: 15, owner: usersMap["yashodhan.rajapkar@envistacyberdefence.com"] },
-    { name: "TCS Global MDR SOC Retainer Expansion", accIdx: 0, prodIdx: 8, amount: 6500000, stage: "Proposal Sent", prob: 65, fc: "BEST_CASE" as const, daysOut: 25, owner: usersMap["senior.partner@crm.com"] },
-    { name: "Reliance Jio 5G Core Vulnerability Hardening", accIdx: 3, prodIdx: 5, amount: 3200000, stage: "Scope Discussion", prob: 50, fc: "PIPELINE" as const, daysOut: 45, owner: usersMap["partner@crm.com"] },
-    { name: "HDFC Bank Payment Gateway EDR Upgrade", accIdx: 4, prodIdx: 3, amount: 2800000, stage: "Negotiation", prob: 80, fc: "COMMIT" as const, daysOut: 10, owner: usersMap["anita.desai@crm.com"] },
-    { name: "Wipro Container & K8s Security Review", accIdx: 2, prodIdx: 10, amount: 1400000, stage: "Scope Discussion", prob: 50, fc: "PIPELINE" as const, daysOut: 30, owner: usersMap["manager@crm.com"] },
-    { name: "Zerodha Automated Ransomware Shield Setup", accIdx: 17, prodIdx: 6, amount: 1800000, stage: "Proposal Sent", prob: 65, fc: "BEST_CASE" as const, daysOut: 20, owner: usersMap["amit.patel@crm.com"] },
-    { name: "Razorpay PCI-DSS Compliance & Audit 2026", accIdx: 18, prodIdx: 4, amount: 1200000, stage: "Scope Discussion", prob: 50, fc: "PIPELINE" as const, daysOut: 60, owner: usersMap["rahul.kapoor@crm.com"] },
-    { name: "Acme Corp Next-Gen Firewall Installation", accIdx: 10, prodIdx: 7, amount: 950000, stage: "Lead", prob: 20, fc: "PIPELINE" as const, daysOut: 90, owner: usersMap["manager@crm.com"] },
+    // 1. Prospect
+    { name: "Tata Consultancy Services - AI Red Teaming & LLM Security Assessment", accIdx: 0, prodIdx: 5, expected: 1850000, actual: null, costRatio: null, stage: "Prospect", prob: 10, fc: "PIPELINE" as const, daysOut: 90, type: "NEW_BUSINESS" as const, owner: usersMap["yashodhan.rajapkar@envistacyberdefence.com"] },
+    { name: "Infosys Technologies - OT & IoT Infrastructure Security Audit", accIdx: 1, prodIdx: 1, expected: 1200000, actual: null, costRatio: null, stage: "Prospect", prob: 10, fc: "PIPELINE" as const, daysOut: 100, type: "NEW_BUSINESS" as const, owner: usersMap["senior.partner@crm.com"] },
+    { name: "Wipro Digital - Zero Trust Architecture Readiness Assessment", accIdx: 2, prodIdx: 9, expected: 2400000, actual: null, costRatio: null, stage: "Prospect", prob: 10, fc: "PIPELINE" as const, daysOut: 110, type: "EXPANSION" as const, owner: usersMap["partner@crm.com"] },
+    { name: "Reliance Industries - Supply Chain Cyber Risk Rating Review", accIdx: 3, prodIdx: 4, expected: 3200000, actual: null, costRatio: null, stage: "Prospect", prob: 10, fc: "PIPELINE" as const, daysOut: 120, type: "NEW_BUSINESS" as const, owner: usersMap["anita.desai@crm.com"] },
+    { name: "HDFC Bank - SWIFT Payment Gateway Vulnerability Inspection", accIdx: 4, prodIdx: 2, expected: 1500000, actual: null, costRatio: null, stage: "Prospect", prob: 10, fc: "PIPELINE" as const, daysOut: 80, type: "RENEWAL" as const, owner: usersMap["manager@crm.com"] },
+
+    // 2. Lead
+    { name: "ICICI Bank - Cloud Workload Protection (CWPP) Platform Implementation", accIdx: 5, prodIdx: 1, expected: 2800000, actual: null, costRatio: null, stage: "Lead", prob: 20, fc: "PIPELINE" as const, daysOut: 75, type: "NEW_BUSINESS" as const, owner: usersMap["amit.patel@crm.com"] },
+    { name: "State Bank of India - Perimeter DDoS & API Gateway Hardening", accIdx: 6, prodIdx: 7, expected: 3600000, actual: null, costRatio: null, stage: "Lead", prob: 20, fc: "PIPELINE" as const, daysOut: 85, type: "EXPANSION" as const, owner: usersMap["rahul.kapoor@crm.com"] },
+    { name: "Bharti Airtel - Telecom Core 5G Slice Security Assessment", accIdx: 7, prodIdx: 2, expected: 4200000, actual: null, costRatio: null, stage: "Lead", prob: 20, fc: "PIPELINE" as const, daysOut: 70, type: "NEW_BUSINESS" as const, owner: usersMap["yashodhan.rajapkar@envistacyberdefence.com"] },
+    { name: "Larsen & Toubro - Industrial SCADA & DCS Penetration Testing", accIdx: 8, prodIdx: 2, expected: 1750000, actual: null, costRatio: null, stage: "Lead", prob: 20, fc: "PIPELINE" as const, daysOut: 90, type: "NEW_BUSINESS" as const, owner: usersMap["senior.partner@crm.com"] },
+    { name: "Tech Mahindra - Identity Threat Detection & Response (ITDR)", accIdx: 9, prodIdx: 3, expected: 2100000, actual: null, costRatio: null, stage: "Lead", prob: 20, fc: "PIPELINE" as const, daysOut: 65, type: "RENEWAL" as const, owner: usersMap["partner@crm.com"] },
+
+    // 3. Marketing Qualified Lead
+    { name: "Acme Corp - Next-Gen SIEM Migration & Threat Hunting Onboarding", accIdx: 10, prodIdx: 8, expected: 2600000, actual: null, costRatio: null, stage: "Marketing Qualified Lead", prob: 30, fc: "PIPELINE" as const, daysOut: 60, type: "NEW_BUSINESS" as const, owner: usersMap["anita.desai@crm.com"] },
+    { name: "Axis Bank - Enterprise Secrets Management & Vault Deployment", accIdx: 11, prodIdx: 1, expected: 3100000, actual: null, costRatio: null, stage: "Marketing Qualified Lead", prob: 30, fc: "PIPELINE" as const, daysOut: 55, type: "EXPANSION" as const, owner: usersMap["manager@crm.com"] },
+    { name: "Sun Pharma - GxP Compliance & FDA Part 11 Electronic Records Audit", accIdx: 12, prodIdx: 4, expected: 1900000, actual: null, costRatio: null, stage: "Marketing Qualified Lead", prob: 30, fc: "PIPELINE" as const, daysOut: 65, type: "NEW_BUSINESS" as const, owner: usersMap["amit.patel@crm.com"] },
+    { name: "Bajaj Auto - Connected Vehicle Telematics Cloud Vulnerability Assessment", accIdx: 13, prodIdx: 2, expected: 2250000, actual: null, costRatio: null, stage: "Marketing Qualified Lead", prob: 30, fc: "PIPELINE" as const, daysOut: 70, type: "NEW_BUSINESS" as const, owner: usersMap["rahul.kapoor@crm.com"] },
+    { name: "Maruti Suzuki - Ransomware Resilience & Offline Backup Architecture", accIdx: 14, prodIdx: 11, expected: 1400000, actual: null, costRatio: null, stage: "Marketing Qualified Lead", prob: 30, fc: "PIPELINE" as const, daysOut: 50, type: "EXPANSION" as const, owner: usersMap["yashodhan.rajapkar@envistacyberdefence.com"] },
+
+    // 4. Scope Discussion
+    { name: "Zomato Media - Merchant Portal Microservices Pen Test", accIdx: 15, prodIdx: 2, expected: 1600000, actual: null, costRatio: 0.54, stage: "Scope Discussion", prob: 50, fc: "PIPELINE" as const, daysOut: 40, type: "NEW_BUSINESS" as const, owner: usersMap["senior.partner@crm.com"] },
+    { name: "Swiggy Technologies - Real-Time Fraud & Promo Abuse Engine Audit", accIdx: 16, prodIdx: 10, expected: 2400000, actual: null, costRatio: 0.62, stage: "Scope Discussion", prob: 50, fc: "PIPELINE" as const, daysOut: 45, type: "EXPANSION" as const, owner: usersMap["partner@crm.com"] },
+    { name: "Zerodha Broking - High-Frequency Trading Protocol Encryption Scoping", accIdx: 17, prodIdx: 1, expected: 3800000, actual: null, costRatio: 0.50, stage: "Scope Discussion", prob: 50, fc: "PIPELINE" as const, daysOut: 35, type: "EXPANSION" as const, owner: usersMap["anita.desai@crm.com"] },
+    { name: "Razorpay Software - ISO 27701 Privacy Information Management System", accIdx: 18, prodIdx: 4, expected: 1800000, actual: null, costRatio: 0.58, stage: "Scope Discussion", prob: 50, fc: "PIPELINE" as const, daysOut: 50, type: "NEW_BUSINESS" as const, owner: usersMap["manager@crm.com"] },
+    { name: "Freshworks Inc - SaaS Multi-Tenant Database Encryption Scoping", accIdx: 19, prodIdx: 1, expected: 2900000, actual: null, costRatio: 0.65, stage: "Scope Discussion", prob: 50, fc: "PIPELINE" as const, daysOut: 30, type: "RENEWAL" as const, owner: usersMap["amit.patel@crm.com"] },
+
+    // 5. Proposal Sent
+    { name: "Tata Consultancy Services - 24/7 Managed SOC Enterprise Expansion", accIdx: 0, prodIdx: 0, expected: 5400000, actual: 5200000, costRatio: 0.56, stage: "Proposal Sent", prob: 65, fc: "BEST_CASE" as const, daysOut: 25, type: "EXPANSION" as const, owner: usersMap["rahul.kapoor@crm.com"] },
+    { name: "Infosys Technologies - Enterprise EDR 5,000 Endpoint License Bundle", accIdx: 1, prodIdx: 3, expected: 4800000, actual: 4500000, costRatio: 0.68, stage: "Proposal Sent", prob: 65, fc: "BEST_CASE" as const, daysOut: 20, type: "NEW_BUSINESS" as const, owner: usersMap["yashodhan.rajapkar@envistacyberdefence.com"] },
+    { name: "Wipro Digital - Cloud Infrastructure SOC 2 & FedRAMP Alignment", accIdx: 2, prodIdx: 9, expected: 3500000, actual: 3500000, costRatio: 0.50, stage: "Proposal Sent", prob: 65, fc: "BEST_CASE" as const, daysOut: 30, type: "NEW_BUSINESS" as const, owner: usersMap["senior.partner@crm.com"] },
+    { name: "Reliance Industries - Red Team Threat Simulation for Refinery DCS", accIdx: 3, prodIdx: 5, expected: 2400000, actual: 2300000, costRatio: 0.61, stage: "Proposal Sent", prob: 65, fc: "BEST_CASE" as const, daysOut: 18, type: "RENEWAL" as const, owner: usersMap["partner@crm.com"] },
+    { name: "HDFC Bank - Incident Response Retainer 200-Hour Block", accIdx: 4, prodIdx: 6, expected: 1600000, actual: 1600000, costRatio: 0.52, stage: "Proposal Sent", prob: 65, fc: "BEST_CASE" as const, daysOut: 22, type: "RENEWAL" as const, owner: usersMap["anita.desai@crm.com"] },
+
+    // 6. Negotiation
+    { name: "ICICI Bank - Next-Gen Firewall & Microsegmentation Licensing", accIdx: 5, prodIdx: 7, expected: 4500000, actual: 4250000, costRatio: 0.65, stage: "Negotiation", prob: 80, fc: "COMMIT" as const, daysOut: 10, type: "NEW_BUSINESS" as const, owner: usersMap["manager@crm.com"] },
+    { name: "State Bank of India - Core Banking Mobile App VAPT & Reverse Engineering", accIdx: 6, prodIdx: 2, expected: 2000000, actual: 1950000, costRatio: 0.49, stage: "Negotiation", prob: 80, fc: "COMMIT" as const, daysOut: 7, type: "RENEWAL" as const, owner: usersMap["amit.patel@crm.com"] },
+    { name: "Bharti Airtel - Cloud SIEM Log Ingestion Enterprise License", accIdx: 7, prodIdx: 8, expected: 3800000, actual: 3600000, costRatio: 0.58, stage: "Negotiation", prob: 80, fc: "COMMIT" as const, daysOut: 12, type: "EXPANSION" as const, owner: usersMap["rahul.kapoor@crm.com"] },
+    { name: "Larsen & Toubro - ISO 27001 Multi-Site Audit Support 2026", accIdx: 8, prodIdx: 4, expected: 1800000, actual: 1750000, costRatio: 0.53, stage: "Negotiation", prob: 80, fc: "COMMIT" as const, daysOut: 14, type: "NEW_BUSINESS" as const, owner: usersMap["yashodhan.rajapkar@envistacyberdefence.com"] },
+    { name: "Tech Mahindra - Kubernetes Security & Cluster Admission Control", accIdx: 9, prodIdx: 10, expected: 2500000, actual: 2400000, costRatio: 0.63, stage: "Negotiation", prob: 80, fc: "COMMIT" as const, daysOut: 8, type: "EXPANSION" as const, owner: usersMap["senior.partner@crm.com"] },
+
+    // 7. Opportunity Dead
+    { name: "Acme Corp - Mobile App Source Code Security Review", accIdx: 10, prodIdx: 2, expected: 1100000, actual: null, costRatio: null, stage: "Opportunity Dead", prob: 0, fc: "CLOSED_LOST" as const, daysOut: -80, type: "NEW_BUSINESS" as const, owner: usersMap["partner@crm.com"], lostReason: "Client mobile rewrite shelved indefinitely due to budget cuts" },
+    { name: "Tata Consultancy Services - Legacy Mainframe Security Scoping", accIdx: 0, prodIdx: 1, expected: 2100000, actual: null, costRatio: null, stage: "Opportunity Dead", prob: 0, fc: "CLOSED_LOST" as const, daysOut: -95, type: "NEW_BUSINESS" as const, owner: usersMap["anita.desai@crm.com"], lostReason: "Mainframe decommissioning accelerated; security audit canceled" },
+    { name: "Wipro Digital - Biometric Authentication Firmware Audit", accIdx: 2, prodIdx: 2, expected: 1650000, actual: null, costRatio: null, stage: "Opportunity Dead", prob: 0, fc: "CLOSED_LOST" as const, daysOut: -105, type: "EXPANSION" as const, owner: usersMap["manager@crm.com"], lostReason: "Unresponsive to follow-ups after initial requirements workshop" },
+    { name: "Reliance Industries - Satellite Communication Link Encryption Scoping", accIdx: 3, prodIdx: 7, expected: 4500000, actual: null, costRatio: null, stage: "Opportunity Dead", prob: 0, fc: "CLOSED_LOST" as const, daysOut: -120, type: "NEW_BUSINESS" as const, owner: usersMap["amit.patel@crm.com"], lostReason: "Regulatory approval delayed indefinitely; project canceled" },
+    { name: "HDFC Bank - Branch ATM Endpoint Hardening Initiative", accIdx: 4, prodIdx: 3, expected: 3800000, actual: null, costRatio: null, stage: "Opportunity Dead", prob: 0, fc: "CLOSED_LOST" as const, daysOut: -90, type: "RENEWAL" as const, owner: usersMap["rahul.kapoor@crm.com"], lostReason: "ATM fleet management consolidated with external facilities vendor" },
   ];
 
-  for (const oData of openOppsData) {
+  for (let idx = 0; idx < openOppsData.length; idx++) {
+    const oData = openOppsData[idx];
     const acc = accountsList[oData.accIdx];
     const prod = productsList[oData.prodIdx];
-    const createdDate = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000);
-    const closeDate = new Date(Date.now() + oData.daysOut * 24 * 60 * 60 * 1000);
+    const isClosed = oData.daysOut < 0;
+    const baseDate = new Date();
+    const closeDate = new Date(baseDate.getTime() + oData.daysOut * 24 * 60 * 60 * 1000);
+    const stageAgeOffset = oData.stage === "Prospect" ? 8 : oData.stage === "Lead" ? 14 : oData.stage === "Marketing Qualified Lead" ? 21 : oData.stage === "Scope Discussion" ? 27 : oData.stage === "Proposal Sent" ? 35 : 44;
+    const createdDate = isClosed
+      ? new Date(closeDate.getTime() - 30 * 24 * 60 * 60 * 1000)
+      : new Date(baseDate.getTime() - (stageAgeOffset + (idx % 5) * 2) * 24 * 60 * 60 * 1000);
 
     const exists = await prisma.opportunity.findFirst({
       where: { tenantId: tenant.id, name: oData.name },
     });
+
+    const expVal = oData.expected;
+    const actVal = oData.actual;
+    const bottomCost = oData.costRatio !== null && (actVal !== null || expVal !== null)
+      ? Math.round((actVal ?? expVal) * oData.costRatio)
+      : null;
 
     if (!exists && acc && prod) {
       const opp = await prisma.opportunity.create({
@@ -452,17 +516,23 @@ async function main() {
           tenantId: tenant.id,
           name: oData.name,
           accountId: acc.id,
-          amount: oData.amount,
+          amount: expVal,
+          expectedOpportunityValue: expVal,
+          actualOpportunityValue: actVal,
+          bottomLineCost: bottomCost,
           pipelineId: oppPipeline.id,
           stageId: oppStages[oData.stage] || oppStages["Scope Discussion"],
           probability: oData.prob,
           ownerId: oData.owner.id,
           createdById: oData.owner.id,
-          opportunityType: "NEW_BUSINESS",
+          opportunityType: oData.type,
           forecastCategory: oData.fc,
           createdAt: createdDate,
           expectedCloseDate: closeDate,
-          description: `Active pipeline opportunity managed by ${oData.owner.firstName} ${oData.owner.lastName}.`,
+          actualCloseDate: isClosed ? closeDate : null,
+          wonDate: oData.stage === "Closed Won" ? closeDate : null,
+          lostReason: (oData as any).lostReason || null,
+          description: `Pipeline opportunity managed by ${oData.owner.firstName} ${oData.owner.lastName}.`,
           lineItems: {
             create: [
               {
@@ -471,7 +541,7 @@ async function main() {
                 unitPrice: prod.unitPrice,
                 discountPct: 0,
                 taxPct: 18,
-                total: oData.amount,
+                total: actVal ?? expVal,
               },
             ],
           },

@@ -51,7 +51,7 @@ export default function OpportunitiesPage() {
   const [bulkOwnerLabel, setBulkOwnerLabel] = useState<string | null>(null);
   const [bulkStagePicker, setBulkStagePicker] = useState(false);
 
-  const { visibleKeys, toggle, showAll, reset, isVisible, order, orderedColumns, reorder, applyOrder } = useColumnVisibility(
+  const { visibleKeys, toggle, showAll, reset, isVisible, orderedColumns, reorder, applyColumns } = useColumnVisibility(
     "opportunities-table",
     OPPORTUNITY_COLUMNS
   );
@@ -252,15 +252,18 @@ export default function OpportunitiesPage() {
         <div>
           <SavedViewsBar
             objectType="OPPORTUNITY"
-            currentFilters={{ search, stageId, ownerId, activeTab }}
+            currentFilters={{ search, stageId, ownerId, ownerLabel, activeTab }}
             onApply={(f) => {
               setSearch(f.search || "");
               setStageId(f.stageId || "");
               setOwnerId(f.ownerId || null);
-              setOwnerLabel(null);
+              setOwnerLabel(f.ownerLabel || null);
+              if (f.activeTab) {
+                setActiveTab(f.activeTab as any);
+              }
             }}
-            currentColumns={order}
-            onApplyColumns={applyOrder}
+            currentColumns={orderedColumns.filter((c) => isVisible(c.key)).map((c) => c.key)}
+            onApplyColumns={applyColumns}
           />
         </div>
 

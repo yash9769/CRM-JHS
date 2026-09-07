@@ -22,7 +22,7 @@ export default async function reportRoutes(app: FastifyInstance) {
       const total = opps.reduce((s, o) => s + Number(o.amount), 0);
       const overdue = opps.filter(o => o.expectedCloseDate && new Date(o.expectedCloseDate) < new Date()).length;
       const avgAge = opps.length > 0
-        ? opps.reduce((s, o) => s + (Date.now() - new Date(o.createdAt).getTime()), 0) / opps.length / 86400000
+        ? opps.reduce((s, o) => s + Math.max(0, Date.now() - new Date(o.createdAt).getTime()), 0) / opps.length / 86400000
         : 0;
 
       return {

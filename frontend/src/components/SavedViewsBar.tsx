@@ -43,24 +43,46 @@ export function SavedViewsBar<F extends Record<string, any>>({
     onSuccess: () => qc.invalidateQueries({ queryKey: ["saved-views", objectType] }),
   });
 
+  const [activeViewId, setActiveViewId] = useState<string | null>(null);
+
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
-      {data?.data.map((v) => (
-        <div key={v.id} className="group flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-full text-xs font-medium" style={{ background: "var(--ink-50)", color: "var(--ink-600)" }}>
-          <button
+      {data?.data.map((v) => {
+        const isActive = activeViewId === v.id;
+        return (
+          <div
+            key={v.id}
             onClick={() => {
+              setActiveViewId(v.id);
               onApply(v.filters as F);
               if (v.columns && v.columns.length > 0) onApplyColumns?.(v.columns);
             }}
-            className="flex items-center gap-1"
+            className={`group inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-all border select-none ${
+              isActive
+                ? "bg-[var(--ledger-50)] text-[var(--ledger-800)] border-[var(--ledger-400)] shadow-xs"
+                : "bg-white text-[var(--ink-700)] border-[var(--ink-200)] hover:bg-[var(--ink-50)] hover:border-[var(--ink-300)]"
+            }`}
           >
-            <Bookmark size={11} /> {v.name}
-          </button>
-          <button onClick={() => deleteMutation.mutate(v.id)} className="opacity-0 group-hover:opacity-100 p-0.5">
-            <X size={11} />
-          </button>
-        </div>
-      ))}
+            <Bookmark
+              size={12}
+              className={isActive ? "fill-[var(--ledger-600)] text-[var(--ledger-600)]" : "text-[var(--ink-400)]"}
+            />
+            <span>{v.name}</span>
+            <button
+              type="button"
+              title="Delete saved view"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (activeViewId === v.id) setActiveViewId(null);
+                deleteMutation.mutate(v.id);
+              }}
+              className="opacity-0 group-hover:opacity-100 hover:text-red-600 p-0.5 rounded transition-opacity"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        );
+      })}
       {saving ? (
         <div className="flex items-center gap-1">
           <input

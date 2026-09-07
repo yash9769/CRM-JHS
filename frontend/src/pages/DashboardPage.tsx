@@ -350,47 +350,70 @@ function ForecastSection({ period }: { period: string }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         {s && (
-          <Card className="p-5">
-            <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--ink-800)" }}>Pipeline categories</h3>
-            <div className="space-y-3">
-              {[
-                { label: "Closed Won", value: s.closedWon, tone: "green" as const },
-                { label: "Lost Opportunity", value: s.lostOpportunity || 0, tone: "rose" as const },
-                { label: "Commit", value: s.commit, tone: "amber" as const },
-                { label: "Best Case", value: s.bestCase, tone: "neutral" as const },
-                { label: "Total Pipeline", value: s.pipeline, tone: "neutral" as const },
-              ].map(({ label, value }) => (
-                <div key={label} className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-[var(--ink-600)]">{label}</span>
-                  <span className="font-mono-num font-medium text-sm">{formatCurrency(value)}</span>
-                </div>
-              ))}
+          <Card className="p-5 xl:col-span-4 flex flex-col justify-between">
+            <div>
+              <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--ink-800)" }}>Pipeline categories</h3>
+              <div className="space-y-3">
+                {[
+                  { label: "Closed Won", value: s.closedWon, tone: "green" as const },
+                  { label: "Lost Opportunity", value: s.lostOpportunity || 0, tone: "rose" as const },
+                  { label: "Commit", value: s.commit, tone: "amber" as const },
+                  { label: "Best Case", value: s.bestCase, tone: "neutral" as const },
+                  { label: "Total Pipeline", value: s.pipeline, tone: "neutral" as const },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-[var(--ink-600)]">{label}</span>
+                    <span className="font-mono-num font-medium text-sm whitespace-nowrap">{formatCurrency(value)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </Card>
         )}
 
         {forecast?.byOwner?.length > 0 && (
-          <Card className="p-5">
+          <Card className="p-5 xl:col-span-8">
             <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--ink-800)" }}>By Sales Representative</h3>
-            <table className="w-full text-sm">
-              <thead><tr className="text-left border-b" style={{ borderColor: "var(--ink-100)" }}>
-                {["Sales Representative", "Target", "Closed Won", "Lost Opportunity"].map(h => <th key={h} className="py-1.5 text-xs" style={{ color: "var(--ink-400)" }}>{h}</th>)}
-              </tr></thead>
-              <tbody>
-                {forecast.byOwner.map((row: any) => (
-                  <tr key={row.owner.id} className="border-b last:border-0" style={{ borderColor: "var(--ink-50)" }}>
-                    <td className="py-2">{row.owner.firstName} {row.owner.lastName}</td>
-                    <td className="py-2 font-mono-num">{row.target > 0 ? formatCurrency(row.target) : "—"}</td>
-                    <td className="py-2 font-mono-num" style={{ color: "var(--ledger-700)" }}>{formatCurrency(row.closedWon)}</td>
-                    <td className="py-2 font-mono-num" style={{ color: "var(--rose-600)" }}>
-                      {row.lostOpportunity > 0 ? formatCurrency(row.lostOpportunity) : "₹0"}
-                    </td>
+            <div className="overflow-x-auto -mx-1">
+              <table className="w-full text-sm min-w-[520px]">
+                <thead>
+                  <tr className="border-b" style={{ borderColor: "var(--ink-100)" }}>
+                    <th className="py-2 pr-4 text-left text-xs font-semibold whitespace-nowrap" style={{ color: "var(--ink-400)" }}>
+                      Sales Representative
+                    </th>
+                    <th className="py-2 px-3 text-right text-xs font-semibold whitespace-nowrap" style={{ color: "var(--ink-400)" }}>
+                      Target
+                    </th>
+                    <th className="py-2 px-3 text-right text-xs font-semibold whitespace-nowrap" style={{ color: "var(--ink-400)" }}>
+                      Closed Won
+                    </th>
+                    <th className="py-2 pl-3 text-right text-xs font-semibold whitespace-nowrap" style={{ color: "var(--ink-400)" }}>
+                      Lost Opportunity
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {forecast.byOwner.map((row: any) => (
+                    <tr key={row.owner.id} className="border-b last:border-0 hover:bg-[var(--ink-50)]/50 transition-colors" style={{ borderColor: "var(--ink-50)" }}>
+                      <td className="py-2.5 pr-4 font-medium whitespace-nowrap text-[var(--ink-800)]">
+                        {row.owner.firstName} {row.owner.lastName}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono-num whitespace-nowrap text-[var(--ink-600)]">
+                        {row.target > 0 ? formatCurrency(row.target) : "—"}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono-num font-semibold whitespace-nowrap" style={{ color: "var(--ledger-700)" }}>
+                        {formatCurrency(row.closedWon)}
+                      </td>
+                      <td className="py-2.5 pl-3 text-right font-mono-num font-medium whitespace-nowrap" style={{ color: row.lostOpportunity > 0 ? "var(--rose-600)" : "var(--ink-400)" }}>
+                        {row.lostOpportunity > 0 ? formatCurrency(row.lostOpportunity) : "₹0"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Card>
         )}
       </div>
@@ -701,7 +724,7 @@ export default function DashboardPage() {
         ) : (() => {
           const marginValue = (data.kpis.totalGrossMargin || 0) + (data.kpis.totalExpectedMargin || 0);
           const costIncurred = data.kpis.totalBottomLineCost || 0;
-          const winRatePct = Math.round(data.kpis.winRate * 100);
+          const winRatePct = Math.round((data.kpis.winRate ?? 0) * 100);
           const weightedRatioPct = data.kpis.totalPipeline > 0
             ? Math.round((data.kpis.weightedPipeline / data.kpis.totalPipeline) * 100)
             : 0;
@@ -729,7 +752,7 @@ export default function DashboardPage() {
             : null;
           const winRateDelta = peerAvgWinRatePct !== null ? winRatePct - peerAvgWinRatePct : null;
 
-          const velocityPct = data.kpis.pipelineVelocityPct;
+          const velocityPct = data.kpis.pipelineVelocityPct ?? null;
 
           return (
             <>
@@ -738,7 +761,7 @@ export default function DashboardPage() {
                 icon={BarChart3} label="Total Pipeline" value={formatCurrency(data.kpis.totalPipeline)}
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Total Pipeline", key: "totalPipeline", format: formatCurrency }) : undefined}
-                badge={velocityPct !== null ? (
+                badge={velocityPct !== null && !isNaN(velocityPct) ? (
                   <KpiPill tone={velocityPct >= 0 ? "green" : "rose"}>
                     {velocityPct >= 0 ? "+" : ""}{velocityPct.toFixed(1)}% MoM
                   </KpiPill>

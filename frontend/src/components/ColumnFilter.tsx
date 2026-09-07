@@ -60,6 +60,26 @@ export function useColumnVisibility(pageKey: string, columns: ColumnDef[]) {
     setOrder([...validKeys, ...missing]);
   }
 
+  /** Apply saved visible columns (e.g. from a SavedView). Ensures permanent columns remain visible. */
+  function applyVisibleKeys(keys: string[]) {
+    const validKeys = keys.filter((k) => columns.some((c) => c.key === k));
+    const permanentKeys = columns.filter((c) => c.permanent).map((c) => c.key);
+    const next = new Set([...permanentKeys, ...validKeys]);
+    setVisibleKeys(next);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(Array.from(next)));
+    } catch {
+      // ignore
+    }
+  }
+
+  /** Apply both visible columns and column ordering from a saved view. */
+  function applyColumns(savedColumns: string[]) {
+    if (!savedColumns || savedColumns.length === 0) return;
+    applyVisibleKeys(savedColumns);
+    applyOrder(savedColumns);
+  }
+
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem(storageKey);
@@ -150,6 +170,8 @@ export function useColumnVisibility(pageKey: string, columns: ColumnDef[]) {
     orderedColumns,
     reorder,
     applyOrder,
+    applyVisibleKeys,
+    applyColumns,
   };
 }
 

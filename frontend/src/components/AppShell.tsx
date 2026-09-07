@@ -113,10 +113,6 @@ export default function AppShell() {
   useClickOutside(userMenuRef, menuOpen, () => setMenuOpen(false));
 
   useEffect(() => {
-    try { localStorage.setItem("crm_sidebar_width", String(sidebarWidth)); } catch { /* ignore */ }
-  }, [sidebarWidth]);
-
-  useEffect(() => {
     try { localStorage.setItem("crm_sidebar_collapsed", String(sidebarCollapsed)); } catch { /* ignore */ }
   }, [sidebarCollapsed]);
 
@@ -136,17 +132,35 @@ export default function AppShell() {
     e.preventDefault();
     const startX = e.clientX;
     const startWidth = sidebarWidth;
+    let latestWidth = startWidth;
+    let rafId: number | null = null;
     setIsResizing(true);
+
     function onMove(ev: MouseEvent) {
-      const next = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, startWidth + (ev.clientX - startX)));
-      setSidebarWidth(next);
+      latestWidth = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, startWidth + (ev.clientX - startX)));
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          setSidebarWidth(latestWidth);
+          rafId = null;
+        });
+      }
     }
+
     function onUp() {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
       setIsResizing(false);
+      setSidebarWidth(latestWidth);
+      try {
+        localStorage.setItem("crm_sidebar_width", String(latestWidth));
+      } catch { /* ignore */ }
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     }
-    window.addEventListener("mousemove", onMove);
+
+    window.addEventListener("mousemove", onMove, { passive: true });
     window.addEventListener("mouseup", onUp);
   }
 
@@ -248,24 +262,30 @@ export default function AppShell() {
     >
       {/* Desktop Sidebar */}
       <aside
-        className="hidden md:flex shrink-0 flex-col overflow-y-auto bg-[var(--ink-950)] relative"
+        className="hidden md:flex shrink-0 flex-col overflow-hidden bg-[var(--ink-950)] relative"
         style={{
           width: sidebarCollapsed ? 0 : sidebarWidth,
           minWidth: sidebarCollapsed ? 0 : sidebarWidth,
-          transition: isResizing ? "none" : "width 150ms ease, min-width 150ms ease",
+          transition: isResizing ? "none" : "width 220ms cubic-bezier(0.4, 0, 0.2, 1), min-width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
+          willChange: isResizing ? "width" : "auto",
         }}
       >
+        {/* Inner fixed-width container prevents text reflow and wrapping during animation */}
+        <div
+          className="h-full flex flex-col overflow-y-auto overflow-x-hidden"
+          style={{ width: sidebarWidth, minWidth: sidebarWidth }}
+        >
+          {renderSidebarContent()}
+        </div>
+
         {!sidebarCollapsed && (
-          <>
-            {renderSidebarContent()}
-            <div
-              onMouseDown={startSidebarResize}
-              className="absolute top-0 right-0 h-full w-1 cursor-col-resize hover:bg-[var(--ledger-600)]/50 active:bg-[var(--ledger-600)]"
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Resize sidebar"
-            />
-          </>
+          <div
+            onMouseDown={startSidebarResize}
+            className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-[var(--ledger-600)]/50 active:bg-[var(--ledger-600)] transition-colors z-20"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize sidebar"
+          />
         )}
       </aside>
 

@@ -886,7 +886,8 @@ export default function OrgChartPage() {
     onError: (e: any) => setDeleteError(e?.response?.data?.error || "Could not remove user"),
   });
 
-  const seniorPartner = data?.seniorPartner;
+  const seniorPartners: any[] = data?.seniorPartners || (data?.seniorPartner ? [data.seniorPartner] : []);
+  const seniorPartner = seniorPartners[0];
   const partners: any[] = data?.partners || [];
   const managers: any[] = data?.managers || [];
 
@@ -900,7 +901,7 @@ export default function OrgChartPage() {
   // Filtered members list for search/grid view
   const filteredUsers = useMemo(() => {
     const allUsers: any[] = [];
-    if (seniorPartner) allUsers.push(seniorPartner);
+    allUsers.push(...seniorPartners);
     allUsers.push(...partners);
     allUsers.push(...managers);
 
@@ -914,7 +915,7 @@ export default function OrgChartPage() {
 
       return matchesSearch && matchesRole;
     });
-  }, [seniorPartner, partners, managers, searchQuery, roleFilter]);
+  }, [seniorPartners, partners, managers, searchQuery, roleFilter]);
 
   if (isLoading) {
     return (
@@ -1005,9 +1006,15 @@ export default function OrgChartPage() {
             <Crown size={18} className="text-amber-400" />
           </div>
           <div>
-            <div className="text-[11px] uppercase font-semibold text-[var(--ink-400)]">Senior Executive</div>
+            <div className="text-[11px] uppercase font-semibold text-[var(--ink-400)]">
+              Senior Executive{seniorPartners.length > 1 ? "s" : ""}
+            </div>
             <div className="text-sm font-bold text-[var(--ink-900)]">
-              {seniorPartner ? `${seniorPartner.firstName} ${seniorPartner.lastName}` : "1 Senior Partner"}
+              {seniorPartners.length > 1
+                ? `${seniorPartners.length} Senior Partners`
+                : seniorPartner
+                ? `${seniorPartner.firstName} ${seniorPartner.lastName}`
+                : "Executive Leadership"}
             </div>
           </div>
         </div>
@@ -1072,23 +1079,28 @@ export default function OrgChartPage() {
         /* HIERARCHY TREE VIEW */
         <div className="bg-white p-6 md:p-10 rounded-2xl border border-[var(--ink-100)] shadow-xs overflow-x-auto">
           {/* Senior Partner Level */}
-          {seniorPartner && (
+          {seniorPartners.length > 0 && (
             <div className="flex flex-col items-center">
               <div className="text-[10px] uppercase font-bold tracking-widest px-3 py-1 rounded-full bg-slate-900 text-slate-100 mb-3 shadow-xs flex items-center gap-1.5">
-                <Crown size={12} className="text-amber-400" /> Senior Partner
+                <Crown size={12} className="text-amber-400" /> Senior Partner{seniorPartners.length > 1 ? `s (${seniorPartners.length})` : ""}
               </div>
-              <EnhancedUserCard
-                user={seniorPartner}
-                canEdit={false}
-                onEdit={() => {}}
-                onDelete={() => {}}
-                onSelect={(u) => setBirdEyeUser(u)}
-              />
+              <div className="flex flex-wrap items-center justify-center gap-6">
+                {seniorPartners.map((sp) => (
+                  <EnhancedUserCard
+                    key={sp.id}
+                    user={sp}
+                    canEdit={false}
+                    onEdit={() => {}}
+                    onDelete={() => {}}
+                    onSelect={(u) => setBirdEyeUser(u)}
+                  />
+                ))}
+              </div>
             </div>
           )}
 
           {/* Connector down from SP to Partners */}
-          {seniorPartner && partners.length > 0 && (
+          {seniorPartners.length > 0 && partners.length > 0 && (
             <div className="flex flex-col items-center my-4">
               <div className="w-0.5 h-8 bg-gradient-to-b from-slate-800 to-emerald-600" />
             </div>
