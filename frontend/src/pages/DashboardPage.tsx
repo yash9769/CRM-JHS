@@ -16,7 +16,7 @@ import {
   ShieldAlert, AlertCircle, Download, Eye, FileDown, Gauge,
 } from "lucide-react";
 import { useAuth, isManager as checkIsManager } from "../hooks/useAuth";
-import { ApprovalQueueTable } from "../components/ApprovalQueueTable";
+import { ApprovalSummary } from "../components/ApprovalQueueTable";
 
 interface ActionCenterData {
   todaysWork: { overdueTasks: number; tasksDueToday: number; newLeads: number; uncontactedLeads: number; oppsClosingThisWeek: number; quotesAwaiting: number };
@@ -101,7 +101,7 @@ function Kpi({
   return content;
 }
 
-function KpiPill({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "green" | "amber" | "rose" }) {
+function KpiPill({ children, tone = "neutral", title }: { children: ReactNode; tone?: "neutral" | "green" | "amber" | "rose"; title?: string }) {
   const styles: Record<string, React.CSSProperties> = {
     neutral: { background: "var(--ink-50)", color: "var(--ink-500)" },
     green: { background: "var(--ledger-50)", color: "var(--ledger-700)" },
@@ -109,7 +109,7 @@ function KpiPill({ children, tone = "neutral" }: { children: ReactNode; tone?: "
     rose: { background: "var(--rose-100)", color: "var(--rose-600)" },
   };
   return (
-    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0" style={styles[tone]}>
+    <span title={title} className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0" style={styles[tone]}>
       {children}
     </span>
   );
@@ -498,8 +498,15 @@ function PipelineHealthSection() {
 
 /* ---------- Win / Loss section (merged from ReportsPage) ---------- */
 
+const WIN_LOSS_PERIODS = [
+  { months: 3, label: "Last 3 months" },
+  { months: 6, label: "Last 6 months" },
+  { months: 12, label: "Last 12 months" },
+];
+
 function WinLossSection() {
-  const { data } = useQuery<any>({ queryKey: ["report-win-loss"], queryFn: async () => (await api.get("/reports/win-loss", { params: { months: 6 } })).data });
+  const [months, setMonths] = useState(6);
+  const { data } = useQuery<any>({ queryKey: ["report-win-loss", months], queryFn: async () => (await api.get("/reports/win-loss", { params: { months } })).data });
   if (!data) return null;
   const s = data.summary;
   const COLORS = ["var(--ledger-600)", "var(--rose-400)"];
@@ -507,10 +514,25 @@ function WinLossSection() {
     { name: "Won", value: s.totalWon },
     { name: "Lost", value: s.totalLost },
   ].filter((d) => d.value > 0);
+  const periodLabel = WIN_LOSS_PERIODS.find((p) => p.months === months)?.label || `Last ${months} months`;
 
   return (
     <div className="space-y-4">
-      <SectionHeader icon={Trophy} title="Win / Loss (last 6 months)" />
+      <SectionHeader
+        icon={Trophy}
+        title={`Win / Loss (${periodLabel.toLowerCase()})`}
+        action={
+          <select
+            value={months}
+            onChange={(e) => setMonths(Number(e.target.value))}
+            className="px-2.5 py-1.5 rounded-lg border text-xs outline-none border-[var(--ink-200)] bg-white font-medium"
+          >
+            {WIN_LOSS_PERIODS.map((p) => (
+              <option key={p.months} value={p.months}>{p.label}</option>
+            ))}
+          </select>
+        }
+      />
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "Opportunities Won", value: String(s.totalWon), sub: formatCurrency(s.wonRevenue) },
@@ -664,7 +686,6 @@ export default function DashboardPage() {
   const greeting = greetingHour < 12 ? "Good morning" : greetingHour < 18 ? "Good afternoon" : "Good evening";
   const fyBadgeLabel = fiscalYearQuarterLabel(new Date());
 
-  const recentLeads = action?.recentLeads || [];
   const recentActivity = action?.recentActivity || [];
   const opportunitiesAtRisk = action?.opportunitiesAtRisk || [];
 
@@ -762,8 +783,11 @@ export default function DashboardPage() {
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Total Pipeline", key: "totalPipeline", format: formatCurrency }) : undefined}
                 badge={velocityPct !== null && !isNaN(velocityPct) ? (
-                  <KpiPill tone={velocityPct >= 0 ? "green" : "rose"}>
-                    {velocityPct >= 0 ? "+" : ""}{velocityPct.toFixed(1)}% MoM
+                  <KpiPill
+                    tone={velocityPct >= 0 ? "green" : "rose"}
+                    title="New pipeline value created this month, compared to last month -- not the Total Pipeline figure's own change."
+                  >
+                    {velocityPct >= 0 ? "+" : ""}{velocityPct.toFixed(1)}% new pipeline
                   </KpiPill>
                 ) : undefined}
                 belowValue={data.charts.pipelineVelocity?.length > 0 ? <KpiSparkline data={data.charts.pipelineVelocity} full /> : undefined}
@@ -926,35 +950,14 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* RECENT LEADS */}
-        <div className="space-y-3">
-          <SectionHeader icon={Target} title="Recent Leads" action={<Link to="/contacts" className="text-xs text-[var(--ledger-700)] hover:underline font-medium">View Contacts</Link>} />
-          <Card className="p-4">
-            {!recentLeads.length ? (
-              <div className="py-6 text-center text-sm text-[var(--ink-400)]">No new leads registered</div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                {recentLeads.map((l) => (
-                  <div key={l.id} className="p-3 rounded-lg border border-[var(--ink-100)] bg-white">
-                    <div className="font-medium text-sm text-[var(--ink-900)] truncate">{l.firstName} {l.lastName}</div>
-                    <div className="text-xs text-[var(--ink-500)] truncate mt-0.5">{l.companyName || "Independent"}</div>
-                    <div className="text-[10px] mt-2 inline-block px-2 py-0.5 rounded-full bg-[var(--ledger-50)] text-[var(--ledger-700)] font-medium">
-                      {l.status?.replace("_", " ") || "NEW"}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-        </div>
-
-        {/* STAGE APPROVAL QUEUE */}
+        {/* STAGE APPROVAL SUMMARY -- read-only pending/approved counts; full
+            Review/Revoke workflow lives in the "Approvals" header dropdown. */}
         <div className="space-y-3 pt-2 border-t border-[var(--ink-100)]">
           <h3 className="text-sm font-semibold flex items-center gap-2 text-[var(--ink-800)]">
             <ShieldAlert size={16} className="text-[var(--ledger-600)]" />
             {isManager ? "My Stage Approval Requests" : "Pending Stage Approvals"}
           </h3>
-          <ApprovalQueueTable limit={10} />
+          <ApprovalSummary />
         </div>
 
         {/* CHARTS: Revenue by Month, Pipeline by Stage */}

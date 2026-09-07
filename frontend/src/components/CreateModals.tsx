@@ -50,14 +50,18 @@ export function NewAccountModal({
   initialOwnerLabel?: string | null;
 }) {
   const qc = useQueryClient();
-  const [form, setForm] = useState({ name: initialName || "", domain: "", industry: "", phone: "", website: "" });
+  const [form, setForm] = useState({ name: initialName || "", industry: "", phone: "", website: "", employeeCount: "" });
   const [ownerId, setOwnerId] = useState<string | null>(initialOwnerId || null);
   const [ownerLabel, setOwnerLabel] = useState<string | null>(initialOwnerLabel || null);
   const [duplicates, setDuplicates] = useState<any[] | null>(null);
 
   const mutation = useMutation({
     mutationFn: (force: boolean) =>
-      api.post("/accounts", { ...form, ownerId: ownerId || undefined }, { params: force ? { force: "true" } : {} }),
+      api.post(
+        "/accounts",
+        { ...form, employeeCount: form.employeeCount ? Number(form.employeeCount) : undefined, ownerId: ownerId || undefined },
+        { params: force ? { force: "true" } : {} }
+      ),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["accounts"] });
       onCreated?.(res.data);
@@ -106,8 +110,8 @@ export function NewAccountModal({
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Domain">
-            <input value={form.domain} onChange={(e) => setForm({ ...form, domain: e.target.value })} className={inputClass} style={inputStyle} placeholder="acme.com" />
+          <Field label="Website / Domain">
+            <input value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} className={inputClass} style={inputStyle} placeholder="https://acme.com" />
           </Field>
           <Field label="Industry">
             <input value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })} className={inputClass} style={inputStyle} placeholder="Information Technology" />
@@ -117,8 +121,16 @@ export function NewAccountModal({
           <Field label="Phone">
             <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputClass} style={inputStyle} placeholder="+91 98765 43210" />
           </Field>
-          <Field label="Website">
-            <input value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} className={inputClass} style={inputStyle} placeholder="https://acme.com" />
+          <Field label="Employees">
+            <input
+              type="number"
+              min="0"
+              value={form.employeeCount}
+              onChange={(e) => setForm({ ...form, employeeCount: e.target.value })}
+              className={inputClass}
+              style={inputStyle}
+              placeholder="250"
+            />
           </Field>
         </div>
         <div className="flex justify-end gap-2 mt-4">
@@ -211,6 +223,10 @@ export function NewContactModal({
           setPhoneError(null);
           if (form.phone && !/^\d+$/.test(form.phone)) {
             setPhoneError("Phone number must contain only numeric digits (no spaces, dashes, or symbols)");
+            return;
+          }
+          if (!form.email && !form.phone) {
+            setPhoneError("Provide a phone number or an email address.");
             return;
           }
           mutation.mutate(false);
@@ -335,7 +351,11 @@ export function NewOpportunityModal({
   const [addingContact, setAddingContact] = useState(false);
 
   const [showNewAccount, setShowNewAccount] = useState<string | null>(null);
-  const [showNewContact, setShowNewContact] = useState<string | null>(null);
+  // `forExtra` tracks which contact slot triggered "create new" -- the
+  // primary Contact Person field, or the "+ Add another contact" row --
+  // so the newly created contact lands in the right place instead of
+  // always overwriting the primary contact.
+  const [showNewContact, setShowNewContact] = useState<{ term: string; forExtra: boolean } | null>(null);
 
   const [ownerId, setOwnerId] = useState<string | null>(
     isManager && user ? user.id : null
@@ -397,7 +417,7 @@ export function NewOpportunityModal({
       const proposalSent = form.proposalSentValue ? Number(form.proposalSentValue) : null;
       const cost = form.bottomLineCost ? Number(form.bottomLineCost) : null;
 
-      if (proposalSent !== null && proposalSent < 0) throw new Error("Proposal Sent Value must be non-negative");
+      if (proposalSent !== null && proposalSent < 0) throw new Error("Proposal Value must be non-negative");
       if (cost !== null && cost < 0) throw new Error("Cost Incurred to Company must be non-negative");
 
       return api.post("/opportunities", {
@@ -492,7 +512,7 @@ export function NewOpportunityModal({
               }}
               fetchOptions={(search) => fetchContactOptions(search, accountId || undefined)}
               placeholder={accountId ? `Search contacts for ${accountLabel}…` : "Search contacts…"}
-              onCreateNew={(term) => setShowNewContact(term || "")}
+              onCreateNew={(term) => setShowNewContact({ term: term || "", forExtra: false })}
               createLabel="+ Create new contact"
             />
             <FieldError message={fieldErrors.contactId} />
@@ -524,6 +544,8 @@ export function NewOpportunityModal({
                     }}
                     fetchOptions={(search) => fetchContactOptions(search, accountId || undefined)}
                     placeholder="Search another contact…"
+                    onCreateNew={(term) => setShowNewContact({ term: term || "", forExtra: true })}
+                    createLabel="+ Create new contact"
                   />
                 </div>
               ) : (
@@ -577,8 +599,8 @@ export function NewOpportunityModal({
               <Field
                 label={
                   <div className="flex items-center gap-1">
-                    <span>Proposal Sent Value</span>
-                    <span title="Proposal Sent Value is the total commercial proposal value for this opportunity." className="cursor-help text-[var(--ink-400)] hover:text-[var(--ledger-700)]">
+                    <span>Proposal Value</span>
+                    <span title="Proposal Value is the total commercial proposal value for this opportunity." className="cursor-help text-[var(--ink-400)] hover:text-[var(--ledger-700)]">
                       <Info size={13} />
                     </span>
                   </div>
@@ -634,7 +656,7 @@ export function NewOpportunityModal({
               <div className="p-3 rounded-lg bg-white border border-[var(--ink-100)] flex flex-col justify-between">
                 <div className="flex items-center gap-1 text-[11px] text-[var(--ink-500)] font-medium mb-1">
                   <span>Margin Value (Auto-Calculated)</span>
-                  <span title="Margin Value = Proposal Sent Value - Cost Incurred to Company" className="cursor-help text-[var(--ink-400)]"><Info size={11} /></span>
+                  <span title="Margin Value = Proposal Value - Cost Incurred to Company" className="cursor-help text-[var(--ink-400)]"><Info size={11} /></span>
                 </div>
                 <div className={`font-mono-num text-base font-bold ${marginVal !== null ? (marginVal > 0 ? "text-emerald-700" : marginVal < 0 ? "text-rose-600" : "text-slate-700") : "text-slate-400"}`}>
                   {marginVal !== null ? formatCurrency(marginVal) : "—"}
@@ -644,7 +666,7 @@ export function NewOpportunityModal({
               <div className="p-3 rounded-lg bg-white border border-[var(--ink-100)] flex flex-col justify-between">
                 <div className="flex items-center gap-1 text-[11px] text-[var(--ink-500)] font-medium mb-1">
                   <span>Margin Percentage (Auto-Calculated)</span>
-                  <span title="Margin % = (Margin Value / Proposal Sent Value) * 100" className="cursor-help text-[var(--ink-400)]"><Info size={11} /></span>
+                  <span title="Margin % = (Margin Value / Proposal Value) * 100" className="cursor-help text-[var(--ink-400)]"><Info size={11} /></span>
                 </div>
                 <div className={`font-mono-num text-base font-bold ${marginPct !== null ? (marginPct > 0 ? "text-emerald-700" : marginPct < 0 ? "text-rose-600" : "text-slate-700") : "text-slate-400"}`}>
                   {marginPct !== null ? `${marginPct.toFixed(1)}%` : "—"}
@@ -740,12 +762,19 @@ export function NewOpportunityModal({
         <NewContactModal
           accountId={accountId || undefined}
           accountName={accountLabel || undefined}
-          initialFirstName={showNewContact.split(" ")[0] || ""}
-          initialLastName={showNewContact.split(" ").slice(1).join(" ") || ""}
+          initialFirstName={showNewContact.term.split(" ")[0] || ""}
+          initialLastName={showNewContact.term.split(" ").slice(1).join(" ") || ""}
           onClose={() => setShowNewContact(null)}
           onCreated={(ct) => {
-            setContactId(ct.id);
-            setContactLabel(`${ct.firstName} ${ct.lastName}`);
+            if (showNewContact.forExtra) {
+              if (ct.id !== contactId && !extraContacts.some((c) => c.id === ct.id) && (contactId ? 1 : 0) + extraContacts.length < 5) {
+                setExtraContacts((cs) => [...cs, { id: ct.id, label: `${ct.firstName} ${ct.lastName}` }]);
+              }
+              setAddingContact(false);
+            } else {
+              setContactId(ct.id);
+              setContactLabel(`${ct.firstName} ${ct.lastName}`);
+            }
             if (ct.accountId && !accountId) {
               setAccountId(ct.accountId);
               setAccountLabel(ct.account?.name || null);

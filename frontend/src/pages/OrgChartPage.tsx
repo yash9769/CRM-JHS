@@ -3,13 +3,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth, roleLabel, canManageUsers } from "../hooks/useAuth";
-import { formatCurrency, relativeTime } from "../lib/format";
-import { StageBadge, Badge } from "../components/ui";
+import { formatCurrency } from "../lib/format";
+import { StageBadge } from "../components/ui";
 import {
   UserPlus, Trash2, Edit2, X, Users,
-  Eye, Trophy, TrendingUp, Target, Building2, Phone, Mail,
-  Calendar, FileText, CheckSquare, Activity, ExternalLink,
-  Award, Search, Network, Grid, ChevronDown, ChevronRight,
+  Eye, Trophy, TrendingUp, Target, Building2,
+  ExternalLink,
+  Search, Network, Grid, ChevronDown, ChevronRight,
   Sparkles, Crown, ShieldCheck, UserCheck
 } from "lucide-react";
 
@@ -203,7 +203,7 @@ export function BirdsEyeModal({
   onSelectUser?: (user: any) => void;
 }) {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"activity" | "opportunities" | "accounts" | "team">("activity");
+  const [activeTab, setActiveTab] = useState<"opportunities" | "accounts" | "team">("opportunities");
 
   const { data, isLoading, error } = useQuery<any>({
     queryKey: ["user-bird-eye", userId],
@@ -233,18 +233,8 @@ export function BirdsEyeModal({
     );
   }
 
-  const { user, teamMembers = [], kpis = {}, recentActivities = [], recentOpps = [], accounts = [] } = data;
+  const { user, teamMembers = [], kpis = {}, recentOpps = [], accounts = [] } = data;
   const initials = `${user.firstName?.[0] || ""}${user.lastName?.[0] || ""}`.toUpperCase();
-
-  const activityIcons: Record<string, any> = {
-    CALL: Phone,
-    EMAIL: Mail,
-    MEETING: Calendar,
-    TASK: CheckSquare,
-    NOTE: FileText,
-    DEMO: Activity,
-    PROPOSAL: Award,
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto" onClick={onClose}>
@@ -367,17 +357,6 @@ export function BirdsEyeModal({
         {/* Tab Sub-header */}
         <div className="flex items-center gap-2 px-6 pt-3 border-b text-xs font-medium bg-[var(--ink-50)] border-[var(--ink-100)]">
           <button
-            onClick={() => setActiveTab("activity")}
-            className={`flex items-center gap-1.5 px-3 py-2 border-b-2 font-semibold transition-colors ${
-              activeTab === "activity"
-                ? "border-[var(--ledger-700)] text-[var(--ledger-700)]"
-                : "border-transparent text-[var(--ink-500)] hover:text-[var(--ink-800)]"
-            }`}
-          >
-            <Activity size={13} /> Activity Feed ({recentActivities.length})
-          </button>
-
-          <button
             onClick={() => setActiveTab("opportunities")}
             className={`flex items-center gap-1.5 px-3 py-2 border-b-2 font-semibold transition-colors ${
               activeTab === "opportunities"
@@ -415,83 +394,6 @@ export function BirdsEyeModal({
 
         {/* Tab Content Body */}
         <div className="p-6 overflow-y-auto flex-1 max-h-[480px]">
-          {activeTab === "activity" && (
-            <div>
-              {recentActivities.length === 0 ? (
-                <div className="text-center py-10 text-xs text-[var(--ink-400)]">No recent activity logged for this user.</div>
-              ) : (
-                <div className="space-y-3">
-                  {recentActivities.map((act: any) => {
-                    const ActIcon = activityIcons[act.type] || Activity;
-                    const targetUrl = act.opportunity
-                      ? `/opportunities/${act.opportunity.id}`
-                      : act.account
-                      ? `/accounts/${act.account.id}`
-                      : null;
-
-                    return (
-                      <div
-                        key={act.id}
-                        onClick={() => {
-                          if (targetUrl) {
-                            navigate(targetUrl);
-                            onClose();
-                          }
-                        }}
-                        className={`flex items-start gap-3 p-3 rounded-xl border transition-all border-[var(--ink-100)] ${
-                          targetUrl ? "hover:bg-[var(--ink-50)] hover:border-[var(--ledger-300)] cursor-pointer group" : ""
-                        }`}
-                      >
-                        <div className="p-2 rounded-lg shrink-0 bg-[var(--ink-100)] text-[var(--ledger-700)]">
-                          <ActIcon size={15} />
-                        </div>
-                        <div className="flex-1 min-w-0 text-xs">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-semibold truncate text-[var(--ink-900)] group-hover:text-[var(--ledger-700)] transition-colors">
-                              {act.subject}
-                            </span>
-                            <span className="text-[11px] font-mono-num whitespace-nowrap text-[var(--ink-400)]">{relativeTime(act.createdAt)}</span>
-                          </div>
-                          {act.body && <p className="text-[11px] mt-0.5 line-clamp-2 text-[var(--ink-600)]">{act.body}</p>}
-                          <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[10px]">
-                            <Badge tone={act.status === "COMPLETED" ? "green" : "neutral"}>{act.type}</Badge>
-                            {act.account && (
-                              <Link
-                                to={`/accounts/${act.account.id}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onClose();
-                                }}
-                                className="font-semibold text-[var(--ledger-700)] hover:underline flex items-center gap-0.5"
-                              >
-                                Account: {act.account.name} <ExternalLink size={9} />
-                              </Link>
-                            )}
-                            {act.opportunity && (
-                              <Link
-                                to={`/opportunities/${act.opportunity.id}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onClose();
-                                }}
-                                className="font-semibold text-[var(--ledger-700)] hover:underline flex items-center gap-0.5"
-                              >
-                                Opp: {act.opportunity.name} <ExternalLink size={9} />
-                              </Link>
-                            )}
-                            {act.owner && (
-                              <span className="ml-auto text-[var(--ink-400)]">By: {act.owner.firstName} {act.owner.lastName}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
           {activeTab === "opportunities" && (
             <div>
               {recentOpps.length === 0 ? (

@@ -207,6 +207,8 @@ export interface Opportunity {
   forecastCategory?: string;
   ownerId: string;
   owner?: Owner;
+  createdById?: string | null;
+  createdBy?: Owner | null;
   opportunityType: "NEW_BUSINESS" | "EXPANSION" | "RENEWAL";
   leadSource?: string | null;
   description?: string | null;

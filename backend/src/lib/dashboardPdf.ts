@@ -21,11 +21,16 @@ interface DashboardPdfInput {
   };
 }
 
+// PDFKit's default font (Helvetica, WinAnsi-encoded) has no glyph for "₹" --
+// it silently renders as a broken "¹" in the exported file. Get the correct
+// Indian lakh/crore grouping from Intl, then swap just the symbol for
+// something every PDF viewer can render.
 function money(n: number) {
   try {
-    return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
+    const formatted = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
+    return formatted.replace("₹", "Rs. ");
   } catch {
-    return `₹${n.toFixed(0)}`;
+    return `Rs. ${n.toFixed(0)}`;
   }
 }
 

@@ -5,6 +5,7 @@ import { logAudit } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
 import { getCreatedByFilter, requireCanAccess, requireExportPermission } from "../lib/rbac.js";
 import { phoneSchema } from "../lib/validators.js";
+import { computeOpportunityFinancials } from "../lib/financial.js";
 
 const accountSchema = z.object({
   name: z.string().min(1),
@@ -20,6 +21,24 @@ const accountSchema = z.object({
   description: z.string().optional().nullable(),
   properties: z.record(z.any()).optional(),
 });
+
+/**
+ * The Account form only exposes a single "Website" field (Domain was folded
+ * into it), but `domain` is still a separate indexed column used for search
+ * and duplicate detection -- so derive it from whatever website was entered
+ * rather than asking for both.
+ */
+function deriveDomainFromWebsite(website?: string | null): string | null {
+  if (!website) return null;
+  try {
+    const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(website) ? website : `https://${website}`;
+    return new URL(withScheme).hostname.replace(/^www\./i, "").toLowerCase() || null;
+  } catch {
+    // Not a parseable URL -- fall back to a light manual strip so a bare
+    // "acme.com" or "www.acme.com/pricing" still yields a usable domain.
+    return website.replace(/^https?:\/\//i, "").replace(/^www\./i, "").split("/")[0].toLowerCase() || null;
+  }
+}
 
 async function findDuplicateAccounts(tenantId: string, data: { name: string; domain?: string | null }) {
   const or: any[] = [{ name: { equals: data.name, mode: "insensitive" as const } }];
@@ -337,6 +356,7 @@ export default async function accountRoutes(app: FastifyInstance) {
 
   app.post("/api/v1/accounts", { preHandler: app.authenticate }, async (req, reply) => {
     const body = accountSchema.parse(req.body);
+    body.domain = deriveDomainFromWebsite(body.website) ?? body.domain;
     const force = (req.query as any)?.force === "true" || (req.body as any)?.force === true;
     if (!force) {
       const duplicates = await findDuplicateAccounts(req.authUser.tenantId, body);
@@ -364,7 +384,11 @@ export default async function accountRoutes(app: FastifyInstance) {
         owner: { select: { id: true, firstName: true, lastName: true } },
         contacts: { orderBy: { createdAt: "desc" } },
         opportunities: {
-          include: { stage: true, owner: { select: { id: true, firstName: true, lastName: true } } },
+          include: {
+            stage: true,
+            owner: { select: { id: true, firstName: true, lastName: true } },
+            createdBy: { select: { id: true, firstName: true, lastName: true } },
+          },
           orderBy: { createdAt: "desc" },
         },
         quotes: { orderBy: { createdAt: "desc" } },
@@ -381,12 +405,22 @@ export default async function accountRoutes(app: FastifyInstance) {
     });
     if (!account) return reply.code(404).send({ error: "Account not found" });
     await requireCanAccess(req.authUser, account, "read");
-    return account;
+    // The opportunities list here shows Margin, so attach the same derived
+    // financials (grossMargin/expectedMargin/etc.) every other opportunity
+    // view uses -- this endpoint previously returned raw rows with no
+    // margin, so the column silently showed "--" for every row.
+    return {
+      ...account,
+      opportunities: account.opportunities.map((o) => ({ ...o, ...computeOpportunityFinancials(o) })),
+    };
   });
 
   app.patch("/api/v1/accounts/:id", { preHandler: app.authenticate }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = accountSchema.partial().parse(req.body);
+    if (body.website !== undefined) {
+      body.domain = deriveDomainFromWebsite(body.website);
+    }
     const existing = await prisma.account.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Account not found" });
     await requireCanAccess(req.authUser, existing, "write");

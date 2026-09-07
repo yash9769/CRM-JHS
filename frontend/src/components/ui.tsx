@@ -128,7 +128,10 @@ export function Modal({ title, onClose, children, width = "480px" }: { title: st
 export function Field({ label, children, required }: { label: ReactNode; children: ReactNode; required?: boolean }) {
   return (
     <label className="block mb-3.5">
-      <div className="text-xs font-medium mb-1.5" style={{ color: "var(--ink-600)" }}>
+      {/* inline-flex so a required "*" never wraps onto its own line after a
+          custom label (e.g. label text + an info icon) -- it stays on the
+          same row as the label content, keeping side-by-side fields aligned. */}
+      <div className="flex items-center gap-1 text-xs font-medium mb-1.5" style={{ color: "var(--ink-600)" }}>
         {label} {required && <span style={{ color: "var(--rose-600)" }}>*</span>}
       </div>
       {children}

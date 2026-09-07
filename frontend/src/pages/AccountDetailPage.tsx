@@ -80,8 +80,7 @@ export default function AccountDetailPage() {
               <div><dt className="text-xs text-[var(--ink-400)]">Industry</dt><dd className="mt-0.5">{account.industry || "—"}</dd></div>
               <div><dt className="text-xs text-[var(--ink-400)]">Employees</dt><dd className="mt-0.5 font-mono-num">{account.employeeCount || "—"}</dd></div>
               <div><dt className="text-xs text-[var(--ink-400)]">Annual Revenue</dt><dd className="mt-0.5 font-mono-num">{account.annualRevenue ? formatCurrency(account.annualRevenue) : "—"}</dd></div>
-              <div><dt className="text-xs text-[var(--ink-400)]">Domain</dt><dd className="mt-0.5">{account.domain || "—"}</dd></div>
-              <div className="flex items-start gap-1.5"><Globe size={13} className="mt-0.5 text-[var(--ink-400)]" /><div><dt className="text-xs text-[var(--ink-400)]">Website</dt><dd className="mt-0.5">{account.website || "—"}</dd></div></div>
+              <div className="flex items-start gap-1.5"><Globe size={13} className="mt-0.5 text-[var(--ink-400)]" /><div><dt className="text-xs text-[var(--ink-400)]">Website / Domain</dt><dd className="mt-0.5">{account.website || account.domain || "—"}</dd></div></div>
               <div className="flex items-start gap-1.5"><Phone size={13} className="mt-0.5 text-[var(--ink-400)]" /><div><dt className="text-xs text-[var(--ink-400)]">Phone</dt><dd className="mt-0.5">{account.phone || "—"}</dd></div></div>
               <div className="sm:col-span-2 flex items-start gap-1.5"><MapPin size={13} className="mt-0.5 text-[var(--ink-400)]" /><div><dt className="text-xs text-[var(--ink-400)]">Billing Address</dt><dd className="mt-0.5">{account.billingAddress || "—"}</dd></div></div>
             </dl>
@@ -117,7 +116,7 @@ export default function AccountDetailPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="text-left border-b border-[var(--ink-100)]">
-                  {["Name", "Title", "Email", "Phone"].map((h) => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">{h}</th>)}
+                  {["Name", "Designation", "Email", "Phone"].map((h) => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">{h}</th>)}
                 </tr></thead>
                 <tbody>
                   {account.contacts.map((c) => (
@@ -152,7 +151,7 @@ export default function AccountDetailPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="text-left border-b border-[var(--ink-100)]">
-                  {["Opportunity", "Stage", "Expected Value", "Actual Value", "Margin", "Close Date"].map((h) => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">{h}</th>)}
+                  {["Opportunity", "Stage", "Expected Value", "Actual Value", "Margin", "Close Date", "Created By"].map((h) => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">{h}</th>)}
                 </tr></thead>
                 <tbody>
                   {account.opportunities.map((o) => (
@@ -165,6 +164,7 @@ export default function AccountDetailPage() {
                         {o.grossMargin !== null && o.grossMargin !== undefined ? formatCurrency(o.grossMargin) : (o.expectedMargin !== null && o.expectedMargin !== undefined ? formatCurrency(o.expectedMargin) : "—")}
                       </td>
                       <td className="px-4 py-3 text-[var(--ink-500)]">{formatDate(o.expectedCloseDate)}</td>
+                      <td className="px-4 py-3 text-[var(--ink-500)]">{o.createdBy ? `${o.createdBy.firstName} ${o.createdBy.lastName}` : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -181,6 +181,7 @@ export default function AccountDetailPage() {
             notes={account.notes}
             assoc={{ objectType: "ACCOUNT", accountId: account.id }}
             queryKeysToInvalidate={[["account", id]]}
+            showTaskTab={false}
           />
         </Card>
       )}

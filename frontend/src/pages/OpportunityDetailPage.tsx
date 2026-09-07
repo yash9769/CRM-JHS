@@ -128,7 +128,7 @@ export default function OpportunityDetailPage() {
 
           <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs">
             <div>
-              <span className="text-[var(--ink-400)] font-medium mr-1.5">Proposal Sent Value:</span>
+              <span className="text-[var(--ink-400)] font-medium mr-1.5">Proposal Value:</span>
               <span className="font-mono-num font-bold text-slate-900">
                 {financials.actualOpportunityValue !== null ? formatCurrency(financials.actualOpportunityValue) : formatCurrency(opp.amount)}
               </span>
@@ -455,8 +455,8 @@ export default function OpportunityDetailPage() {
                 <div className="p-3 rounded-xl bg-[var(--ink-50)] border border-[var(--ink-100)] flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-1 text-xs font-semibold text-[var(--ink-700)]">
-                      <span>Proposal Sent Value</span>
-                      <span title="Proposal Sent Value is the actual commercial proposal revenue." className="cursor-help text-[var(--ink-400)]"><Info size={12} /></span>
+                      <span>Proposal Value</span>
+                      <span title="Proposal Value is the actual commercial proposal revenue." className="cursor-help text-[var(--ink-400)]"><Info size={12} /></span>
                     </div>
                     <div className="text-[11px] text-[var(--ink-400)]">Commercial revenue value</div>
                   </div>

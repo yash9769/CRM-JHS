@@ -23,7 +23,7 @@ const OPPORTUNITY_COLUMNS: ColumnDef[] = [
   { key: "account", label: "Account Name" },
   { key: "contact", label: "Contact Person" },
   { key: "stage", label: "Stage" },
-  { key: "actualOpportunityValue", label: "Proposal Sent Value" },
+  { key: "actualOpportunityValue", label: "Proposal Value" },
   { key: "bottomLineCost", label: "Cost Incurred to Company" },
   { key: "marginValue", label: "Margin Value" },
   { key: "marginPercentage", label: "Margin Percentage" },

@@ -342,6 +342,14 @@ export default async function contactRoutes(app: FastifyInstance) {
       phone: phoneNumber !== undefined ? phoneNumber : body.phone,
       jobTitle: designation !== undefined ? designation : body.jobTitle,
     };
+    // A contact with neither a phone nor an email is unreachable -- require
+    // at least one, mirroring the same check the create/edit forms run.
+    if (!dataToSave.email && !dataToSave.phone) {
+      return reply.code(400).send({
+        error: "Validation error",
+        details: [{ path: ["email"], message: "Provide a phone number or an email address." }],
+      });
+    }
     if (dataToSave.accountId) {
       const account = await prisma.account.findFirst({
         where: { id: dataToSave.accountId, tenantId: req.authUser.tenantId },

@@ -16,9 +16,12 @@ interface QuotePdfInput {
   tenantName: string;
 }
 
+// PDFKit's default font can't render "₹" (see dashboardPdf.ts) -- swap it
+// for a plain-ASCII prefix so INR quotes don't render a broken glyph.
 function money(n: number, currency: string) {
   try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(n);
+    const formatted = new Intl.NumberFormat("en-US", { style: "currency", currency }).format(n);
+    return currency === "INR" ? formatted.replace("₹", "Rs. ") : formatted;
   } catch {
     return `${currency} ${n.toFixed(2)}`;
   }

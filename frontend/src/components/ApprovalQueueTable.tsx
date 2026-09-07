@@ -2,11 +2,78 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { formatCurrency, formatDate, relativeTime } from "../lib/format";
-import { Button, Badge } from "./ui";
+import { Button, Badge, Card } from "./ui";
 import { useAuth } from "../hooks/useAuth";
 import type { StageApproval } from "../lib/types";
 import { ApprovalReviewModal } from "./ApprovalReviewModal";
 import { ShieldAlert, Search, Filter, ArrowRight, Eye, XCircle, Clock, CheckCircle2 } from "lucide-react";
+
+/**
+ * Read-only pending/approved summary for the Dashboard -- no Review/Revoke
+ * actions here, since that full workflow already lives behind the
+ * "Approvals" dropdown in the top header. Just shows counts + a short list
+ * of what's pending, so the widget isn't a duplicate of the header button.
+ */
+export function ApprovalSummary() {
+  const { data: counts } = useQuery<{ pending: number; approved: number }>({
+    queryKey: ["stage-approvals", "counts"],
+    queryFn: async () => (await api.get("/opportunities/approvals/counts")).data,
+  });
+  const { data, isLoading } = useQuery<{ data: StageApproval[] }>({
+    queryKey: ["stage-approvals", "PENDING", "summary"],
+    queryFn: async () => (await api.get("/opportunities/approvals/pending", { params: { status: "PENDING" } })).data,
+  });
+  const pending = (data?.data || []).slice(0, 5);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-3">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-[var(--ink-100)] shadow-xs">
+          <Clock size={14} className="text-[var(--amber-600)]" />
+          <span className="text-xs text-[var(--ink-500)]">Pending:</span>
+          <span className="font-mono-num font-bold text-sm">{counts?.pending ?? "—"}</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-[var(--ink-100)] shadow-xs">
+          <CheckCircle2 size={14} className="text-emerald-600" />
+          <span className="text-xs text-[var(--ink-500)]">Approved:</span>
+          <span className="font-mono-num font-bold text-sm">{counts?.approved ?? "—"}</span>
+        </div>
+      </div>
+
+      <Card>
+        {isLoading ? (
+          <div className="p-6 text-center text-xs text-[var(--ink-400)]">Loading…</div>
+        ) : pending.length === 0 ? (
+          <div className="p-6 text-center space-y-1">
+            <ShieldAlert size={20} className="mx-auto text-[var(--ink-300)]" />
+            <div className="text-xs font-semibold text-[var(--ink-700)]">Nothing pending</div>
+          </div>
+        ) : (
+          <div className="divide-y divide-[var(--ink-100)]">
+            {pending.map((appr) => (
+              <div key={appr.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-medium text-sm truncate text-[var(--ink-900)]">{appr.opportunity?.name || "Opportunity"}</span>
+                    {appr.opportunity?.account?.name && (
+                      <span className="text-xs text-[var(--ink-500)]">· {appr.opportunity.account.name}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs mt-0.5 font-medium">
+                    <span className="text-[var(--ink-500)] line-through">{appr.fromStage?.name || "Old"}</span>
+                    <ArrowRight size={11} className="text-[var(--ink-400)]" />
+                    <span className="font-bold text-[var(--ledger-700)]">{appr.toStage?.name || "New"}</span>
+                  </div>
+                </div>
+                <Badge tone="amber">Pending</Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
 
 export function ApprovalQueueTable({ limit }: { limit?: number }) {
   const qc = useQueryClient();
