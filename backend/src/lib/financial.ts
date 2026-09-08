@@ -1,14 +1,18 @@
 export interface FinancialsInput {
   expectedOpportunityValue?: any;
+  proposalValue?: any;
   actualOpportunityValue?: any;
+  costIncurredToCompany?: any;
   bottomLineCost?: any;
   amount?: any;
 }
 
 export interface ComputedFinancials {
   expectedOpportunityValue: number | null;
-  actualOpportunityValue: number | null; // Topline Value
-  bottomLineCost: number | null;  // Cost Incurred to Company
+  proposalValue: number | null;
+  actualOpportunityValue: number | null;
+  costIncurredToCompany: number | null;
+  bottomLineCost: number | null;
   expectedMargin: number | null;
   grossMargin: number | null;
   marginLoss: number | null;
@@ -32,23 +36,26 @@ export function computeOpportunityFinancials(input: FinancialsInput): ComputedFi
     expectedOpportunityValue = null;
   }
 
-  let actualOpportunityValue = toNum(input.actualOpportunityValue);
-  if (actualOpportunityValue === null) {
-    actualOpportunityValue = expectedOpportunityValue;
+  let proposalValue = toNum(input.proposalValue) ?? toNum(input.actualOpportunityValue);
+  if (proposalValue === null) {
+    proposalValue = expectedOpportunityValue;
   }
-  if (actualOpportunityValue !== null && actualOpportunityValue < 0) {
-    actualOpportunityValue = null;
+  if (proposalValue !== null && proposalValue < 0) {
+    proposalValue = null;
   }
 
-  const proposalVal = actualOpportunityValue !== null ? actualOpportunityValue : expectedOpportunityValue;
+  const actualOpportunityValue = proposalValue;
+  const proposalVal = proposalValue;
 
-  let bottomLineCost = toNum(input.bottomLineCost);
-  if (bottomLineCost === null && proposalVal !== null) {
-    bottomLineCost = Math.round(proposalVal * 0.65);
+  let costIncurredToCompany = toNum(input.costIncurredToCompany) ?? toNum(input.bottomLineCost);
+  if (costIncurredToCompany === null && proposalVal !== null) {
+    costIncurredToCompany = Math.round(proposalVal * 0.65);
   }
-  if (bottomLineCost !== null && bottomLineCost < 0) {
-    bottomLineCost = null;
+  if (costIncurredToCompany !== null && costIncurredToCompany < 0) {
+    costIncurredToCompany = null;
   }
+
+  const bottomLineCost = costIncurredToCompany;
 
   const expectedMargin =
     expectedOpportunityValue !== null && bottomLineCost !== null
@@ -81,7 +88,9 @@ export function computeOpportunityFinancials(input: FinancialsInput): ComputedFi
 
   return {
     expectedOpportunityValue,
+    proposalValue,
     actualOpportunityValue,
+    costIncurredToCompany,
     bottomLineCost,
     expectedMargin,
     grossMargin,

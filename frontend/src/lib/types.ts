@@ -217,8 +217,12 @@ export interface Opportunity {
   contact?: Contact | null;
   amount: string;
   expectedOpportunityValue?: string | number | null;
+  proposalValue?: string | number | null;
   actualOpportunityValue?: string | number | null;
+  costIncurredToCompany?: string | number | null;
   bottomLineCost?: string | number | null;
+  marginValue?: string | number | null;
+  marginPercentage?: string | number | null;
   expectedMargin?: string | number | null;
   grossMargin?: string | number | null;
   marginLoss?: string | number | null;
