@@ -64,31 +64,45 @@ function Kpi({
   badge?: ReactNode; footerLeft?: ReactNode; footerRight?: ReactNode; bar?: ReactNode; sparkline?: ReactNode; belowValue?: ReactNode;
 }) {
   const content = (
-    <Card className="p-4 h-full hover:shadow-md transition-all cursor-pointer group flex flex-col">
-      <div className="flex items-start justify-between gap-x-2 gap-y-1.5 mb-2 flex-wrap">
-        <div className="flex items-center gap-2 min-w-0">
+    <Card className="p-3.5 min-h-[145px] h-full hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between">
+      {/* Top Header Row - Fixed single-line height across all cards */}
+      <div className="flex items-center justify-between gap-1.5 h-6 mb-1.5">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
           <div
-            className="w-7 h-7 rounded-md flex items-center justify-center transition-transform group-hover:scale-110 shrink-0"
+            className="w-6 h-6 rounded flex items-center justify-center transition-transform group-hover:scale-105 shrink-0"
             style={{ background: tone === "green" ? "var(--ledger-100)" : "var(--ink-50)" }}
           >
-            <Icon size={14} style={{ color: tone === "green" ? "var(--ledger-700)" : "var(--ink-500)" }} />
+            <Icon size={13} style={{ color: tone === "green" ? "var(--ledger-700)" : "var(--ink-500)" }} />
           </div>
-          <span className="text-xs font-medium text-[var(--ink-500)] group-hover:text-[var(--ledger-700)] transition-colors">{label}</span>
+          <span className="text-[11px] font-semibold text-[var(--ink-500)] group-hover:text-[var(--ledger-700)] transition-colors truncate" title={label}>
+            {label}
+          </span>
         </div>
-        {badge}
+        {badge && <div className="shrink-0 flex items-center">{badge}</div>}
       </div>
-      <div className="flex items-end justify-between gap-2">
-        <div className="font-mono-num text-xl md:text-2xl font-semibold text-[var(--ink-900)]">{value}</div>
-        {sparkline}
-      </div>
-      {belowValue && <div className="mt-1.5">{belowValue}</div>}
-      {bar}
-      {(footerLeft || footerRight) && (
-        <div className="mt-auto pt-2.5 flex items-center justify-between gap-2 text-[10px] text-[var(--ink-400)]">
-          <span className="truncate">{footerLeft}</span>
-          <span className="shrink-0 font-medium text-[var(--ink-600)]">{footerRight}</span>
+
+      {/* Main Value & Sparkline Area */}
+      <div className="flex items-center justify-between gap-2 my-auto min-h-[36px]">
+        <div className="font-mono-num text-base sm:text-lg md:text-xl font-bold tracking-tight text-[var(--ink-900)] truncate leading-none">
+          {value}
         </div>
-      )}
+        {sparkline && <div className="shrink-0">{sparkline}</div>}
+      </div>
+
+      {/* Bar / Sub-value Row - Fixed height container so cards align perfectly */}
+      <div className="h-3 flex items-center my-1">
+        {belowValue ? (
+          <div className="w-full">{belowValue}</div>
+        ) : bar ? (
+          <div className="w-full">{bar}</div>
+        ) : null}
+      </div>
+
+      {/* Footer Row */}
+      <div className="pt-1.5 border-t border-[var(--ink-50)] flex items-center justify-between gap-1.5 text-[10px] text-[var(--ink-400)] h-5">
+        <span className="truncate">{footerLeft || " "}</span>
+        <span className="shrink-0 font-medium text-[var(--ink-600)]">{footerRight || " "}</span>
+      </div>
     </Card>
   );
 
