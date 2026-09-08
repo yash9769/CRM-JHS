@@ -239,7 +239,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         createdDate: o.createdAt ? o.createdAt.toISOString().slice(0, 10) : "",
         closeDate: o.expectedCloseDate ? o.expectedCloseDate.toISOString().slice(0, 10) : "",
         lostReason: o.lostReason || "",
-        loe: o.loeValue ? `${o.loeValue} ${o.loeUnit || "Hours"}` : "",
+        loe: o.loeValue || "",
         poNumber: o.poNumber || "",
         poValue: o.poValue ? Number(o.poValue) : "",
       };
@@ -261,7 +261,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       { key: "createdDate", label: "Created Date" },
       { key: "closeDate", label: "Close Date" },
       { key: "lostReason", label: "Closed Lost Reason" },
-      { key: "loe", label: "LOE" },
+      { key: "loe", label: "Letter of Engagement (LOE)" },
       { key: "poNumber", label: "PO Number" },
       { key: "poValue", label: "PO Value" },
     ]);
@@ -288,7 +288,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         createdDate: new Date().toISOString().slice(0, 10),
         closeDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
         lostReason: "",
-        loe: "160 Hours",
+        loe: "LOE-2026-001",
         poNumber: "PO-2026-001",
         poValue: "520000",
       },
@@ -308,7 +308,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       { key: "createdDate", label: "Created Date" },
       { key: "closeDate", label: "Close Date" },
       { key: "lostReason", label: "Closed Lost Reason" },
-      { key: "loe", label: "LOE" },
+      { key: "loe", label: "Letter of Engagement (LOE)" },
       { key: "poNumber", label: "PO Number" },
       { key: "poValue", label: "PO Value" },
     ]);
