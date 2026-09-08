@@ -885,39 +885,7 @@ export default function DashboardPage() {
           );
         })()}
 
-        {/* RECENT ACTIVITY */}
-        <div className="space-y-3">
-          <SectionHeader icon={Timer} title="Recent Activity" action={<span className="text-xs text-[var(--ink-400)]">Latest updates</span>} />
-          <Card className="p-4">
-            {!recentActivity.length ? (
-              <div className="py-6 text-center text-sm text-[var(--ink-400)]">No recent activity recorded</div>
-            ) : (
-              <div className="space-y-3">
-                {recentActivity.map((a) => {
-                  const related = activityRelated(a);
-                  return (
-                    <div key={a.id} className="flex items-start justify-between border-b border-[var(--ink-50)] pb-2.5 last:border-none last:pb-0">
-                      <div>
-                        <div className="text-sm font-medium text-[var(--ink-900)]">{a.subject}</div>
-                        <div className="text-xs text-[var(--ink-500)] mt-0.5">
-                          {a.owner ? `${a.owner.firstName} ${a.owner.lastName} · ` : ""}
-                          {related ? (
-                            <Link to={related.url} className="text-[var(--ledger-700)] hover:underline font-medium">
-                              {related.label}
-                            </Link>
-                          ) : (
-                            <span className="capitalize">{a.type?.toLowerCase()}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-xs text-[var(--ink-400)] shrink-0 ml-4">{relativeTime(a.createdAt)}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
-        </div>
+
 
         {/* OPPORTUNITIES AT RISK */}
         <div className="space-y-3">

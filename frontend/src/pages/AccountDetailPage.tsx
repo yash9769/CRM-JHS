@@ -186,22 +186,30 @@ export default function AccountDetailPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="text-left border-b border-[var(--ink-100)]">
-                  {["Opportunity", "Stage", "Expected Value", "Actual Value", "Margin", "Close Date", "Created By"].map((h) => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">{h}</th>)}
+                  {["Opportunity", "Stage", "Proposal Value", "Cost Incurred", "Margin", "Margin %", "Close Date", "Created At", "Created By"].map((h) => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">{h}</th>)}
                 </tr></thead>
                 <tbody>
-                  {account.opportunities.map((o) => (
-                    <tr key={o.id} className="border-b last:border-0 hover:bg-[var(--ink-50)] border-[var(--ink-100)]">
-                      <td className="px-4 py-3"><Link to={`/opportunities/${o.id}`} className="font-medium hover:underline text-[var(--ledger-700)]">{o.name}</Link></td>
-                      <td className="px-4 py-3"><StageBadge stage={o.stage as any} /></td>
-                      <td className="px-4 py-3 font-mono-num font-semibold text-slate-800">{o.expectedOpportunityValue !== null && o.expectedOpportunityValue !== undefined ? formatCurrency(o.expectedOpportunityValue) : formatCurrency(o.amount)}</td>
-                      <td className="px-4 py-3 font-mono-num font-semibold text-slate-900">{o.actualOpportunityValue !== null && o.actualOpportunityValue !== undefined ? formatCurrency(o.actualOpportunityValue) : "—"}</td>
-                      <td className={`px-4 py-3 font-mono-num font-bold ${o.grossMargin !== null && o.grossMargin !== undefined && Number(o.grossMargin) < 0 ? "text-rose-600" : "text-emerald-700"}`}>
-                        {o.grossMargin !== null && o.grossMargin !== undefined ? formatCurrency(o.grossMargin) : (o.expectedMargin !== null && o.expectedMargin !== undefined ? formatCurrency(o.expectedMargin) : "—")}
-                      </td>
-                      <td className="px-4 py-3 text-[var(--ink-500)]">{formatDate(o.expectedCloseDate)}</td>
-                      <td className="px-4 py-3 text-[var(--ink-500)]">{o.createdBy ? `${o.createdBy.firstName} ${o.createdBy.lastName}` : "—"}</td>
-                    </tr>
-                  ))}
+                  {account.opportunities.map((o) => {
+                    const proposalVal = o.expectedOpportunityValue !== null && o.expectedOpportunityValue !== undefined ? Number(o.expectedOpportunityValue) : Number(o.amount || 0);
+                    const costVal = o.bottomLineCost !== null && o.bottomLineCost !== undefined ? Number(o.bottomLineCost) : (o.actualOpportunityValue !== null && o.actualOpportunityValue !== undefined ? Number(o.actualOpportunityValue) : null);
+                    const marginVal = o.grossMargin !== null && o.grossMargin !== undefined ? Number(o.grossMargin) : (o.expectedMargin !== null && o.expectedMargin !== undefined ? Number(o.expectedMargin) : null);
+                    const marginPctStr = proposalVal > 0 && marginVal !== null ? ((marginVal / proposalVal) * 100).toFixed(1) + "%" : "—";
+                    return (
+                      <tr key={o.id} className="border-b last:border-0 hover:bg-[var(--ink-50)] border-[var(--ink-100)]">
+                        <td className="px-4 py-3"><Link to={`/opportunities/${o.id}`} className="font-medium hover:underline text-[var(--ledger-700)]">{o.name}</Link></td>
+                        <td className="px-4 py-3"><StageBadge stage={o.stage as any} /></td>
+                        <td className="px-4 py-3 font-mono-num font-semibold text-slate-800">{formatCurrency(proposalVal)}</td>
+                        <td className="px-4 py-3 font-mono-num font-semibold text-slate-900">{costVal !== null ? formatCurrency(costVal) : "—"}</td>
+                        <td className={`px-4 py-3 font-mono-num font-bold ${marginVal !== null && marginVal < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                          {marginVal !== null ? formatCurrency(marginVal) : "—"}
+                        </td>
+                        <td className="px-4 py-3 font-mono-num font-medium text-slate-700">{marginPctStr}</td>
+                        <td className="px-4 py-3 text-[var(--ink-500)]">{formatDate(o.expectedCloseDate)}</td>
+                        <td className="px-4 py-3 text-[var(--ink-500)]">{formatDate(o.createdAt)}</td>
+                        <td className="px-4 py-3 text-[var(--ink-500)]">{o.createdBy ? `${o.createdBy.firstName} ${o.createdBy.lastName}` : "—"}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

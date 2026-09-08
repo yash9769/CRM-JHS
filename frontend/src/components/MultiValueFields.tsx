@@ -21,6 +21,8 @@ export interface PhoneEntry {
  * becomes the legacy single-email column on the backend, so search/export/
  * dedupe logic elsewhere keeps working unchanged.
  */
+import { ValidatedEmailInput } from "./ValidatedInput";
+
 export function MultiEmailField({ value, onChange }: { value: EmailEntry[]; onChange: (v: EmailEntry[]) => void }) {
   function update(i: number, patch: Partial<EmailEntry>) {
     onChange(value.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
@@ -42,33 +44,34 @@ export function MultiEmailField({ value, onChange }: { value: EmailEntry[]; onCh
       <div className="text-xs font-medium mb-1.5" style={{ color: "var(--ink-600)" }}>Email addresses</div>
       <div className="space-y-2">
         {value.map((entry, i) => (
-          <div key={i} className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => makePrimary(i)}
-              title={entry.isPrimary ? "Primary email" : "Set as primary"}
-              className="shrink-0 p-1.5 rounded hover:bg-[var(--ink-50)]"
-            >
-              <Star size={14} fill={entry.isPrimary ? "currentColor" : "none"} style={{ color: entry.isPrimary ? "var(--amber-500)" : "var(--ink-300)" }} />
-            </button>
-            <input
-              type="email"
-              value={entry.email}
-              onChange={(e) => update(i, { email: e.target.value })}
-              placeholder="name@example.com"
-              className={`${inputClass} flex-1`}
-              style={inputStyle}
-            />
-            <input
-              value={entry.label || ""}
-              onChange={(e) => update(i, { label: e.target.value })}
-              placeholder="Label (optional)"
-              className={inputClass}
-              style={{ ...inputStyle, width: 130 }}
-            />
-            <button type="button" onClick={() => remove(i)} className="shrink-0 p-1.5 rounded hover:bg-rose-50" title="Remove">
-              <Trash2 size={14} style={{ color: "var(--rose-600)" }} />
-            </button>
+          <div key={i} className="flex flex-col gap-1">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => makePrimary(i)}
+                title={entry.isPrimary ? "Primary email" : "Set as primary"}
+                className="shrink-0 p-1.5 rounded hover:bg-[var(--ink-50)]"
+              >
+                <Star size={14} fill={entry.isPrimary ? "currentColor" : "none"} style={{ color: entry.isPrimary ? "var(--amber-500)" : "var(--ink-300)" }} />
+              </button>
+              <div className="flex-1">
+                <ValidatedEmailInput
+                  value={entry.email}
+                  onChange={(email) => update(i, { email })}
+                  placeholder="name@example.com"
+                />
+              </div>
+              <input
+                value={entry.label || ""}
+                onChange={(e) => update(i, { label: e.target.value })}
+                placeholder="Label (optional)"
+                className={inputClass}
+                style={{ ...inputStyle, width: 130 }}
+              />
+              <button type="button" onClick={() => remove(i)} className="shrink-0 p-1.5 rounded hover:bg-rose-50" title="Remove">
+                <Trash2 size={14} style={{ color: "var(--rose-600)" }} />
+              </button>
+            </div>
           </div>
         ))}
       </div>

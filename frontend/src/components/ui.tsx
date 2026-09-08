@@ -106,12 +106,24 @@ export function EmptyState({ title, subtitle, action }: { title: string; subtitl
 }
 
 export function Modal({ title, onClose, children, width = "480px" }: { title: string; onClose: () => void; children: ReactNode; width?: string }) {
+  // Prevent accidental form submit on Enter key inside input textboxes across all modals
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "SELECT") {
+        e.preventDefault();
+        target.blur();
+      }
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(20,23,26,0.5)" }} onClick={onClose}>
       <div
         className="rounded-xl bg-white shadow-2xl w-full max-h-[88vh] overflow-y-auto"
         style={{ maxWidth: width }}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleKeyDown}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 bg-white" style={{ borderColor: "var(--ink-100)" }}>
           <h3 className="text-[15px] font-semibold">{title}</h3>

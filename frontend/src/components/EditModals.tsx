@@ -10,6 +10,7 @@ import { Info, IndianRupee } from "lucide-react";
 import { formatCurrency } from "../lib/format";
 import { MultiEmailField, MultiPhoneField, allPhonesValid, type EmailEntry, type PhoneEntry } from "./MultiValueFields";
 import { DEFAULT_COUNTRY_CODE } from "../lib/phoneCountries";
+import { ValidatedDomainInput, ValidatedEmailInput } from "./ValidatedInput";
 
 function accountPhonesToEntries(account: Account): PhoneEntry[] {
   if (account.phones && account.phones.length) {
@@ -130,7 +131,7 @@ export function EditAccountModal({ account, onClose }: { account: Account; onClo
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Website / Domain"><input value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} className={inputClass} style={inputStyle} placeholder="https://acme.com" /></Field>
+          <Field label="Website / Domain"><ValidatedDomainInput value={form.website} onChange={(website) => setForm({ ...form, website })} placeholder="acme.com" /></Field>
           <Field label="Industry"><input value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })} className={inputClass} style={inputStyle} /></Field>
         </div>
         <Field label="Employees"><input type="number" min="0" value={form.employeeCount} onChange={(e) => setForm({ ...form, employeeCount: e.target.value })} className={inputClass} style={inputStyle} /></Field>

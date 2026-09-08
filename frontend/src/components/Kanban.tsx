@@ -205,9 +205,9 @@ export function KanbanBoard<T extends KanbanItem>({
                         )}
                         <div className="flex items-center justify-between">
                           {closeDate ? (
-                            <span className="flex items-center gap-1 font-mono-num">
+                            <span className="flex items-center gap-1 font-mono-num" title="Target Close Date">
                               <Calendar size={11} className="shrink-0" style={{ color: "var(--ink-400)" }} />
-                              {formatDate(closeDate)}
+                              <span className="font-semibold text-[var(--ink-500)]">Close Date:</span> {formatDate(closeDate)}
                             </span>
                           ) : (
                             <span />

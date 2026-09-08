@@ -10,6 +10,7 @@ import { Info, IndianRupee } from "lucide-react";
 import { formatCurrency } from "../lib/format";
 import { MultiEmailField, MultiPhoneField, allPhonesValid, type EmailEntry, type PhoneEntry } from "./MultiValueFields";
 import { DEFAULT_COUNTRY_CODE } from "../lib/phoneCountries";
+import { ValidatedDomainInput, ValidatedEmailInput } from "./ValidatedInput";
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -112,9 +113,10 @@ export function NewAccountModal({
             placeholder="Search account owner…"
           />
         </Field>
+
         <div className="grid grid-cols-2 gap-3">
           <Field label="Website / Domain">
-            <input value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} className={inputClass} style={inputStyle} placeholder="https://acme.com" />
+            <ValidatedDomainInput value={form.website} onChange={(website) => setForm({ ...form, website })} placeholder="acme.com" />
           </Field>
           <Field label="Industry">
             <input value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })} className={inputClass} style={inputStyle} placeholder="Information Technology" />
