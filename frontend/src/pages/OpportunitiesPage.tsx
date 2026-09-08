@@ -15,7 +15,7 @@ import { computeOpportunityFinancials } from "../lib/financial";
 import { useAuth } from "../hooks/useAuth";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
 import type { Opportunity, Pipeline, Paginated } from "../lib/types";
-import { Plus, Search, Archive, Download, UploadCloud, Building2, User, FileSpreadsheet } from "lucide-react";
+import { Plus, Search, Download, UploadCloud, Building2, User, FileSpreadsheet } from "lucide-react";
 
 const OPPORTUNITY_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Opportunity Name", permanent: true },
@@ -457,14 +457,6 @@ export default function OpportunitiesPage() {
         </Button>
         <Button size="sm" variant="secondary" onClick={() => setBulkStagePicker(true)}>
           Change Stage
-        </Button>
-        <Button
-          size="sm"
-          variant="danger"
-          onClick={() => bulkMutation.mutate({ action: "archive" })}
-          disabled={bulkMutation.isPending}
-        >
-          <Archive size={13} /> Archive
         </Button>
       </BulkActionBar>
 

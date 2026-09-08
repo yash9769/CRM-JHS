@@ -17,7 +17,7 @@ const tabs = ["Overview", "Contacts", "Opportunities", "Activity", "History"] as
 export default function AccountDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const qcArchive = useQC2();
+  const qc = useQC2();
   const [tab, setTab] = useState<(typeof tabs)[number]>("Overview");
   const [modal, setModal] = useState<"contact" | "opportunity" | "edit" | "delete" | null>(null);
 
@@ -31,7 +31,7 @@ export default function AccountDetailPage() {
     if (user?.orgRole !== "MANAGER") {
       try {
         await api.delete(`/accounts/${account.id}`);
-        qcArchive.invalidateQueries({ queryKey: ["accounts"] });
+        qc.invalidateQueries({ queryKey: ["accounts"] });
         navigate("/accounts");
       } catch (err: any) {
         alert(err?.response?.data?.error || err.message || "Could not delete account.");
@@ -252,7 +252,7 @@ export default function AccountDetailPage() {
         <AccountDeletionModal
           account={account}
           onClose={() => setModal(null)}
-          onSuccess={() => { qcArchive.invalidateQueries({ queryKey: ["accounts"] }); navigate("/accounts"); }}
+          onSuccess={() => { qc.invalidateQueries({ queryKey: ["accounts"] }); navigate("/accounts"); }}
         />
       )}
       {modal === "contact" && <NewContactModal accountId={account.id} accountName={account.name} onClose={() => setModal(null)} />}

@@ -5,21 +5,15 @@ import { api } from "../lib/api";
 import { Card, Button, BackButton } from "../components/ui";
 import { Timeline } from "../components/Timeline";
 import { NewOpportunityModal } from "../components/CreateModals";
-import { EditContactModal, ArchiveConfirmModal } from "../components/EditModals";
+import { EditContactModal } from "../components/EditModals";
 import { initials } from "../lib/format";
 import type { Contact } from "../lib/types";
-import { Mail, Phone, Link2, Building2, Target, Pencil, Archive } from "lucide-react";
+import { Mail, Phone, Link2, Building2, Target, Pencil } from "lucide-react";
 
 export default function ContactDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const qcArchive = useQC2();
-  const [modal, setModal] = useState<"opportunity" | "edit" | "archive" | null>(null);
-
-  const archiveMutation = useMutation({
-    mutationFn: () => api.post(`/contacts/${id}/archive`),
-    onSuccess: () => { qcArchive.invalidateQueries({ queryKey: ["contacts"] }); navigate("/contacts"); },
-  });
+  const [modal, setModal] = useState<"opportunity" | "edit" | null>(null);
 
   const { data: contact, isLoading } = useQuery<Contact>({
     queryKey: ["contact", id],
@@ -53,7 +47,6 @@ export default function ContactDetailPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" onClick={() => setModal("edit")}><Pencil size={14} /> Edit</Button>
           <Button variant="secondary" onClick={() => setModal("opportunity")}><Target size={14} /> Create Opportunity</Button>
-          <Button variant="secondary" onClick={() => setModal("archive")}><Archive size={14} /> Archive</Button>
         </div>
       </div>
 
@@ -101,14 +94,6 @@ export default function ContactDetailPage() {
       </div>
 
       {modal === "edit" && <EditContactModal contact={contact} onClose={() => setModal(null)} />}
-      {modal === "archive" && (
-        <ArchiveConfirmModal
-          title={`${contact.firstName} ${contact.lastName}`}
-          isPending={archiveMutation.isPending}
-          onConfirm={() => archiveMutation.mutate()}
-          onClose={() => setModal(null)}
-        />
-      )}
       {modal === "opportunity" && (
         <NewOpportunityModal
           accountId={contact.account?.id}

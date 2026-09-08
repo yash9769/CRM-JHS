@@ -1300,20 +1300,10 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     return reply.code(204).send();
   });
 
-  app.post("/api/v1/opportunities/:id/archive", { preHandler: app.authenticate }, async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const existing = await prisma.opportunity.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
-    if (!existing) return reply.code(404).send({ error: "Opportunity not found" });
-    await requireCanAccess(req.authUser, existing);
-    const opp = await prisma.opportunity.update({ where: { id }, data: { archived: true } });
-    await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "OPPORTUNITY", recordId: id, action: "ARCHIVED" });
-    return opp;
-  });
-
   app.post("/api/v1/opportunities/bulk", { preHandler: app.authenticate }, async (req, reply) => {
     const body = z.object({
       ids: z.array(z.string().uuid()).min(1),
-      action: z.enum(["assignOwner", "changeStage", "archive"]),
+      action: z.enum(["assignOwner", "changeStage"]),
       ownerId: z.string().uuid().optional(),
       stageId: z.string().uuid().optional(),
       lostReason: z.string().optional(),
@@ -1413,8 +1403,6 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       }
 
       data = { ...data, stageId: body.stageId, probability: stage.probability };
-    } else if (body.action === "archive") {
-      data = { archived: true };
     }
 
     await prisma.opportunity.updateMany({ where: { id: { in: ids }, tenantId }, data });

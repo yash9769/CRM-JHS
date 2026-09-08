@@ -7,7 +7,7 @@ import { NotesOnlyPanel } from "../components/NotesOnlyPanel";
 import { ClosedWonModal } from "../components/ClosedWonModal";
 import { ClosedLostModal } from "../components/ClosedLostModal";
 import { NewContactModal, NewQuoteModal, AddLineItemModal } from "../components/CreateModals";
-import { EditOpportunityModal, ArchiveConfirmModal } from "../components/EditModals";
+import { EditOpportunityModal } from "../components/EditModals";
 import { ConfirmStageChangeModal } from "../components/ConfirmStageChangeModal";
 import { HistoryPanel } from "../components/HistoryPanel";
 import { formatCurrency, formatDate } from "../lib/format";
@@ -29,20 +29,7 @@ export default function OpportunityDetailPage() {
   const { user } = useAuth();
   const isPartner = user?.orgRole === "PARTNER" || user?.orgRole === "SENIOR_PARTNER";
 
-  const [modal, setModal] = useState<"edit" | "contact" | "archive" | "lineItem" | "quote" | null>(null);
-  const [requestModalStage, setRequestModalStage] = useState<{ id: string; name: string } | null>(null);
-  const [reviewModalApproval, setReviewModalApproval] = useState<any | null>(null);
-  const [closedWonModalStageId, setClosedWonModalStageId] = useState<string | null>(null);
-  const [closedLostModalStageId, setClosedLostModalStageId] = useState<string | null>(null);
-  const [confirmStageTarget, setConfirmStageTarget] = useState<any | null>(null);
-
-  const archiveMutation = useMutation({
-    mutationFn: () => api.post(`/opportunities/${id}/archive`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["opportunities"] });
-      navigate("/opportunities");
-    },
-  });
+  const [modal, setModal] = useState<"edit" | "contact" | "lineItem" | "quote" | null>(null);
 
   const deleteLineItemMutation = useMutation({
     mutationFn: (lineItemId: string) => api.delete(`/opportunities/${id}/line-items/${lineItemId}`),
@@ -759,14 +746,6 @@ export default function OpportunityDetailPage() {
           accountId={opp.accountId}
           onClose={() => setModal(null)}
           onSuccess={() => qc.invalidateQueries({ queryKey: ["opportunity", id] })}
-        />
-      )}
-      {modal === "archive" && (
-        <ArchiveConfirmModal
-          title={`Opportunity "${opp.name}"`}
-          onConfirm={() => archiveMutation.mutate()}
-          onClose={() => setModal(null)}
-          isPending={archiveMutation.isPending}
         />
       )}
 

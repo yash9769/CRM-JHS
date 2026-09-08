@@ -33,38 +33,7 @@ function contactPhonesToEntries(contact: Contact): PhoneEntry[] {
   return contact.phone ? [{ countryCode: DEFAULT_COUNTRY_CODE, number: contact.phone.replace(/\D/g, "").slice(-10), isPrimary: true }] : [];
 }
 
-export function ArchiveConfirmModal({
-  title, impactUrl, onConfirm, onClose, isPending,
-}: { title: string; impactUrl?: string; onConfirm: () => void; onClose: () => void; isPending?: boolean }) {
-  const { data: impact } = useQuery<Record<string, number>>({
-    queryKey: ["impact", impactUrl],
-    queryFn: async () => (await api.get(impactUrl!)).data,
-    enabled: !!impactUrl,
-  });
-  const entries = impact ? Object.entries(impact).filter(([, v]) => v > 0) : [];
 
-  return (
-    <Modal title={`Archive ${title}?`} onClose={onClose} width="440px">
-      {entries.length > 0 && (
-        <div className="mb-4 p-3 rounded-lg text-sm bg-[var(--ink-50)]">
-          <div className="mb-1.5 text-[var(--ink-500)]">This record has:</div>
-          <ul className="space-y-0.5">
-            {entries.map(([k, v]) => (
-              <li key={k} className="font-medium">{v} {k}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <p className="text-sm mb-4 text-[var(--ink-600)]">
-        Archived records are hidden from lists but not deleted — you can restore this later.
-      </p>
-      <div className="flex justify-end gap-2">
-        <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button variant="danger" onClick={onConfirm} disabled={isPending}>{isPending ? "Archiving…" : "Archive"}</Button>
-      </div>
-    </Modal>
-  );
-}
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;

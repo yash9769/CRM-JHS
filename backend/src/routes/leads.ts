@@ -386,22 +386,11 @@ export default async function leadRoutes(app: FastifyInstance) {
     return lead;
   });
 
-  // ARCHIVE (soft delete)
-  app.post("/api/v1/leads/:id/archive", { preHandler: app.authenticate }, async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const existing = await prisma.lead.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
-    if (!existing) return reply.code(404).send({ error: "Lead not found" });
-    await requireCanAccess(req.authUser, existing);
-    const lead = await prisma.lead.update({ where: { id }, data: { archived: true } });
-    await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "LEAD", recordId: id, action: "ARCHIVED" });
-    return lead;
-  });
-
   // BULK ACTIONS
   app.post("/api/v1/leads/bulk", { preHandler: app.authenticate }, async (req, reply) => {
     const body = z.object({
       ids: z.array(z.string().uuid()).min(1),
-      action: z.enum(["assignOwner", "changeStatus", "archive"]),
+      action: z.enum(["assignOwner", "changeStatus"]),
       ownerId: z.string().uuid().optional(),
       status: z.enum(LEAD_STATUSES).optional(),
     }).parse(req.body);
@@ -434,8 +423,6 @@ export default async function leadRoutes(app: FastifyInstance) {
     } else if (body.action === "changeStatus") {
       if (!body.status) return reply.code(400).send({ error: "status is required" });
       data = { status: body.status };
-    } else if (body.action === "archive") {
-      data = { archived: true };
     }
 
     await prisma.lead.updateMany({ where: { id: { in: ids }, tenantId }, data });
