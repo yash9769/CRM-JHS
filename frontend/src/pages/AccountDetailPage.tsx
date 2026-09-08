@@ -1,16 +1,16 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient as useQC2 } from "@tanstack/react-query";
+import { useQuery, useQueryClient as useQC2 } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { Card, Badge, StageBadge, EmptyState, Button, BackButton } from "../components/ui";
 import { Timeline } from "../components/Timeline";
 import { NewContactModal, NewOpportunityModal } from "../components/CreateModals";
-import { EditAccountModal, ArchiveConfirmModal } from "../components/EditModals";
+import { EditAccountModal } from "../components/EditModals";
 import { AccountDeletionModal } from "../components/AccountDeletionModal";
 import { HistoryPanel } from "../components/HistoryPanel";
 import { formatCurrency, formatDate, initials } from "../lib/format";
 import type { Account } from "../lib/types";
-import { Building2, Globe, Phone, Mail, MapPin, Users, Target, Plus, Pencil, Archive, Trash2 } from "lucide-react";
+import { Building2, Globe, Phone, Mail, MapPin, Users, Target, Plus, Pencil, Trash2 } from "lucide-react";
 
 const tabs = ["Overview", "Contacts", "Opportunities", "Activity", "History"] as const;
 
@@ -19,12 +19,7 @@ export default function AccountDetailPage() {
   const navigate = useNavigate();
   const qcArchive = useQC2();
   const [tab, setTab] = useState<(typeof tabs)[number]>("Overview");
-  const [modal, setModal] = useState<"contact" | "opportunity" | "edit" | "archive" | "delete" | null>(null);
-
-  const archiveMutation = useMutation({
-    mutationFn: () => api.post(`/accounts/${id}/archive`),
-    onSuccess: () => { qcArchive.invalidateQueries({ queryKey: ["accounts"] }); navigate("/accounts"); },
-  });
+  const [modal, setModal] = useState<"contact" | "opportunity" | "edit" | "delete" | null>(null);
 
   const { data: account, isLoading } = useQuery<Account>({
     queryKey: ["account", id],
@@ -55,7 +50,6 @@ export default function AccountDetailPage() {
           <Button variant="secondary" onClick={() => setModal("edit")}><Pencil size={14} /> Edit</Button>
           <Button variant="secondary" onClick={() => setModal("opportunity")}><Target size={14} /> Create Opportunity</Button>
           <Button variant="secondary" onClick={() => setModal("contact")}><Users size={14} /> Create Contact</Button>
-          <Button variant="secondary" onClick={() => setModal("archive")}><Archive size={14} /> Archive</Button>
           <Button variant="danger" onClick={() => setModal("delete")}><Trash2 size={14} /> Delete Account</Button>
         </div>
       </div>
@@ -240,15 +234,6 @@ export default function AccountDetailPage() {
       )}
 
       {modal === "edit" && <EditAccountModal account={account} onClose={() => setModal(null)} />}
-      {modal === "archive" && (
-        <ArchiveConfirmModal
-          title={account.name}
-          impactUrl={`/accounts/${account.id}/impact`}
-          isPending={archiveMutation.isPending}
-          onConfirm={() => archiveMutation.mutate()}
-          onClose={() => setModal(null)}
-        />
-      )}
       {modal === "delete" && (
         <AccountDeletionModal
           account={account}

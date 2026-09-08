@@ -80,7 +80,7 @@ async function findDuplicateAccounts(tenantId: string, data: { name: string; dom
   const or: any[] = [{ name: { equals: data.name, mode: "insensitive" as const } }];
   if (data.domain) or.push({ domain: { equals: data.domain, mode: "insensitive" as const } });
   return prisma.account.findMany({
-    where: { tenantId, archived: false, OR: or },
+    where: { tenantId, OR: or },
     take: 5,
     select: { id: true, name: true, domain: true, industry: true, accountType: true },
   });
@@ -111,7 +111,6 @@ export default async function accountRoutes(app: FastifyInstance) {
     const where: any = {
       tenantId: req.authUser.tenantId,
       AND: [rbacFilter],
-      ...(q.includeArchived === "true" ? {} : { archived: false }),
       ...(q.accountType ? { accountType: q.accountType as any } : {}),
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
       ...(q.industry ? { industry: q.industry } : {}),
@@ -717,23 +716,5 @@ export default async function accountRoutes(app: FastifyInstance) {
     return { contacts, opportunities, activities };
   });
 
-  app.post("/api/v1/accounts/:id/archive", { preHandler: app.authenticate }, async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const existing = await prisma.account.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
-    if (!existing) return reply.code(404).send({ error: "Account not found" });
-    await requireCanAccess(req.authUser, existing, "write");
-    const account = await prisma.account.update({ where: { id }, data: { archived: true } });
-    await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "ACCOUNT", recordId: id, action: "ARCHIVED" });
-    return account;
-  });
 
-  app.post("/api/v1/accounts/:id/unarchive", { preHandler: app.authenticate }, async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const existing = await prisma.account.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
-    if (!existing) return reply.code(404).send({ error: "Account not found" });
-    await requireCanAccess(req.authUser, existing, "write");
-    const account = await prisma.account.update({ where: { id }, data: { archived: false } });
-    await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "ACCOUNT", recordId: id, action: "UNARCHIVED" });
-    return account;
-  });
 }

@@ -335,7 +335,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     const [oppPipeline, users, accounts, contacts] = await Promise.all([
       prisma.pipeline.findFirst({ where: { tenantId, type: "OPPORTUNITY" }, include: { stages: { orderBy: { order: "asc" } } } }),
       prisma.user.findMany({ where: { tenantId } }),
-      prisma.account.findMany({ where: { tenantId, archived: false } }),
+      prisma.account.findMany({ where: { tenantId } }),
       prisma.contact.findMany({ where: { tenantId, archived: false } }),
     ]);
 
