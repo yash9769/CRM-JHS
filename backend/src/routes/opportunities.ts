@@ -730,6 +730,10 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     if (body.accountId && !account) return reply.code(400).send({ error: "Account not found for this tenant" });
     if (!stage) return reply.code(400).send({ error: "Stage does not belong to the specified pipeline" });
 
+    if (body.accountId && account?.ownerId && !body.ownerId) {
+      body.ownerId = account.ownerId;
+    }
+
     const isClosingWon = stage.isClosed && stage.isWon;
     const isClosingLost = stage.isClosed && !stage.isWon;
 
@@ -740,6 +744,9 @@ export default async function opportunityRoutes(app: FastifyInstance) {
 
     // Closed Won validation
     if (isClosingWon) {
+      if (!body.poNumber || !body.poNumber.trim()) {
+        return reply.code(400).send({ error: "PO Number is mandatory when moving an opportunity to Closed Won." });
+      }
       if (body.poValue === undefined || body.poValue === null || Number(body.poValue) <= 0) {
         return reply.code(400).send({ error: "A valid positive PO Value is mandatory when moving an opportunity to Closed Won." });
       }
@@ -976,7 +983,12 @@ export default async function opportunityRoutes(app: FastifyInstance) {
 
     // Closed Won validation
     if (isMovingToClosedWon) {
-      if (body.poValue === undefined || body.poValue === null || Number(body.poValue) <= 0) {
+      const candidatePoNumber = body.poNumber !== undefined ? body.poNumber : existing.poNumber;
+      if (!candidatePoNumber || !candidatePoNumber.trim()) {
+        return reply.code(400).send({ error: "PO Number is mandatory when moving an opportunity to Closed Won." });
+      }
+      const candidatePoValue = body.poValue !== undefined ? body.poValue : existing.poValue;
+      if (candidatePoValue === undefined || candidatePoValue === null || Number(candidatePoValue) <= 0) {
         return reply.code(400).send({ error: "A valid positive PO Value is mandatory when moving an opportunity to Closed Won." });
       }
     }

@@ -6,10 +6,11 @@ import { Card, Badge, StageBadge, EmptyState, Button, BackButton } from "../comp
 import { Timeline } from "../components/Timeline";
 import { NewContactModal, NewOpportunityModal } from "../components/CreateModals";
 import { EditAccountModal, ArchiveConfirmModal } from "../components/EditModals";
+import { AccountDeletionModal } from "../components/AccountDeletionModal";
 import { HistoryPanel } from "../components/HistoryPanel";
 import { formatCurrency, formatDate, initials } from "../lib/format";
 import type { Account } from "../lib/types";
-import { Building2, Globe, Phone, Mail, MapPin, Users, Target, Plus, Pencil, Archive } from "lucide-react";
+import { Building2, Globe, Phone, Mail, MapPin, Users, Target, Plus, Pencil, Archive, Trash2 } from "lucide-react";
 
 const tabs = ["Overview", "Contacts", "Opportunities", "Activity", "History"] as const;
 
@@ -18,7 +19,7 @@ export default function AccountDetailPage() {
   const navigate = useNavigate();
   const qcArchive = useQC2();
   const [tab, setTab] = useState<(typeof tabs)[number]>("Overview");
-  const [modal, setModal] = useState<"contact" | "opportunity" | "edit" | "archive" | null>(null);
+  const [modal, setModal] = useState<"contact" | "opportunity" | "edit" | "archive" | "delete" | null>(null);
 
   const archiveMutation = useMutation({
     mutationFn: () => api.post(`/accounts/${id}/archive`),
@@ -55,6 +56,7 @@ export default function AccountDetailPage() {
           <Button variant="secondary" onClick={() => setModal("opportunity")}><Target size={14} /> Create Opportunity</Button>
           <Button variant="secondary" onClick={() => setModal("contact")}><Users size={14} /> Create Contact</Button>
           <Button variant="secondary" onClick={() => setModal("archive")}><Archive size={14} /> Archive</Button>
+          <Button variant="danger" onClick={() => setModal("delete")}><Trash2 size={14} /> Delete Account</Button>
         </div>
       </div>
 
@@ -186,7 +188,7 @@ export default function AccountDetailPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="text-left border-b border-[var(--ink-100)]">
-                  {["Opportunity", "Stage", "Proposal Value", "Cost Incurred", "Margin", "Margin %", "Close Date", "Created At", "Created By"].map((h) => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">{h}</th>)}
+                  {["Opportunity", "Stage", "Proposal Value", "Cost Incurred", "Margin", "Margin %", "Assigned To", "Close Date", "Created At", "Created By"].map((h) => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">{h}</th>)}
                 </tr></thead>
                 <tbody>
                   {account.opportunities.map((o) => {
@@ -204,6 +206,7 @@ export default function AccountDetailPage() {
                           {marginVal !== null ? formatCurrency(marginVal) : "—"}
                         </td>
                         <td className="px-4 py-3 font-mono-num font-medium text-slate-700">{marginPctStr}</td>
+                        <td className="px-4 py-3 font-medium text-xs text-[var(--ink-700)]">{o.owner ? `${o.owner.firstName} ${o.owner.lastName}` : "—"}</td>
                         <td className="px-4 py-3 text-[var(--ink-500)]">{formatDate(o.expectedCloseDate)}</td>
                         <td className="px-4 py-3 text-[var(--ink-500)]">{formatDate(o.createdAt)}</td>
                         <td className="px-4 py-3 text-[var(--ink-500)]">{o.createdBy ? `${o.createdBy.firstName} ${o.createdBy.lastName}` : "—"}</td>
@@ -246,8 +249,15 @@ export default function AccountDetailPage() {
           onClose={() => setModal(null)}
         />
       )}
+      {modal === "delete" && (
+        <AccountDeletionModal
+          account={account}
+          onClose={() => setModal(null)}
+          onSuccess={() => { qcArchive.invalidateQueries({ queryKey: ["accounts"] }); navigate("/accounts"); }}
+        />
+      )}
       {modal === "contact" && <NewContactModal accountId={account.id} accountName={account.name} onClose={() => setModal(null)} />}
-      {modal === "opportunity" && <NewOpportunityModal accountId={account.id} accountName={account.name} onClose={() => setModal(null)} />}
+      {modal === "opportunity" && <NewOpportunityModal accountId={account.id} accountName={account.name} accountOwnerId={account.ownerId || undefined} accountOwnerLabel={account.owner ? `${account.owner.firstName} ${account.owner.lastName}` : undefined} onClose={() => setModal(null)} />}
     </div>
   );
 }

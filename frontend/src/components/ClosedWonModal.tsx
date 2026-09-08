@@ -58,6 +58,11 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
       return;
     }
 
+    if (!poNumber.trim()) {
+      setError("Purchase Order Number (PO Number) is mandatory when marking an opportunity Closed Won.");
+      return;
+    }
+
     if (!attachments.length) {
       setError("An attachment (Purchase Order / LOE / Client Confirmation) is required to mark this opportunity Closed Won.");
       return;
@@ -67,7 +72,7 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
     try {
       const patchRes = await api.patch(`/opportunities/${opportunity.id}`, {
         stageId: targetStageId,
-        poNumber: poNumber.trim() || undefined,
+        poNumber: poNumber.trim(),
         poValue: numPoValue,
         actualOpportunityValue: numPoValue,
         loeValue: attachments[0]?.filename || "LOE Attached",
@@ -103,8 +108,8 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
             <div className="font-bold">Opportunity Close Requirements</div>
             <div>
               {isManager
-                ? "Upload the Purchase Order (PO) or Letter of Engagement (LOE) / client confirmation and enter the PO value to create a Stage Approval request for Partner sign-off."
-                : "Upload the Purchase Order (PO) or Letter of Engagement (LOE) / client confirmation and enter the PO value to mark this opportunity Closed Won."}
+                ? "Upload the Purchase Order (PO) or Letter of Engagement (LOE) / client confirmation and enter the PO number & value to create a Stage Approval request for Partner sign-off."
+                : "Upload the Purchase Order (PO) or Letter of Engagement (LOE) / client confirmation and enter the PO number & value to mark this opportunity Closed Won."}
             </div>
           </div>
         </div>
@@ -165,6 +170,22 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
           )}
         </div>
 
+        {/* PO Number (Mandatory) */}
+        <div>
+          <label className="block text-xs font-semibold mb-1 text-[var(--ink-700)]">
+            PO Number <span className="text-rose-500">*</span>
+          </label>
+          <input
+            type="text"
+            required
+            value={poNumber}
+            onChange={(e) => setPoNumber(e.target.value)}
+            placeholder="e.g. PO-2026-9812"
+            className={inputClass}
+            style={inputStyle}
+          />
+        </div>
+
         {/* PO Value (Mandatory) */}
         <div>
           <label className="block text-xs font-semibold mb-1 text-[var(--ink-700)]">
@@ -184,21 +205,6 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
               style={inputStyle}
             />
           </div>
-        </div>
-
-        {/* PO Number (Optional - Can be put later) */}
-        <div>
-          <label className="block text-xs font-semibold mb-1 text-[var(--ink-700)]">
-            PO Number <span className="text-[var(--ink-400)] font-normal">(Optional — can be added later)</span>
-          </label>
-          <input
-            type="text"
-            value={poNumber}
-            onChange={(e) => setPoNumber(e.target.value)}
-            placeholder="e.g. PO-2026-9812 (or leave blank if pending)"
-            className={inputClass}
-            style={inputStyle}
-          />
         </div>
 
         {/* Remarks / Comments */}

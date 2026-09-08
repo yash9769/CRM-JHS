@@ -16,14 +16,21 @@ export function StageApprovalsWidget() {
   const rootRef = useRef<HTMLDivElement>(null);
   useClickOutside(rootRef, open, () => setOpen(false));
 
-  const { data } = useQuery<{ data: StageApproval[] }>({
+  const { data: stageData } = useQuery<{ data: StageApproval[] }>({
     queryKey: ["stage-approvals", "pending"],
     queryFn: async () => (await api.get("/opportunities/approvals/pending")).data,
     refetchInterval: 10000,
   });
 
-  const approvals = data?.data || [];
-  const count = approvals.length;
+  const { data: delData } = useQuery<{ data: any[] }>({
+    queryKey: ["account-deletion-requests", "pending"],
+    queryFn: async () => (await api.get("/accounts/deletion-requests", { params: { status: "PENDING" } })).data,
+    refetchInterval: 10000,
+  });
+
+  const approvals = stageData?.data || [];
+  const accountDeletions = delData?.data || [];
+  const count = approvals.length + accountDeletions.length;
 
   const approveMutation = useMutation({
     mutationFn: (id: string) => api.post(`/opportunities/approvals/${id}/approve`),
@@ -52,6 +59,22 @@ export function StageApprovalsWidget() {
     },
   });
 
+  const approveAccountDeletionMutation = useMutation({
+    mutationFn: (requestId: string) => api.post(`/accounts/deletion-requests/${requestId}/approve`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["account-deletion-requests"] });
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+    },
+  });
+
+  const rejectAccountDeletionMutation = useMutation({
+    mutationFn: (requestId: string) => api.post(`/accounts/deletion-requests/${requestId}/reject`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["account-deletion-requests"] });
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+    },
+  });
+
   const isPartner = user?.orgRole === "PARTNER" || user?.orgRole === "SENIOR_PARTNER";
 
   if (!count && !isPartner) return null;
@@ -77,7 +100,7 @@ export function StageApprovalsWidget() {
           <div className="p-3 bg-[var(--ink-50)] border-b border-[var(--ink-100)] flex items-center justify-between">
             <div className="flex items-center gap-1.5 font-bold text-xs text-[var(--ink-800)]">
               <ShieldAlert size={15} className="text-[var(--ledger-600)]" />
-              <span>Pending Stage Approvals ({count})</span>
+              <span>Pending Approvals ({count})</span>
             </div>
             <button onClick={() => setOpen(false)} className="text-xs text-[var(--ink-400)] hover:text-[var(--ink-700)]">
               ✕
@@ -87,53 +110,100 @@ export function StageApprovalsWidget() {
           <div className="max-h-80 overflow-y-auto divide-y divide-[var(--ink-100)]">
             {!count ? (
               <div className="p-6 text-center text-xs text-[var(--ink-400)]">
-                No pending stage approval requests.
+                No pending approval requests.
               </div>
             ) : (
-              approvals.map((appr) => (
-                <div key={appr.id} className="p-3 space-y-2 hover:bg-[var(--ink-50)] transition-colors">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="font-semibold text-xs text-[var(--ledger-800)]">
-                        {appr.opportunity?.name || "Opportunity"}
+              <>
+                {/* Account Deletion Requests */}
+                {accountDeletions.map((delReq) => (
+                  <div key={delReq.id} className="p-3 space-y-2 hover:bg-[var(--ink-50)] transition-colors bg-rose-50/40">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-semibold text-xs text-rose-900">
+                          Account Deletion: "{delReq.accountName || delReq.account?.name}"
+                        </div>
+                        <div className="text-[11px] text-[var(--ink-500)] mt-0.5">
+                          Requested by{" "}
+                          <span className="font-medium text-[var(--ink-700)]">
+                            {delReq.requestedBy ? `${delReq.requestedBy.firstName} ${delReq.requestedBy.lastName}` : "Manager"}
+                          </span>
+                        </div>
+                        <div className="text-[11px] italic text-[var(--ink-600)] mt-1 bg-white p-1.5 rounded border border-rose-100">
+                          "{delReq.reason}"
+                        </div>
                       </div>
-                      <div className="text-[11px] text-[var(--ink-500)]">
-                        Requested by{" "}
-                        <span className="font-medium text-[var(--ink-700)]">
-                          {appr.requestedBy ? `${appr.requestedBy.firstName} ${appr.requestedBy.lastName}` : "Manager"}
-                        </span>
-                      </div>
+                      <Badge tone="rose">Deletion</Badge>
                     </div>
-                    <Badge tone="amber">Pending</Badge>
-                  </div>
 
-                  <div className="flex items-center gap-1.5 text-xs bg-white p-2 rounded border border-[var(--ink-100)]">
-                    <span className="text-[var(--ink-500)] line-through">{appr.fromStage?.name || "Old Stage"}</span>
-                    <span className="text-[var(--ink-400)]">→</span>
-                    <span className="font-bold text-[var(--ledger-700)]">{appr.toStage?.name || "Target Stage"}</span>
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 pt-1">
-                    {appr.requestedById === user?.id && (
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      {isPartner && (
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() => approveAccountDeletionMutation.mutate(delReq.id)}
+                          disabled={approveAccountDeletionMutation.isPending}
+                        >
+                          Approve Delete
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="secondary"
-                        onClick={() => revokeMutation.mutate(appr.id)}
-                        disabled={revokeMutation.isPending}
+                        onClick={() => rejectAccountDeletionMutation.mutate(delReq.id)}
+                        disabled={rejectAccountDeletionMutation.isPending}
                       >
-                        <XCircle size={13} /> Revoke
+                        {delReq.requestedById === user?.id && !isPartner ? "Revoke" : "Reject"}
                       </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => setSelectedApproval(appr)}
-                    >
-                      <Eye size={13} /> Review Request
-                    </Button>
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+
+                {/* Stage Approvals */}
+                {approvals.map((appr) => (
+                  <div key={appr.id} className="p-3 space-y-2 hover:bg-[var(--ink-50)] transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-semibold text-xs text-[var(--ledger-800)]">
+                          {appr.opportunity?.name || "Opportunity"}
+                        </div>
+                        <div className="text-[11px] text-[var(--ink-500)]">
+                          Requested by{" "}
+                          <span className="font-medium text-[var(--ink-700)]">
+                            {appr.requestedBy ? `${appr.requestedBy.firstName} ${appr.requestedBy.lastName}` : "Manager"}
+                          </span>
+                        </div>
+                      </div>
+                      <Badge tone="amber">Pending</Badge>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-xs bg-white p-2 rounded border border-[var(--ink-100)]">
+                      <span className="text-[var(--ink-500)] line-through">{appr.fromStage?.name || "Old Stage"}</span>
+                      <span className="text-[var(--ink-400)]">→</span>
+                      <span className="font-bold text-[var(--ledger-700)]">{appr.toStage?.name || "Target Stage"}</span>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      {appr.requestedById === user?.id && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => revokeMutation.mutate(appr.id)}
+                          disabled={revokeMutation.isPending}
+                        >
+                          <XCircle size={13} /> Revoke
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setSelectedApproval(appr)}
+                      >
+                        <Eye size={13} /> Review Request
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </>
             )}
           </div>
         </div>

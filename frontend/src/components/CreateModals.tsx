@@ -339,10 +339,10 @@ export function NewOpportunityModal({
   const [showNewContact, setShowNewContact] = useState<{ term: string; forExtra: boolean } | null>(null);
 
   const [ownerId, setOwnerId] = useState<string | null>(
-    isManager && user ? user.id : null
+    fixedAccountOwnerId || (isManager && user ? user.id : null)
   );
   const [ownerLabel, setOwnerLabel] = useState<string | null>(
-    isManager && user ? `${user.firstName} ${user.lastName}` : null
+    fixedAccountOwnerLabel || (isManager && user ? `${user.firstName} ${user.lastName}` : null)
   );
 
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -370,8 +370,6 @@ export function NewOpportunityModal({
     if (opt?.ownerId) {
       setAccountOwnerId(opt.ownerId);
       setAccountOwnerLabel(opt.ownerLabel || null);
-    }
-    if (!isManager && !ownerId && opt?.ownerId) {
       setOwnerId(opt.ownerId);
       setOwnerLabel(opt.ownerLabel || null);
     }

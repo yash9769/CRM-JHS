@@ -41,6 +41,7 @@ model Tenant {
   stageApprovals         StageApproval[]
   stickyNotes            StickyNote[]
   opportunityAttachments OpportunityAttachment[]
+  accountDeletionRequests AccountDeletionRequest[]
 
   @@map("tenants")
 }
@@ -100,6 +101,9 @@ model User {
   requestedApprovals             StageApproval[]         @relation("ApprovalRequestedBy")
   receivedApprovals              StageApproval[]         @relation("ApprovalApprover")
   reviewedApprovals              StageApproval[]         @relation("ApprovalReviewedBy")
+  requestedAccountDeletions      AccountDeletionRequest[] @relation("AccountDeletionRequestedBy")
+  reviewedAccountDeletions       AccountDeletionRequest[] @relation("AccountDeletionApprover")
+  reviewedAccountDeletionsHistory AccountDeletionRequest[] @relation("AccountDeletionReviewedBy")
   stickyNotes                    StickyNote[]            @relation("UserStickyNotes")
   uploadedOpportunityAttachments OpportunityAttachment[] @relation("AttachmentUploader")
 
@@ -141,13 +145,14 @@ model Account {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  contacts      Contact[]
-  opportunities Opportunity[]
-  quotes        Quote[]
-  activities    Activity[]
-  notes         Note[]
-  emails        AccountEmail[]
-  phones        AccountPhone[]
+  contacts         Contact[]
+  opportunities    Opportunity[]
+  quotes           Quote[]
+  activities       Activity[]
+  notes            Note[]
+  emails           AccountEmail[]
+  phones           AccountPhone[]
+  deletionRequests AccountDeletionRequest[]
 
   @@index([tenantId])
   @@index([tenantId, name])
@@ -982,4 +987,35 @@ model OpportunityAttachment {
   @@index([tenantId, opportunityId])
   @@index([tenantId, stageApprovalId])
   @@map("opportunity_attachments")
+}
+
+// ---------------------------------------------------------------------------
+// Account Deletion Requests
+// ---------------------------------------------------------------------------
+
+model AccountDeletionRequest {
+  id            String         @id @default(uuid())
+  tenantId      String
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  accountId     String?
+  account       Account?       @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  accountName   String
+  requestedById String
+  requestedBy   User           @relation("AccountDeletionRequestedBy", fields: [requestedById], references: [id])
+  approverId    String?
+  approver      User?          @relation("AccountDeletionApprover", fields: [approverId], references: [id])
+  reason        String
+  status        ApprovalStatus @default(PENDING)
+  reviewedById  String?
+  reviewedBy    User?          @relation("AccountDeletionReviewedBy", fields: [reviewedById], references: [id])
+  reviewComment String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  reviewedAt    DateTime?
+
+  @@index([tenantId, accountId])
+  @@index([tenantId, requestedById])
+  @@index([tenantId, approverId])
+  @@index([tenantId, status])
+  @@map("account_deletion_requests")
 }

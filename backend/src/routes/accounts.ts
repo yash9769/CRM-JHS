@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { logAudit } from "../lib/audit.js";
+import { logAudit, notify } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
 import { getCreatedByFilter, requireCanAccess, requireExportPermission } from "../lib/rbac.js";
 import { phoneSchema } from "../lib/validators.js";
@@ -493,9 +493,20 @@ export default async function accountRoutes(app: FastifyInstance) {
 
   app.delete("/api/v1/accounts/:id", { preHandler: app.authenticate }, async (req, reply) => {
     const { id } = req.params as { id: string };
+    const { confirmName } = (req.body || {}) as { confirmName?: string };
+
     const existing = await prisma.account.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Account not found" });
     await requireCanAccess(req.authUser, existing, "write");
+
+    if (req.authUser.orgRole === "MANAGER") {
+      return reply.code(403).send({ error: "Managers cannot directly delete accounts. Please submit a deletion request with reason for Partner approval." });
+    }
+
+    if (!confirmName || confirmName.trim() !== existing.name.trim()) {
+      return reply.code(400).send({ error: `Account name confirmation does not match. You must type "${existing.name}" exactly.` });
+    }
+
     await prisma.account.delete({ where: { id } });
     await logAudit({
       tenantId: req.authUser.tenantId,
@@ -506,6 +517,190 @@ export default async function accountRoutes(app: FastifyInstance) {
       oldValues: existing,
     });
     return reply.code(204).send();
+  });
+
+  // Raise deletion request (for Managers / Partners)
+  app.post("/api/v1/accounts/:id/deletion-request", { preHandler: app.authenticate }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const requestSchema = z.object({
+      reason: z.string().min(1, "Reason is mandatory"),
+      confirmName: z.string().min(1, "Account name confirmation is required"),
+    });
+
+    const body = requestSchema.parse(req.body);
+    const existing = await prisma.account.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
+    if (!existing) return reply.code(404).send({ error: "Account not found" });
+    await requireCanAccess(req.authUser, existing, "write");
+
+    if (body.confirmName.trim() !== existing.name.trim()) {
+      return reply.code(400).send({ error: `Account name confirmation does not match. You must type "${existing.name}" exactly.` });
+    }
+
+    const pendingRequest = await prisma.accountDeletionRequest.findFirst({
+      where: { tenantId: req.authUser.tenantId, accountId: id, status: "PENDING" },
+    });
+    if (pendingRequest) {
+      return reply.code(400).send({ error: "A deletion request is already pending for this account." });
+    }
+
+    let partnerId = req.authUser.partnerId;
+    if (!partnerId) {
+      const partnerUser = await prisma.user.findFirst({
+        where: { tenantId: req.authUser.tenantId, orgRole: { in: ["PARTNER", "SENIOR_PARTNER"] }, active: true, id: { not: req.authUser.id } },
+      });
+      partnerId = partnerUser?.id || null;
+    }
+
+    const deletionRequest = await prisma.accountDeletionRequest.create({
+      data: {
+        tenantId: req.authUser.tenantId,
+        accountId: id,
+        accountName: existing.name,
+        requestedById: req.authUser.id,
+        approverId: partnerId,
+        reason: body.reason,
+        status: "PENDING",
+      },
+      include: {
+        account: { select: { id: true, name: true } },
+        requestedBy: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    const partnersToNotify = await prisma.user.findMany({
+      where: { tenantId: req.authUser.tenantId, orgRole: { in: ["PARTNER", "SENIOR_PARTNER"] }, active: true, id: { not: req.authUser.id } },
+      select: { id: true },
+    });
+    for (const p of partnersToNotify) {
+      await notify({
+        tenantId: req.authUser.tenantId,
+        userId: p.id,
+        message: `Account Deletion Requested: "${existing.name}" requested by ${req.authUser.firstName} ${req.authUser.lastName}. Reason: ${body.reason}`,
+        link: `/approvals`,
+      });
+    }
+
+    return deletionRequest;
+  });
+
+  // GET pending/historical Account Deletion Requests
+  app.get("/api/v1/accounts/deletion-requests", { preHandler: app.authenticate }, async (req) => {
+    const q = req.query as { status?: string };
+    const statusFilter = q.status && q.status !== "all" ? (q.status as any) : "PENDING";
+    const isManager = req.authUser.orgRole === "MANAGER";
+
+    const where: any = {
+      tenantId: req.authUser.tenantId,
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(isManager
+        ? { requestedById: req.authUser.id }
+        : {
+            OR: [
+              { approverId: req.authUser.id },
+              { approverId: null },
+              ...(req.authUser.orgRole === "SENIOR_PARTNER" ? [{ tenantId: req.authUser.tenantId }] : []),
+            ],
+          }),
+    };
+
+    const requests = await prisma.accountDeletionRequest.findMany({
+      where,
+      include: {
+        account: { select: { id: true, name: true, domain: true, industry: true, owner: { select: { id: true, firstName: true, lastName: true } } } },
+        requestedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+        reviewedBy: { select: { id: true, firstName: true, lastName: true } },
+        approver: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return { data: requests };
+  });
+
+  // Approve Account Deletion Request
+  app.post("/api/v1/accounts/deletion-requests/:requestId/approve", { preHandler: app.authenticate }, async (req, reply) => {
+    if (req.authUser.orgRole === "MANAGER") {
+      return reply.code(403).send({ error: "Only Partners and Senior Partners can approve account deletion requests." });
+    }
+    const { requestId } = req.params as { requestId: string };
+    const delReq = await prisma.accountDeletionRequest.findFirst({
+      where: { id: requestId, tenantId: req.authUser.tenantId, status: "PENDING" },
+      include: { account: true, requestedBy: true },
+    });
+    if (!delReq) return reply.code(404).send({ error: "Pending deletion request not found" });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.accountDeletionRequest.update({
+        where: { id: requestId },
+        data: {
+          status: "APPROVED",
+          reviewedById: req.authUser.id,
+          reviewedAt: new Date(),
+        },
+      });
+      if (delReq.accountId) {
+        await tx.account.delete({ where: { id: delReq.accountId } });
+      }
+    });
+
+    await logAudit({
+      tenantId: req.authUser.tenantId,
+      userId: req.authUser.id,
+      objectType: "ACCOUNT",
+      recordId: delReq.accountId || requestId,
+      action: "DELETED_VIA_APPROVAL",
+      oldValues: delReq.account,
+    });
+
+    await notify({
+      tenantId: req.authUser.tenantId,
+      userId: delReq.requestedById,
+      message: `Your deletion request for account "${delReq.accountName || delReq.account?.name || 'Account'}" was approved and deleted by ${req.authUser.firstName} ${req.authUser.lastName}.`,
+      link: "/accounts",
+    });
+
+    return { message: "Account deletion approved and account permanently removed." };
+  });
+
+  // Reject / Revoke Account Deletion Request
+  app.post("/api/v1/accounts/deletion-requests/:requestId/reject", { preHandler: app.authenticate }, async (req, reply) => {
+    const { requestId } = req.params as { requestId: string };
+    const body = (req.body || {}) as { reviewComment?: string };
+    const delReq = await prisma.accountDeletionRequest.findFirst({
+      where: { id: requestId, tenantId: req.authUser.tenantId, status: "PENDING" },
+      include: { account: true },
+    });
+    if (!delReq) return reply.code(404).send({ error: "Pending deletion request not found" });
+
+    const isRequester = delReq.requestedById === req.authUser.id;
+    const isApprover = req.authUser.orgRole === "PARTNER" || req.authUser.orgRole === "SENIOR_PARTNER";
+
+    if (!isRequester && !isApprover) {
+      return reply.code(403).send({ error: "You do not have permission to reject or revoke this request." });
+    }
+
+    const nextStatus = isRequester && !isApprover ? "CANCELLED" : "DISAPPROVED";
+
+    const updated = await prisma.accountDeletionRequest.update({
+      where: { id: requestId },
+      data: {
+        status: nextStatus,
+        reviewedById: req.authUser.id,
+        reviewedAt: new Date(),
+        reviewComment: body.reviewComment || null,
+      },
+    });
+
+    if (nextStatus === "DISAPPROVED") {
+      await notify({
+        tenantId: req.authUser.tenantId,
+        userId: delReq.requestedById,
+        message: `Your deletion request for account "${delReq.accountName || delReq.account?.name || 'Account'}" was rejected by ${req.authUser.firstName} ${req.authUser.lastName}.`,
+        link: "/accounts",
+      });
+    }
+
+    return updated;
   });
 
   // Dependency impact preview, shown before archiving
