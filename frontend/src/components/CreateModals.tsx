@@ -8,6 +8,8 @@ import { fetchAccountOptions, fetchContactOptions, fetchOwnerOptions } from "../
 import type { Pipeline, DuplicateLeadCandidate } from "../lib/types";
 import { Info, IndianRupee } from "lucide-react";
 import { formatCurrency } from "../lib/format";
+import { MultiEmailField, MultiPhoneField, allPhonesValid, type EmailEntry, type PhoneEntry } from "./MultiValueFields";
+import { DEFAULT_COUNTRY_CODE } from "../lib/phoneCountries";
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -50,7 +52,8 @@ export function NewAccountModal({
   initialOwnerLabel?: string | null;
 }) {
   const qc = useQueryClient();
-  const [form, setForm] = useState({ name: initialName || "", industry: "", phone: "", website: "", employeeCount: "" });
+  const [form, setForm] = useState({ name: initialName || "", industry: "", website: "", employeeCount: "" });
+  const [phones, setPhones] = useState<PhoneEntry[]>([]);
   const [ownerId, setOwnerId] = useState<string | null>(initialOwnerId || null);
   const [ownerLabel, setOwnerLabel] = useState<string | null>(initialOwnerLabel || null);
   const [duplicates, setDuplicates] = useState<any[] | null>(null);
@@ -59,7 +62,7 @@ export function NewAccountModal({
     mutationFn: (force: boolean) =>
       api.post(
         "/accounts",
-        { ...form, employeeCount: form.employeeCount ? Number(form.employeeCount) : undefined, ownerId: ownerId || undefined },
+        { ...form, phones, employeeCount: form.employeeCount ? Number(form.employeeCount) : undefined, ownerId: ownerId || undefined },
         { params: force ? { force: "true" } : {} }
       ),
     onSuccess: (res) => {
@@ -117,25 +120,21 @@ export function NewAccountModal({
             <input value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })} className={inputClass} style={inputStyle} placeholder="Information Technology" />
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Phone">
-            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputClass} style={inputStyle} placeholder="+91 98765 43210" />
-          </Field>
-          <Field label="Employees">
-            <input
-              type="number"
-              min="0"
-              value={form.employeeCount}
-              onChange={(e) => setForm({ ...form, employeeCount: e.target.value })}
-              className={inputClass}
-              style={inputStyle}
-              placeholder="250"
-            />
-          </Field>
-        </div>
+        <Field label="Employees">
+          <input
+            type="number"
+            min="0"
+            value={form.employeeCount}
+            onChange={(e) => setForm({ ...form, employeeCount: e.target.value })}
+            className={inputClass}
+            style={inputStyle}
+            placeholder="250"
+          />
+        </Field>
+        <MultiPhoneField value={phones} onChange={setPhones} />
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Creating…" : "Create Account"}</Button>
+          <Button type="submit" disabled={mutation.isPending || !allPhonesValid(phones)}>{mutation.isPending ? "Creating…" : "Create Account"}</Button>
         </div>
       </form>
     </Modal>
@@ -173,23 +172,23 @@ export function NewContactModal({
   const [form, setForm] = useState({
     firstName: initialFirstName || "",
     lastName: initialLastName || "",
-    email: initialEmail || "",
-    phone: initialPhone || "",
     jobTitle: initialJobTitle || "",
   });
+  const [emails, setEmails] = useState<EmailEntry[]>(
+    initialEmail ? [{ email: initialEmail, isPrimary: true }] : []
+  );
+  const [phones, setPhones] = useState<PhoneEntry[]>(
+    initialPhone ? [{ countryCode: DEFAULT_COUNTRY_CODE, number: initialPhone, isPrimary: true }] : []
+  );
   const [accountId, setAccountId] = useState<string | null>(fixedAccountId || null);
   const [accountLabel, setAccountLabel] = useState<string | null>(accountName || null);
   const [showNewAccount, setShowNewAccount] = useState<string | null>(null);
   const [duplicates, setDuplicates] = useState<any[] | null>(null);
-  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [contactMethodError, setContactMethodError] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: (force: boolean) => {
-      if (form.phone && !/^\d+$/.test(form.phone)) {
-        throw new Error("Phone number must contain only numeric digits (no spaces, dashes, or letters)");
-      }
-      return api.post("/contacts", { ...form, accountId: accountId || null }, { params: force ? { force: "true" } : {} });
-    },
+    mutationFn: (force: boolean) =>
+      api.post("/contacts", { ...form, emails, phones, accountId: accountId || null }, { params: force ? { force: "true" } : {} }),
     onSuccess: (res) => { qc.invalidateQueries({ queryKey: ["contacts"] }); if (accountId) qc.invalidateQueries({ queryKey: ["account", accountId] }); onCreated?.(res.data); onClose(); },
     onError: (err: any) => { if (err?.response?.status === 409) setDuplicates(err.response.data.duplicates || []); },
   });
@@ -220,21 +219,18 @@ export function NewContactModal({
       <Modal title="New Contact" onClose={onClose}>
         <form onSubmit={(e) => {
           e.preventDefault();
-          setPhoneError(null);
-          if (form.phone && !/^\d+$/.test(form.phone)) {
-            setPhoneError("Phone number must contain only numeric digits (no spaces, dashes, or symbols)");
-            return;
-          }
-          if (!form.email && !form.phone) {
-            setPhoneError("Provide a phone number or an email address.");
+          setContactMethodError(null);
+          if (!allPhonesValid(phones)) return;
+          if (!emails.length && !phones.length) {
+            setContactMethodError("Provide a phone number or an email address.");
             return;
           }
           mutation.mutate(false);
         }}>
           <GeneralError err={mutation.error?.response?.status !== 409 ? mutation.error : undefined} fallback="Could not create contact." />
-          {phoneError && (
+          {contactMethodError && (
             <div className="text-sm mb-3 px-3 py-2 rounded-md text-[var(--rose-600)] bg-[var(--rose-100)]">
-              {phoneError}
+              {contactMethodError}
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">
@@ -247,25 +243,8 @@ export function NewContactModal({
               <FieldError message={fieldErrors.lastName} />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Email">
-              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputClass} style={inputStyle} placeholder="rahul@example.com" />
-              <FieldError message={fieldErrors.email} />
-            </Field>
-            <Field label="Phone Number (Numeric only)">
-              <input
-                value={form.phone}
-                onChange={(e) => {
-                  setForm({ ...form, phone: e.target.value });
-                  setPhoneError(null);
-                }}
-                className={inputClass}
-                style={inputStyle}
-                placeholder="9876543210"
-              />
-              <FieldError message={fieldErrors.phone} />
-            </Field>
-          </div>
+          <MultiEmailField value={emails} onChange={setEmails} />
+          <MultiPhoneField value={phones} onChange={setPhones} />
           <Field label="Designation">
             <input value={form.jobTitle} onChange={(e) => setForm({ ...form, jobTitle: e.target.value })} className={inputClass} style={inputStyle} placeholder="Chief Technology Officer" />
           </Field>
@@ -285,7 +264,7 @@ export function NewContactModal({
           )}
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Creating…" : "Create Contact"}</Button>
+            <Button type="submit" disabled={mutation.isPending || !allPhonesValid(phones)}>{mutation.isPending ? "Creating…" : "Create Contact"}</Button>
           </div>
         </form>
       </Modal>

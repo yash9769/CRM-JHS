@@ -5,6 +5,10 @@ import { logAudit } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
 import { getCreatedByFilter, requireCanAccess, requireExportPermission } from "../lib/rbac.js";
 import { phoneSchema, nameSchema } from "../lib/validators.js";
+import {
+  emailListSchema, phoneListSchema, primaryEmail, primaryPhoneString, normalizePrimary,
+  type EmailEntry, type PhoneEntry,
+} from "../lib/multiValueFields.js";
 
 const contactSchema = z.object({
   firstName: nameSchema,
@@ -12,6 +16,8 @@ const contactSchema = z.object({
   email: z.string().email().optional().nullable().or(z.literal("")),
   phone: phoneSchema,
   phoneNumber: phoneSchema,
+  emails: emailListSchema,
+  phones: phoneListSchema,
   jobTitle: z.string().optional().nullable(),
   designation: z.string().optional().nullable(),
   lifecycleStage: z
@@ -24,6 +30,36 @@ const contactSchema = z.object({
   address: z.string().optional().nullable(),
   properties: z.record(z.any()).optional(),
 });
+
+/** Writes the full emails[]/phones[] replacement set for a contact inside a transaction. */
+async function syncContactMultiFields(
+  tx: any,
+  tenantId: string,
+  contactId: string,
+  emails: EmailEntry[] | undefined,
+  phones: PhoneEntry[] | undefined
+) {
+  if (emails !== undefined) {
+    await tx.contactEmail.deleteMany({ where: { contactId } });
+    const normalized = normalizePrimary(emails);
+    if (normalized.length) {
+      await tx.contactEmail.createMany({
+        data: normalized.map((e) => ({ tenantId, contactId, email: e.email, label: e.label || null, isPrimary: !!e.isPrimary })),
+      });
+    }
+  }
+  if (phones !== undefined) {
+    await tx.contactPhone.deleteMany({ where: { contactId } });
+    const normalized = normalizePrimary(phones);
+    if (normalized.length) {
+      await tx.contactPhone.createMany({
+        data: normalized.map((p) => ({
+          tenantId, contactId, countryCode: p.countryCode, number: p.number, label: p.label || null, isPrimary: !!p.isPrimary,
+        })),
+      });
+    }
+  }
+}
 
 async function findDuplicateContacts(tenantId: string, data: { email?: string | null; phone?: string | null }) {
   const or: any[] = [];
@@ -336,10 +372,18 @@ export default async function contactRoutes(app: FastifyInstance) {
 
   app.post("/api/v1/contacts", { preHandler: app.authenticate }, async (req, reply) => {
     const body = contactSchema.parse(req.body);
-    const { designation, phoneNumber, ...rest } = body;
+    const { designation, phoneNumber, emails, phones, ...rest } = body;
+    // The emails[]/phones[] lists are the source of truth when present; the
+    // legacy scalar columns are kept as a mirror of whichever entry is
+    // primary so existing search/CSV/dedupe code keeps working unchanged.
+    const resolvedEmail = emails !== undefined ? primaryEmail(emails) : (rest.email || null);
+    const resolvedPhone = phones !== undefined
+      ? primaryPhoneString(phones)
+      : (phoneNumber !== undefined ? phoneNumber : body.phone);
     const dataToSave = {
       ...rest,
-      phone: phoneNumber !== undefined ? phoneNumber : body.phone,
+      email: resolvedEmail,
+      phone: resolvedPhone,
       jobTitle: designation !== undefined ? designation : body.jobTitle,
     };
     // A contact with neither a phone nor an email is unreachable -- require
@@ -361,7 +405,13 @@ export default async function contactRoutes(app: FastifyInstance) {
       const duplicates = await findDuplicateContacts(req.authUser.tenantId, dataToSave);
       if (duplicates.length) return reply.code(409).send({ error: "Possible duplicate contact", duplicates });
     }
-    const contact = await prisma.contact.create({ data: { ...dataToSave, tenantId: req.authUser.tenantId, createdById: req.authUser.id } });
+    const contact = await prisma.$transaction(async (tx) => {
+      const created = await tx.contact.create({
+        data: { ...dataToSave, tenantId: req.authUser.tenantId, createdById: req.authUser.id },
+      });
+      await syncContactMultiFields(tx, req.authUser.tenantId, created.id, emails, phones);
+      return created;
+    });
     await logAudit({
       tenantId: req.authUser.tenantId,
       userId: req.authUser.id,
@@ -383,6 +433,8 @@ export default async function contactRoutes(app: FastifyInstance) {
         opportunityContacts: { include: { opportunity: { include: { stage: true } } } },
         activities: { orderBy: { createdAt: "desc" }, take: 50 },
         notes: { include: { author: { select: { id: true, firstName: true, lastName: true } } }, orderBy: { createdAt: "desc" } },
+        emails: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
+        phones: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
       },
     });
     if (!contact) return reply.code(404).send({ error: "Contact not found" });
@@ -396,13 +448,20 @@ export default async function contactRoutes(app: FastifyInstance) {
     const existing = await prisma.contact.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Contact not found" });
     await requireCanAccess(req.authUser, existing, "write");
-    const { designation, phoneNumber, ...rest } = body;
+    const { designation, phoneNumber, emails, phones, ...rest } = body;
     const dataToUpdate = {
       ...rest,
-      ...(phoneNumber !== undefined ? { phone: phoneNumber } : {}),
+      ...(emails !== undefined ? { email: primaryEmail(emails) } : {}),
+      ...(phones !== undefined
+        ? { phone: primaryPhoneString(phones) }
+        : phoneNumber !== undefined ? { phone: phoneNumber } : {}),
       ...(designation !== undefined ? { jobTitle: designation } : {}),
     };
-    const contact = await prisma.contact.update({ where: { id }, data: dataToUpdate });
+    const contact = await prisma.$transaction(async (tx) => {
+      const updated = await tx.contact.update({ where: { id }, data: dataToUpdate });
+      await syncContactMultiFields(tx, req.authUser.tenantId, id, emails, phones);
+      return updated;
+    });
     await logAudit({
       tenantId: req.authUser.tenantId,
       userId: req.authUser.id,

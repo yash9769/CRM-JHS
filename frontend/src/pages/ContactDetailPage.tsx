@@ -61,8 +61,30 @@ export default function ContactDetailPage() {
         <Card className="p-4 md:p-5 lg:col-span-2">
           <h3 className="text-sm font-semibold mb-4 text-[var(--ink-800)]">Contact information</h3>
           <div className="space-y-3 text-sm">
-            <div className="flex items-center gap-2"><Mail size={14} className="text-[var(--ink-400)]" /> {contact.email || "—"}</div>
-            <div className="flex items-center gap-2"><Phone size={14} className="text-[var(--ink-400)]" /> {contact.phone || "—"}</div>
+            {contact.emails && contact.emails.length > 0 ? (
+              contact.emails.map((e) => (
+                <div key={e.id} className="flex items-center gap-2">
+                  <Mail size={14} className="text-[var(--ink-400)]" />
+                  {e.email}
+                  {e.label && <span className="text-xs text-[var(--ink-400)]">({e.label})</span>}
+                  {e.isPrimary && contact.emails!.length > 1 && <span className="text-[10px] text-[var(--ledger-700)]">PRIMARY</span>}
+                </div>
+              ))
+            ) : (
+              <div className="flex items-center gap-2"><Mail size={14} className="text-[var(--ink-400)]" /> {contact.email || "—"}</div>
+            )}
+            {contact.phones && contact.phones.length > 0 ? (
+              contact.phones.map((p) => (
+                <div key={p.id} className="flex items-center gap-2">
+                  <Phone size={14} className="text-[var(--ink-400)]" />
+                  {p.countryCode} {p.number}
+                  {p.label && <span className="text-xs text-[var(--ink-400)]">({p.label})</span>}
+                  {p.isPrimary && contact.phones!.length > 1 && <span className="text-[10px] text-[var(--ledger-700)]">PRIMARY</span>}
+                </div>
+              ))
+            ) : (
+              <div className="flex items-center gap-2"><Phone size={14} className="text-[var(--ink-400)]" /> {contact.phone || "—"}</div>
+            )}
             {contact.linkedinUrl && <div className="flex items-center gap-2"><Link2 size={14} className="text-[var(--ink-400)]" /> {contact.linkedinUrl}</div>}
           </div>
         </Card>

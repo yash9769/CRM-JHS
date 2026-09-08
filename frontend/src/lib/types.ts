@@ -5,6 +5,21 @@ export interface Owner {
   email?: string;
 }
 
+export interface AccountEmailEntry {
+  id: string;
+  email: string;
+  label?: string | null;
+  isPrimary: boolean;
+}
+
+export interface AccountPhoneEntry {
+  id: string;
+  countryCode: string;
+  number: string;
+  label?: string | null;
+  isPrimary: boolean;
+}
+
 export interface Account {
   id: string;
   name: string;
@@ -27,6 +42,8 @@ export interface Account {
   quotes?: any[];
   activities?: Activity[];
   notes?: Note[];
+  emails?: AccountEmailEntry[];
+  phones?: AccountPhoneEntry[];
 }
 
 export type LeadStatus = "NEW" | "CONTACTED" | "QUALIFIED" | "NURTURING" | "UNQUALIFIED" | "CONVERTED";
@@ -69,6 +86,21 @@ export interface DuplicateLeadCandidate {
   status: string;
 }
 
+export interface ContactEmailEntry {
+  id: string;
+  email: string;
+  label?: string | null;
+  isPrimary: boolean;
+}
+
+export interface ContactPhoneEntry {
+  id: string;
+  countryCode: string;
+  number: string;
+  label?: string | null;
+  isPrimary: boolean;
+}
+
 export interface Contact {
   id: string;
   firstName: string;
@@ -90,6 +122,8 @@ export interface Contact {
   primaryOpportunities?: Opportunity[];
   activities?: Activity[];
   notes?: Note[];
+  emails?: ContactEmailEntry[];
+  phones?: ContactPhoneEntry[];
 }
 
 export const CANONICAL_STAGES = [

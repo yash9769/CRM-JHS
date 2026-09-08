@@ -6,6 +6,10 @@ import { toCsv } from "../lib/csv.js";
 import { getCreatedByFilter, requireCanAccess, requireExportPermission } from "../lib/rbac.js";
 import { phoneSchema } from "../lib/validators.js";
 import { computeOpportunityFinancials } from "../lib/financial.js";
+import {
+  emailListSchema, phoneListSchema, primaryPhoneString, normalizePrimary,
+  type EmailEntry, type PhoneEntry,
+} from "../lib/multiValueFields.js";
 
 const accountSchema = z.object({
   name: z.string().min(1),
@@ -17,10 +21,42 @@ const accountSchema = z.object({
   accountType: z.enum(["PROSPECT", "CUSTOMER", "PARTNER", "FORMER_CUSTOMER"]).optional(),
   billingAddress: z.string().optional().nullable(),
   phone: phoneSchema,
+  emails: emailListSchema,
+  phones: phoneListSchema,
   website: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
   properties: z.record(z.any()).optional(),
 });
+
+/** Writes the full emails[]/phones[] replacement set for an account inside a transaction. */
+async function syncAccountMultiFields(
+  tx: any,
+  tenantId: string,
+  accountId: string,
+  emails: EmailEntry[] | undefined,
+  phones: PhoneEntry[] | undefined
+) {
+  if (emails !== undefined) {
+    await tx.accountEmail.deleteMany({ where: { accountId } });
+    const normalized = normalizePrimary(emails);
+    if (normalized.length) {
+      await tx.accountEmail.createMany({
+        data: normalized.map((e) => ({ tenantId, accountId, email: e.email, label: e.label || null, isPrimary: !!e.isPrimary })),
+      });
+    }
+  }
+  if (phones !== undefined) {
+    await tx.accountPhone.deleteMany({ where: { accountId } });
+    const normalized = normalizePrimary(phones);
+    if (normalized.length) {
+      await tx.accountPhone.createMany({
+        data: normalized.map((p) => ({
+          tenantId, accountId, countryCode: p.countryCode, number: p.number, label: p.label || null, isPrimary: !!p.isPrimary,
+        })),
+      });
+    }
+  }
+}
 
 /**
  * The Account form only exposes a single "Website" field (Domain was folded
@@ -357,13 +393,21 @@ export default async function accountRoutes(app: FastifyInstance) {
   app.post("/api/v1/accounts", { preHandler: app.authenticate }, async (req, reply) => {
     const body = accountSchema.parse(req.body);
     body.domain = deriveDomainFromWebsite(body.website) ?? body.domain;
+    const { emails, phones, ...rest } = body;
+    // emails[]/phones[] are the source of truth when present; `phone` stays
+    // in sync with whichever entry is primary for existing search/CSV/dedupe code.
+    if (phones !== undefined) rest.phone = primaryPhoneString(phones);
     const force = (req.query as any)?.force === "true" || (req.body as any)?.force === true;
     if (!force) {
-      const duplicates = await findDuplicateAccounts(req.authUser.tenantId, body);
+      const duplicates = await findDuplicateAccounts(req.authUser.tenantId, rest);
       if (duplicates.length) return reply.code(409).send({ error: "Possible duplicate account", duplicates });
     }
-    const account = await prisma.account.create({
-      data: { ...body, tenantId: req.authUser.tenantId, createdById: req.authUser.id },
+    const account = await prisma.$transaction(async (tx) => {
+      const created = await tx.account.create({
+        data: { ...rest, tenantId: req.authUser.tenantId, createdById: req.authUser.id },
+      });
+      await syncAccountMultiFields(tx, req.authUser.tenantId, created.id, emails, phones);
+      return created;
     });
     await logAudit({
       tenantId: req.authUser.tenantId,
@@ -401,6 +445,8 @@ export default async function accountRoutes(app: FastifyInstance) {
           include: { author: { select: { id: true, firstName: true, lastName: true } } },
           orderBy: { createdAt: "desc" },
         },
+        emails: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
+        phones: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
       },
     });
     if (!account) return reply.code(404).send({ error: "Account not found" });
@@ -425,7 +471,14 @@ export default async function accountRoutes(app: FastifyInstance) {
     if (!existing) return reply.code(404).send({ error: "Account not found" });
     await requireCanAccess(req.authUser, existing, "write");
 
-    const account = await prisma.account.update({ where: { id }, data: body });
+    const { emails, phones, ...rest } = body;
+    if (phones !== undefined) rest.phone = primaryPhoneString(phones);
+
+    const account = await prisma.$transaction(async (tx) => {
+      const updated = await tx.account.update({ where: { id }, data: rest });
+      await syncAccountMultiFields(tx, req.authUser.tenantId, id, emails, phones);
+      return updated;
+    });
     await logAudit({
       tenantId: req.authUser.tenantId,
       userId: req.authUser.id,

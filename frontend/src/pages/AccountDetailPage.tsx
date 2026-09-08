@@ -9,7 +9,7 @@ import { EditAccountModal, ArchiveConfirmModal } from "../components/EditModals"
 import { HistoryPanel } from "../components/HistoryPanel";
 import { formatCurrency, formatDate, initials } from "../lib/format";
 import type { Account } from "../lib/types";
-import { Building2, Globe, Phone, MapPin, Users, Target, Plus, Pencil, Archive } from "lucide-react";
+import { Building2, Globe, Phone, Mail, MapPin, Users, Target, Plus, Pencil, Archive } from "lucide-react";
 
 const tabs = ["Overview", "Contacts", "Opportunities", "Activity", "History"] as const;
 
@@ -81,7 +81,42 @@ export default function AccountDetailPage() {
               <div><dt className="text-xs text-[var(--ink-400)]">Employees</dt><dd className="mt-0.5 font-mono-num">{account.employeeCount || "—"}</dd></div>
               <div><dt className="text-xs text-[var(--ink-400)]">Annual Revenue</dt><dd className="mt-0.5 font-mono-num">{account.annualRevenue ? formatCurrency(account.annualRevenue) : "—"}</dd></div>
               <div className="flex items-start gap-1.5"><Globe size={13} className="mt-0.5 text-[var(--ink-400)]" /><div><dt className="text-xs text-[var(--ink-400)]">Website / Domain</dt><dd className="mt-0.5">{account.website || account.domain || "—"}</dd></div></div>
-              <div className="flex items-start gap-1.5"><Phone size={13} className="mt-0.5 text-[var(--ink-400)]" /><div><dt className="text-xs text-[var(--ink-400)]">Phone</dt><dd className="mt-0.5">{account.phone || "—"}</dd></div></div>
+              <div className="flex items-start gap-1.5">
+                <Phone size={13} className="mt-0.5 text-[var(--ink-400)]" />
+                <div>
+                  <dt className="text-xs text-[var(--ink-400)]">Phone{(account.phones?.length ?? 0) > 1 ? " Numbers" : ""}</dt>
+                  {account.phones && account.phones.length > 0 ? (
+                    <dd className="mt-0.5 space-y-0.5">
+                      {account.phones.map((p) => (
+                        <div key={p.id}>
+                          {p.countryCode} {p.number}
+                          {p.label && <span className="text-[var(--ink-400)]"> · {p.label}</span>}
+                          {p.isPrimary && account.phones!.length > 1 && <span className="text-[10px] ml-1 text-[var(--ledger-700)]">PRIMARY</span>}
+                        </div>
+                      ))}
+                    </dd>
+                  ) : (
+                    <dd className="mt-0.5">{account.phone || "—"}</dd>
+                  )}
+                </div>
+              </div>
+              {account.emails && account.emails.length > 0 && (
+                <div className="flex items-start gap-1.5">
+                  <Mail size={13} className="mt-0.5 text-[var(--ink-400)]" />
+                  <div>
+                    <dt className="text-xs text-[var(--ink-400)]">Email{account.emails.length > 1 ? " Addresses" : ""}</dt>
+                    <dd className="mt-0.5 space-y-0.5">
+                      {account.emails.map((e) => (
+                        <div key={e.id}>
+                          {e.email}
+                          {e.label && <span className="text-[var(--ink-400)]"> · {e.label}</span>}
+                          {e.isPrimary && account.emails!.length > 1 && <span className="text-[10px] ml-1 text-[var(--ledger-700)]">PRIMARY</span>}
+                        </div>
+                      ))}
+                    </dd>
+                  </div>
+                </div>
+              )}
               <div className="sm:col-span-2 flex items-start gap-1.5"><MapPin size={13} className="mt-0.5 text-[var(--ink-400)]" /><div><dt className="text-xs text-[var(--ink-400)]">Billing Address</dt><dd className="mt-0.5">{account.billingAddress || "—"}</dd></div></div>
             </dl>
             {account.description && (

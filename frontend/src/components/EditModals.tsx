@@ -8,6 +8,29 @@ import { NewAccountModal, NewContactModal } from "./CreateModals";
 import type { Account, Contact, Opportunity, Lead, Pipeline } from "../lib/types";
 import { Info, IndianRupee } from "lucide-react";
 import { formatCurrency } from "../lib/format";
+import { MultiEmailField, MultiPhoneField, allPhonesValid, type EmailEntry, type PhoneEntry } from "./MultiValueFields";
+import { DEFAULT_COUNTRY_CODE } from "../lib/phoneCountries";
+
+function accountPhonesToEntries(account: Account): PhoneEntry[] {
+  if (account.phones && account.phones.length) {
+    return account.phones.map((p) => ({ countryCode: p.countryCode, number: p.number, label: p.label, isPrimary: p.isPrimary }));
+  }
+  return account.phone ? [{ countryCode: DEFAULT_COUNTRY_CODE, number: account.phone.replace(/\D/g, "").slice(-10), isPrimary: true }] : [];
+}
+
+function contactEmailsToEntries(contact: Contact): EmailEntry[] {
+  if (contact.emails && contact.emails.length) {
+    return contact.emails.map((e) => ({ email: e.email, label: e.label, isPrimary: e.isPrimary }));
+  }
+  return contact.email ? [{ email: contact.email, isPrimary: true }] : [];
+}
+
+function contactPhonesToEntries(contact: Contact): PhoneEntry[] {
+  if (contact.phones && contact.phones.length) {
+    return contact.phones.map((p) => ({ countryCode: p.countryCode, number: p.number, label: p.label, isPrimary: p.isPrimary }));
+  }
+  return contact.phone ? [{ countryCode: DEFAULT_COUNTRY_CODE, number: contact.phone.replace(/\D/g, "").slice(-10), isPrimary: true }] : [];
+}
 
 export function ArchiveConfirmModal({
   title, impactUrl, onConfirm, onClose, isPending,
@@ -71,15 +94,17 @@ export function EditAccountModal({ account, onClose }: { account: Account; onClo
     name: account.name, industry: account.industry || "",
     employeeCount: account.employeeCount ? String(account.employeeCount) : "",
     annualRevenue: account.annualRevenue ? String(account.annualRevenue) : "",
-    accountType: account.accountType, phone: account.phone || "", website: account.website || "",
+    accountType: account.accountType, website: account.website || "",
     billingAddress: account.billingAddress || "", description: account.description || "",
   });
+  const [phones, setPhones] = useState<PhoneEntry[]>(accountPhonesToEntries(account));
   const [ownerId, setOwnerId] = useState<string | null>(account.ownerId || (account.owner?.id ?? null));
   const [ownerLabel, setOwnerLabel] = useState<string | null>(account.owner ? `${account.owner.firstName} ${account.owner.lastName}` : null);
 
   const mutation = useMutation({
     mutationFn: () => api.patch(`/accounts/${account.id}`, {
       ...form,
+      phones,
       ownerId: ownerId || null,
       employeeCount: form.employeeCount ? Number(form.employeeCount) : null,
       annualRevenue: form.annualRevenue ? Number(form.annualRevenue) : null,
@@ -108,15 +133,13 @@ export function EditAccountModal({ account, onClose }: { account: Account; onClo
           <Field label="Website / Domain"><input value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} className={inputClass} style={inputStyle} placeholder="https://acme.com" /></Field>
           <Field label="Industry"><input value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })} className={inputClass} style={inputStyle} /></Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Phone"><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputClass} style={inputStyle} /></Field>
-          <Field label="Employees"><input type="number" min="0" value={form.employeeCount} onChange={(e) => setForm({ ...form, employeeCount: e.target.value })} className={inputClass} style={inputStyle} /></Field>
-        </div>
+        <Field label="Employees"><input type="number" min="0" value={form.employeeCount} onChange={(e) => setForm({ ...form, employeeCount: e.target.value })} className={inputClass} style={inputStyle} /></Field>
+        <MultiPhoneField value={phones} onChange={setPhones} />
         <Field label="Billing address"><input value={form.billingAddress} onChange={(e) => setForm({ ...form, billingAddress: e.target.value })} className={inputClass} style={inputStyle} /></Field>
         <Field label="Description"><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={inputClass} style={{ ...inputStyle, minHeight: 70 }} /></Field>
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Saving…" : "Save Changes"}</Button>
+          <Button type="submit" disabled={mutation.isPending || !allPhonesValid(phones)}>{mutation.isPending ? "Saving…" : "Save Changes"}</Button>
         </div>
       </form>
     </Modal>
@@ -126,12 +149,14 @@ export function EditAccountModal({ account, onClose }: { account: Account; onClo
 export function EditContactModal({ contact, onClose }: { contact: Contact; onClose: () => void }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({
-    firstName: contact.firstName, lastName: contact.lastName, email: contact.email || "",
-    phone: contact.phone || "", jobTitle: contact.jobTitle || "", linkedinUrl: contact.linkedinUrl || "",
+    firstName: contact.firstName, lastName: contact.lastName,
+    jobTitle: contact.jobTitle || "", linkedinUrl: contact.linkedinUrl || "",
     lifecycleStage: contact.lifecycleStage,
   });
+  const [emails, setEmails] = useState<EmailEntry[]>(contactEmailsToEntries(contact));
+  const [phones, setPhones] = useState<PhoneEntry[]>(contactPhonesToEntries(contact));
   const mutation = useMutation({
-    mutationFn: () => api.patch(`/contacts/${contact.id}`, form),
+    mutationFn: () => api.patch(`/contacts/${contact.id}`, { ...form, emails, phones }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["contact", contact.id] }); qc.invalidateQueries({ queryKey: ["contacts"] }); onClose(); },
   });
   const fieldErrors = fieldErrorsFrom(mutation.error);
@@ -141,7 +166,8 @@ export function EditContactModal({ contact, onClose }: { contact: Contact; onClo
     <Modal title="Edit Contact" onClose={onClose}>
       <form onSubmit={(e) => {
         e.preventDefault();
-        if (!form.email && !form.phone) {
+        if (!allPhonesValid(phones)) return;
+        if (!emails.length && !phones.length) {
           setContactMethodError("Provide a phone number or an email address.");
           return;
         }
@@ -164,15 +190,13 @@ export function EditContactModal({ contact, onClose }: { contact: Contact; onClo
             <FieldError message={fieldErrors.lastName} />
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Email"><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputClass} style={inputStyle} /></Field>
-          <Field label="Phone Number"><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputClass} style={inputStyle} /></Field>
-        </div>
+        <MultiEmailField value={emails} onChange={setEmails} />
+        <MultiPhoneField value={phones} onChange={setPhones} />
         <Field label="Designation"><input value={form.jobTitle} onChange={(e) => setForm({ ...form, jobTitle: e.target.value })} className={inputClass} style={inputStyle} /></Field>
         <Field label="LinkedIn"><input value={form.linkedinUrl} onChange={(e) => setForm({ ...form, linkedinUrl: e.target.value })} className={inputClass} style={inputStyle} /></Field>
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Saving…" : "Save Changes"}</Button>
+          <Button type="submit" disabled={mutation.isPending || !allPhonesValid(phones)}>{mutation.isPending ? "Saving…" : "Save Changes"}</Button>
         </div>
       </form>
     </Modal>

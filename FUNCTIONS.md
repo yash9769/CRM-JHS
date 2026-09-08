@@ -24,6 +24,9 @@ A comprehensive registry of every function, class, component, and API route acro
 | `toCsv` | `backend/src/lib/csv.ts` | Converts JSON objects array into RFC-compliant CSV string | `rows: Record<string, any>[], columns: { key: string; label: string }[]` | `string` |
 | `generateQuotePdf` | `backend/src/lib/quotePdf.ts` | Renders a styled, professional sales quote PDF in memory | `input: QuotePdfInput` | `Promise<Buffer>` |
 | `prisma` | `backend/src/lib/prisma.ts` | Global Prisma ORM client singleton instance | None | `PrismaClient` |
+| `PHONE_COUNTRIES` / `isValidLocalNumber` | `backend/src/lib/phoneCountries.ts` | Curated country-code list (India default) + 10-digit local-number validator | `number: string` | `boolean` |
+| `emailListSchema` / `phoneListSchema` | `backend/src/lib/multiValueFields.ts` | Zod schemas for repeatable email/phone entries (max 10 each) used on Account & Contact | — | `ZodSchema` |
+| `primaryEmail` / `primaryPhoneString` / `normalizePrimary` | `backend/src/lib/multiValueFields.ts` | Resolves the legacy singular `email`/`phone` scalar mirror from a multi-value array's primary entry | `entries: EmailEntry[] \| PhoneEntry[]` | `string \| null` / `EmailEntry[] \| PhoneEntry[]` |
 
 ---
 
@@ -223,6 +226,9 @@ A comprehensive registry of every function, class, component, and API route acro
 | `EditDealModal` | `frontend/src/components/EditModals.tsx` | Modal form for modifying deal properties | `deal: Deal, onClose: () => void` |
 | `EditLeadModal` | `frontend/src/components/EditModals.tsx` | Modal form for updating lead details | `lead: Lead, onClose: () => void` |
 | `ArchiveConfirmModal`| `frontend/src/components/EditModals.tsx` | Confirmation dialog for archiving/deleting entities with impact summary | `title, impactUrl?, onConfirm, onClose, isPending?` |
+| `MultiEmailField` | `frontend/src/components/MultiValueFields.tsx` | Repeatable email input group (star-to-set-primary, label, remove, add) used on Account & Contact create/edit forms | `value: EmailEntry[], onChange: (v) => void` |
+| `MultiPhoneField` | `frontend/src/components/MultiValueFields.tsx` | Repeatable phone input group with per-row country-code dropdown, 10-digit-only entry, and inline validation error | `value: PhoneEntry[], onChange: (v) => void` |
+| `allPhonesValid` | `frontend/src/components/MultiValueFields.tsx` | True only if every phone row has a valid 10-digit local number | `phones: PhoneEntry[]` |
 
 ---
 
