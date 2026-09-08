@@ -12,12 +12,15 @@ import { formatCurrency, formatDate, initials } from "../lib/format";
 import type { Account } from "../lib/types";
 import { Building2, Globe, Phone, Mail, MapPin, Users, Target, Plus, Pencil, Trash2 } from "lucide-react";
 
+import { useAuth } from "../hooks/useAuth";
+
 const tabs = ["Overview", "Contacts", "Opportunities", "Activity", "History"] as const;
 
 export default function AccountDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qc = useQC2();
+  const { user } = useAuth();
   const [tab, setTab] = useState<(typeof tabs)[number]>("Overview");
   const [modal, setModal] = useState<"contact" | "opportunity" | "edit" | "delete" | null>(null);
 
