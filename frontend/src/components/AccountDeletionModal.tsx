@@ -25,11 +25,6 @@ export function AccountDeletionModal({ account, onClose, onSuccess }: AccountDel
     e.preventDefault();
     setError(null);
 
-    if (!isNameMatching) {
-      setError(`Account name does not match "${account.name}". Please type it exactly.`);
-      return;
-    }
-
     if (isManager && !reason.trim()) {
       setError("Please provide a reason for the deletion request.");
       return;
@@ -41,13 +36,10 @@ export function AccountDeletionModal({ account, onClose, onSuccess }: AccountDel
         // Raise Deletion Request for Senior Partner / Partner Approval
         await api.post(`/accounts/${account.id}/deletion-request`, {
           reason: reason.trim(),
-          confirmName: confirmName.trim(),
         });
       } else {
         // Direct Delete by Partner / Senior Partner
-        await api.delete(`/accounts/${account.id}`, {
-          data: { confirmName: confirmName.trim() },
-        });
+        await api.delete(`/accounts/${account.id}`);
       }
       onSuccess();
       onClose();
@@ -73,7 +65,7 @@ export function AccountDeletionModal({ account, onClose, onSuccess }: AccountDel
             </div>
             <div>
               {isManager
-                ? `As a Manager, submitting this request will notify your Senior Partner for approval. The account "${account.name}" will remain active until approved.`
+                ? `As a Manager, submitting this request will notify your Partner for approval. The account "${account.name}" will remain active until approved.`
                 : `Deleting "${account.name}" will permanently remove all associated records. This action cannot be undone.`}
             </div>
           </div>
@@ -102,24 +94,6 @@ export function AccountDeletionModal({ account, onClose, onSuccess }: AccountDel
           </div>
         )}
 
-        <div>
-          <label className="block text-xs font-semibold mb-1 text-[var(--ink-700)]">
-            Type Account Name to Confirm <span className="text-rose-500">*</span>
-          </label>
-          <p className="text-[11px] text-[var(--ink-500)] mb-1.5">
-            To confirm, please type <span className="font-bold text-[var(--ink-900)]">"{account.name}"</span> below.
-          </p>
-          <input
-            type="text"
-            required
-            value={confirmName}
-            onChange={(e) => setConfirmName(e.target.value)}
-            placeholder={account.name}
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
-
         <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--ink-100)]">
           <Button variant="secondary" type="button" onClick={onClose} disabled={isSubmitting}>
             Cancel
@@ -127,7 +101,7 @@ export function AccountDeletionModal({ account, onClose, onSuccess }: AccountDel
           <Button
             variant="danger"
             type="submit"
-            disabled={isSubmitting || !isNameMatching || (isManager && !reason.trim())}
+            disabled={isSubmitting || (isManager && !reason.trim())}
           >
             {isSubmitting
               ? "Processing…"

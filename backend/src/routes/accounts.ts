@@ -505,7 +505,6 @@ export default async function accountRoutes(app: FastifyInstance) {
 
   app.delete("/api/v1/accounts/:id", { preHandler: app.authenticate }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const { confirmName } = (req.body || {}) as { confirmName?: string };
 
     const existing = await prisma.account.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Account not found" });
@@ -513,10 +512,6 @@ export default async function accountRoutes(app: FastifyInstance) {
 
     if (req.authUser.orgRole === "MANAGER") {
       return reply.code(403).send({ error: "Managers cannot directly delete accounts. Please submit a deletion request with reason for Partner approval." });
-    }
-
-    if (!confirmName || confirmName.trim() !== existing.name.trim()) {
-      return reply.code(400).send({ error: `Account name confirmation does not match. You must type "${existing.name}" exactly.` });
     }
 
     await prisma.$transaction(async (tx) => {
@@ -552,17 +547,13 @@ export default async function accountRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const requestSchema = z.object({
       reason: z.string().min(1, "Reason is mandatory"),
-      confirmName: z.string().min(1, "Account name confirmation is required"),
+      confirmName: z.string().optional(),
     });
 
     const body = requestSchema.parse(req.body);
     const existing = await prisma.account.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Account not found" });
     await requireCanAccess(req.authUser, existing, "write");
-
-    if (body.confirmName.trim() !== existing.name.trim()) {
-      return reply.code(400).send({ error: `Account name confirmation does not match. You must type "${existing.name}" exactly.` });
-    }
 
     const pendingRequest = await prisma.accountDeletionRequest.findFirst({
       where: { tenantId: req.authUser.tenantId, accountId: id, status: "PENDING" },
