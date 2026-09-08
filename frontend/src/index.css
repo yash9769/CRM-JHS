@@ -50,11 +50,12 @@ body {
 /* Remove number input spinners/scrollers globally */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+  -webkit-appearance: none !important;
+  margin: 0 !important;
 }
 input[type="number"] {
-  -moz-appearance: textfield;
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
 }
 
 .font-mono-num {

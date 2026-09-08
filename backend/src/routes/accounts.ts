@@ -98,16 +98,13 @@ export default async function accountRoutes(app: FastifyInstance) {
       industry?: string;
       sortBy?: string;
       sortDir?: "asc" | "desc";
+      startsWith?: string;
       includeArchived?: string;
     };
     const page = Math.max(1, parseInt(q.page || "1"));
-    const pageSize = Math.min(1000, Math.max(1, parseInt(q.pageSize || "25")));
+    const pageSize = Math.min(1000, Math.max(1, parseInt(q.pageSize || "50")));
 
     const rbacFilter = await getCreatedByFilter(req.authUser);
-    // The RBAC filter and the search filter BOTH produce an `OR` key. Spreading
-    // them into the same object literal makes the later one silently overwrite
-    // the earlier one, deleting the RBAC restriction. Compose them with `AND`
-    // (an array) so both are always applied.
     const where: any = {
       tenantId: req.authUser.tenantId,
       AND: [rbacFilter],
@@ -115,6 +112,19 @@ export default async function accountRoutes(app: FastifyInstance) {
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
       ...(q.industry ? { industry: q.industry } : {}),
     };
+    if (q.startsWith) {
+      if (q.startsWith === "0-9") {
+        where.AND.push({
+          OR: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].map((num) => ({
+            name: { startsWith: num, mode: "insensitive" as const },
+          })),
+        });
+      } else {
+        where.AND.push({
+          name: { startsWith: q.startsWith, mode: "insensitive" as const },
+        });
+      }
+    }
     if (q.search) {
       where.AND.push({
         OR: [
@@ -124,7 +134,10 @@ export default async function accountRoutes(app: FastifyInstance) {
       });
     }
 
-    const sortBy = ["name", "createdAt", "updatedAt", "annualRevenue", "employeeCount"].includes(q.sortBy || "") ? q.sortBy! : "updatedAt";
+    const sortBy = ["name", "createdAt", "updatedAt", "industry", "annualRevenue", "employeeCount"].includes(q.sortBy || "")
+      ? q.sortBy!
+      : "name";
+    const sortDir = q.sortDir || (sortBy === "name" ? "asc" : "desc");
 
     const [total, data] = await prisma.$transaction([
       prisma.account.count({ where }),
@@ -135,7 +148,7 @@ export default async function accountRoutes(app: FastifyInstance) {
           createdBy: { select: { id: true, firstName: true, lastName: true } },
           _count: { select: { contacts: true, opportunities: true } },
         },
-        orderBy: { [sortBy]: q.sortDir || "desc" },
+        orderBy: { [sortBy]: sortDir },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),

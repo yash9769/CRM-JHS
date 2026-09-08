@@ -45,6 +45,23 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 
+// Globally disable mouse wheel scrolling and ArrowUp/ArrowDown stepping on number inputs
+document.addEventListener("wheel", () => {
+  const activeEl = document.activeElement;
+  if (activeEl instanceof HTMLInputElement && activeEl.type === "number") {
+    activeEl.blur();
+  }
+}, { passive: true });
+
+document.addEventListener("keydown", (e) => {
+  const activeEl = document.activeElement;
+  if (activeEl instanceof HTMLInputElement && activeEl.type === "number") {
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      e.preventDefault();
+    }
+  }
+});
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ErrorBoundary>
