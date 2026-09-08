@@ -39,10 +39,7 @@ export default async function forecastingRoutes(app: FastifyInstance) {
     // ForecastTarget has no createdById field (only ownerId), so getCreatedByFilter's
     // createdById/ownerId OR clause would throw a Prisma "unknown argument" error here.
     // Scope by ownerId directly using the same visibility rules as GET /forecast/targets.
-    const targetRbacFilter =
-      req.authUser.orgRole === "SENIOR_PARTNER"
-        ? {}
-        : { ownerId: { in: await getVisibleUserIds(req.authUser) } };
+    const targetRbacFilter = { ownerId: { in: await getVisibleUserIds(req.authUser) } };
     const targets = await prisma.forecastTarget.findMany({
       where: {
         tenantId,
@@ -206,10 +203,7 @@ export default async function forecastingRoutes(app: FastifyInstance) {
     // ForecastTarget has no createdById field (only ownerId), so getCreatedByFilter's
     // createdById/ownerId OR clause would throw a Prisma "unknown argument" error here.
     // Scope by ownerId directly using the same visibility rules instead.
-    const targetRbacFilter =
-      req.authUser.orgRole === "SENIOR_PARTNER"
-        ? {}
-        : { ownerId: { in: await getVisibleUserIds(req.authUser) } };
+    const targetRbacFilter = { ownerId: { in: await getVisibleUserIds(req.authUser) } };
     const targets = await prisma.forecastTarget.findMany({
       where: { tenantId: req.authUser.tenantId, ...targetRbacFilter, ...(period ? { period } : {}) },
       orderBy: [{ period: "desc" }, { createdAt: "asc" }],

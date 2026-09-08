@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
-import { getCreatedByFilter, requireExportPermission } from "../lib/rbac.js";
+import { getCreatedByFilter, getVisibleUserIds, requireExportPermission } from "../lib/rbac.js";
 import { toCsv } from "../lib/csv.js";
 
 export default async function reportRoutes(app: FastifyInstance) {
@@ -51,8 +51,9 @@ export default async function reportRoutes(app: FastifyInstance) {
     const periodStart = new Date(year, month - 1, 1);
     const periodEnd = new Date(year, month, 0, 23, 59, 59, 999);
 
+    const visibleIds = await getVisibleUserIds(req.authUser);
     const users = await prisma.user.findMany({
-      where: { tenantId },
+      where: { tenantId, id: { in: visibleIds } },
       select: { id: true, firstName: true, lastName: true, orgRole: true },
     });
 

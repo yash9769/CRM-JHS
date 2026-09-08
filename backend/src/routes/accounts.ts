@@ -519,7 +519,23 @@ export default async function accountRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: `Account name confirmation does not match. You must type "${existing.name}" exactly.` });
     }
 
-    await prisma.account.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.opportunityAttachment.deleteMany({ where: { opportunity: { accountId: id } } });
+      await tx.stageApproval.deleteMany({ where: { opportunity: { accountId: id } } });
+      await tx.opportunityStageHistory.deleteMany({ where: { opportunity: { accountId: id } } });
+      await tx.opportunityContact.deleteMany({ where: { opportunity: { accountId: id } } });
+      await tx.opportunity.deleteMany({ where: { accountId: id } });
+      await tx.contactEmail.deleteMany({ where: { contact: { accountId: id } } });
+      await tx.contactPhone.deleteMany({ where: { contact: { accountId: id } } });
+      await tx.contact.deleteMany({ where: { accountId: id } });
+      await tx.accountEmail.deleteMany({ where: { accountId: id } });
+      await tx.accountPhone.deleteMany({ where: { accountId: id } });
+      await tx.activity.deleteMany({ where: { accountId: id } });
+      await tx.note.deleteMany({ where: { accountId: id } });
+      await tx.accountDeletionRequest.deleteMany({ where: { accountId: id } });
+      await tx.account.delete({ where: { id } });
+    });
+
     await logAudit({
       tenantId: req.authUser.tenantId,
       userId: req.authUser.id,
@@ -651,7 +667,20 @@ export default async function accountRoutes(app: FastifyInstance) {
         },
       });
       if (delReq.accountId) {
-        await tx.account.delete({ where: { id: delReq.accountId } });
+        const accId = delReq.accountId;
+        await tx.opportunityAttachment.deleteMany({ where: { opportunity: { accountId: accId } } });
+        await tx.stageApproval.deleteMany({ where: { opportunity: { accountId: accId } } });
+        await tx.opportunityStageHistory.deleteMany({ where: { opportunity: { accountId: accId } } });
+        await tx.opportunityContact.deleteMany({ where: { opportunity: { accountId: accId } } });
+        await tx.opportunity.deleteMany({ where: { accountId: accId } });
+        await tx.contactEmail.deleteMany({ where: { contact: { accountId: accId } } });
+        await tx.contactPhone.deleteMany({ where: { contact: { accountId: accId } } });
+        await tx.contact.deleteMany({ where: { accountId: accId } });
+        await tx.accountEmail.deleteMany({ where: { accountId: accId } });
+        await tx.accountPhone.deleteMany({ where: { accountId: accId } });
+        await tx.activity.deleteMany({ where: { accountId: accId } });
+        await tx.note.deleteMany({ where: { accountId: accId } });
+        await tx.account.delete({ where: { id: accId } });
       }
     });
 

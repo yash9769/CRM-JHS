@@ -44,16 +44,30 @@ export function MultiEmailField({ value, onChange }: { value: EmailEntry[]; onCh
       <div className="text-xs font-medium mb-1.5" style={{ color: "var(--ink-600)" }}>Email addresses</div>
       <div className="space-y-2">
         {value.map((entry, i) => (
-          <div key={i} className="flex flex-col gap-1">
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => makePrimary(i)}
-                title={entry.isPrimary ? "Primary email" : "Set as primary"}
-                className="shrink-0 p-1.5 rounded hover:bg-[var(--ink-50)]"
-              >
-                <Star size={14} fill={entry.isPrimary ? "currentColor" : "none"} style={{ color: entry.isPrimary ? "var(--amber-500)" : "var(--ink-300)" }} />
+          <div key={i} className="p-2.5 rounded-xl bg-[var(--ink-50)]/70 border border-[var(--ink-100)] space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => makePrimary(i)}
+                  title={entry.isPrimary ? "Primary email" : "Set as primary"}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                    entry.isPrimary
+                      ? "bg-amber-100/80 text-amber-800 border border-amber-200"
+                      : "text-[var(--ink-400)] hover:bg-[var(--ink-100)]"
+                  }`}
+                >
+                  <Star size={12} fill={entry.isPrimary ? "currentColor" : "none"} className={entry.isPrimary ? "text-amber-500" : ""} />
+                  <span>{entry.isPrimary ? "Primary Email" : "Make primary"}</span>
+                </button>
+              </div>
+
+              <button type="button" onClick={() => remove(i)} className="shrink-0 p-1 rounded text-[var(--ink-400)] hover:text-rose-600 hover:bg-rose-50 transition-colors" title="Remove">
+                <Trash2 size={14} />
               </button>
+            </div>
+
+            <div className="flex items-center gap-2">
               <div className="flex-1">
                 <ValidatedEmailInput
                   value={entry.email}
@@ -68,15 +82,12 @@ export function MultiEmailField({ value, onChange }: { value: EmailEntry[]; onCh
                 className={inputClass}
                 style={{ ...inputStyle, width: 130 }}
               />
-              <button type="button" onClick={() => remove(i)} className="shrink-0 p-1.5 rounded hover:bg-rose-50" title="Remove">
-                <Trash2 size={14} style={{ color: "var(--rose-600)" }} />
-              </button>
             </div>
           </div>
         ))}
       </div>
-      <button type="button" onClick={add} className="mt-2 text-xs font-medium hover:underline" style={{ color: "var(--ledger-700)" }}>
-        <Plus size={12} className="inline -mt-0.5" /> Add another email
+      <button type="button" onClick={add} className="mt-2 text-xs font-medium hover:underline flex items-center gap-1" style={{ color: "var(--ledger-700)" }}>
+        <Plus size={12} /> Add another email
       </button>
     </div>
   );
@@ -84,9 +95,11 @@ export function MultiEmailField({ value, onChange }: { value: EmailEntry[]; onCh
 
 /**
  * Repeatable "Phone Numbers" field group -- country-code dropdown +
- * exactly-10-digit local number, everywhere a phone is collected. Whichever
+ * landline/mobile number, everywhere a phone is collected. Whichever
  * row is marked primary becomes the legacy single-phone column.
  */
+const PRESET_LABELS = ["Mobile", "Landline", "Company Landline", "Main", "Direct Line", "Work", "Office"];
+
 export function MultiPhoneField({ value, onChange }: { value: PhoneEntry[]; onChange: (v: PhoneEntry[]) => void }) {
   function update(i: number, patch: Partial<PhoneEntry>) {
     onChange(value.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
@@ -99,67 +112,114 @@ export function MultiPhoneField({ value, onChange }: { value: PhoneEntry[]; onCh
   function makePrimary(i: number) {
     onChange(value.map((p, idx) => ({ ...p, isPrimary: idx === i })));
   }
-  function add() {
-    onChange([...value, { countryCode: DEFAULT_COUNTRY_CODE, number: "", isPrimary: value.length === 0 }]);
+  function add(type: "mobile" | "landline" = "mobile") {
+    const defaultLabel = type === "landline" ? "Landline" : "Mobile";
+    onChange([...value, { countryCode: DEFAULT_COUNTRY_CODE, number: "", label: defaultLabel, isPrimary: value.length === 0 }]);
   }
 
   return (
     <div className="mb-4">
-      <div className="text-xs font-medium mb-1.5" style={{ color: "var(--ink-600)" }}>Phone numbers</div>
-      <div className="space-y-2">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="text-xs font-medium" style={{ color: "var(--ink-600)" }}>Phone & Landline numbers</div>
+      </div>
+      <div className="space-y-2.5">
         {value.map((entry, i) => {
           const digitsOnly = entry.number.replace(/\D/g, "");
           const invalid = entry.number.length > 0 && !isValidLocalNumber(digitsOnly);
+          const isPreset = PRESET_LABELS.includes(entry.label || "");
+
           return (
-            <div key={i}>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => makePrimary(i)}
-                  title={entry.isPrimary ? "Primary number" : "Set as primary"}
-                  className="shrink-0 p-1.5 rounded hover:bg-[var(--ink-50)]"
-                >
-                  <Star size={14} fill={entry.isPrimary ? "currentColor" : "none"} style={{ color: entry.isPrimary ? "var(--amber-500)" : "var(--ink-300)" }} />
+            <div key={i} className="p-2.5 rounded-xl bg-[var(--ink-50)]/70 border border-[var(--ink-100)] space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-1">
+                  <select
+                    value={isPreset ? entry.label || "Mobile" : "Custom"}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val !== "Custom") update(i, { label: val });
+                      else update(i, { label: "" });
+                    }}
+                    className={`${inputClass} text-xs font-medium py-1`}
+                    style={{ ...inputStyle, width: 145 }}
+                  >
+                    <option value="Mobile">Mobile</option>
+                    <option value="Landline">Landline</option>
+                    <option value="Company Landline">Company Landline</option>
+                    <option value="Main">Main</option>
+                    <option value="Direct Line">Direct Line</option>
+                    <option value="Work">Work</option>
+                    <option value="Office">Office</option>
+                    <option value="Custom">Custom Label...</option>
+                  </select>
+
+                  {!isPreset && (
+                    <input
+                      value={entry.label || ""}
+                      onChange={(e) => update(i, { label: e.target.value })}
+                      placeholder="e.g. Reception"
+                      className={`${inputClass} text-xs py-1 flex-1 min-w-[100px]`}
+                      style={inputStyle}
+                    />
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => makePrimary(i)}
+                    title={entry.isPrimary ? "Primary number" : "Set as primary"}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                      entry.isPrimary
+                        ? "bg-amber-100/80 text-amber-800 border border-amber-200"
+                        : "text-[var(--ink-400)] hover:bg-[var(--ink-100)]"
+                    }`}
+                  >
+                    <Star size={12} fill={entry.isPrimary ? "currentColor" : "none"} className={entry.isPrimary ? "text-amber-500" : ""} />
+                    <span>{entry.isPrimary ? "Primary" : "Make primary"}</span>
+                  </button>
+                </div>
+
+                <button type="button" onClick={() => remove(i)} className="shrink-0 p-1 rounded text-[var(--ink-400)] hover:text-rose-600 hover:bg-rose-50 transition-colors" title="Remove">
+                  <Trash2 size={14} />
                 </button>
+              </div>
+
+              <div className="flex items-center gap-2">
                 <select
                   value={entry.countryCode}
                   onChange={(e) => update(i, { countryCode: e.target.value })}
                   className={inputClass}
-                  style={{ ...inputStyle, width: 110 }}
+                  style={{ ...inputStyle, width: 95 }}
                 >
                   {PHONE_COUNTRIES.map((c) => (
                     <option key={`${c.iso}-${c.code}`} value={c.code}>{c.code} {c.iso}</option>
                   ))}
                 </select>
+
                 <input
                   value={entry.number}
-                  onChange={(e) => update(i, { number: e.target.value.replace(/\D/g, "").slice(0, 10) })}
-                  placeholder="9876543210"
+                  onChange={(e) => update(i, { number: e.target.value.replace(/\D/g, "").slice(0, 12) })}
+                  placeholder="e.g. 02224001234 or 9876543210"
                   inputMode="numeric"
                   className={`${inputClass} flex-1 font-mono-num`}
                   style={inputStyle}
                 />
-                <input
-                  value={entry.label || ""}
-                  onChange={(e) => update(i, { label: e.target.value })}
-                  placeholder="Label (optional)"
-                  className={inputClass}
-                  style={{ ...inputStyle, width: 120 }}
-                />
-                <button type="button" onClick={() => remove(i)} className="shrink-0 p-1.5 rounded hover:bg-rose-50" title="Remove">
-                  <Trash2 size={14} style={{ color: "var(--rose-600)" }} />
-                </button>
               </div>
+
               {invalid && (
-                <div className="text-xs mt-1 ml-8" style={{ color: "var(--rose-600)" }}>Must be exactly 10 digits</div>
+                <div className="text-xs text-rose-600 font-medium pt-0.5">Must be 7 to 12 digits (Landline or Mobile)</div>
               )}
             </div>
           );
         })}
       </div>
-      <button type="button" onClick={add} className="mt-2 text-xs font-medium hover:underline" style={{ color: "var(--ledger-700)" }}>
-        <Plus size={12} className="inline -mt-0.5" /> Add another phone number
-      </button>
+      <div className="flex items-center gap-3 mt-2">
+        <button type="button" onClick={() => add("mobile")} className="text-xs font-medium hover:underline flex items-center gap-1" style={{ color: "var(--ledger-700)" }}>
+          <Plus size={12} /> Add Mobile Phone
+        </button>
+        <span className="text-xs text-[var(--ink-300)]">|</span>
+        <button type="button" onClick={() => add("landline")} className="text-xs font-medium hover:underline flex items-center gap-1 text-emerald-700">
+          <Plus size={12} /> Add Landline Number
+        </button>
+      </div>
     </div>
   );
 }
@@ -168,3 +228,4 @@ export function MultiPhoneField({ value, onChange }: { value: PhoneEntry[]; onCh
 export function allPhonesValid(phones: PhoneEntry[]): boolean {
   return phones.every((p) => isValidLocalNumber(p.number));
 }
+

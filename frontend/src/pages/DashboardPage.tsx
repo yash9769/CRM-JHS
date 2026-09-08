@@ -675,8 +675,8 @@ export default function DashboardPage() {
   const canDrillDown = !isManager;
 
   const { data, isLoading } = useQuery<DashboardData>({
-    queryKey: ["dashboard"],
-    queryFn: async () => (await api.get("/dashboard")).data,
+    queryKey: ["dashboard", cyclePeriod],
+    queryFn: async () => (await api.get("/dashboard", { params: { period: cyclePeriod } })).data,
   });
   const { data: action } = useQuery<ActionCenterData>({
     queryKey: ["dashboard", "action-center"],
@@ -698,7 +698,10 @@ export default function DashboardPage() {
 
   const greetingHour = new Date().getHours();
   const greeting = greetingHour < 12 ? "Good morning" : greetingHour < 18 ? "Good afternoon" : "Good evening";
-  const fyBadgeLabel = fiscalYearQuarterLabel(new Date());
+  const selectedCycleDate = cyclePeriod && /^\d{4}-\d{2}$/.test(cyclePeriod)
+    ? new Date(`${cyclePeriod}-01T00:00:00Z`)
+    : new Date();
+  const fyBadgeLabel = fiscalYearQuarterLabel(selectedCycleDate);
 
   const recentActivity = action?.recentActivity || [];
   const opportunitiesAtRisk = action?.opportunitiesAtRisk || [];
@@ -706,11 +709,11 @@ export default function DashboardPage() {
   async function downloadPdf() {
     setDownloadingPdf(true);
     try {
-      const res = await api.get("/dashboard/pdf", { responseType: "blob" });
+      const res = await api.get("/dashboard/pdf", { params: { period: cyclePeriod }, responseType: "blob" });
       const url = window.URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
       const a = document.createElement("a");
       a.href = url;
-      a.download = `dashboard-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.download = `dashboard-report-${cyclePeriod}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -757,17 +760,28 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (() => {
-          const marginValue = (data.kpis.totalGrossMargin || 0) + (data.kpis.totalExpectedMargin || 0);
-          const costIncurred = data.kpis.totalBottomLineCost || 0;
+          const realizedMargin = data.kpis.totalGrossMargin || 0;
+          const openMargin = data.kpis.totalExpectedMargin || 0;
+          const totalCombinedMargin = realizedMargin + openMargin;
+
+          const realizedCost = data.kpis.closedWonCostIncurred || 0;
+          const openCost = data.kpis.openCostIncurred || 0;
+          const totalCombinedCost = realizedCost + openCost;
+
+          // If Closed Won deals exist, use Realized Margin & Realized Cost as primary financial figures;
+          // otherwise fall back to Open Pipeline Expected figures.
+          const marginValue = data.kpis.closedWonCount > 0 ? realizedMargin : totalCombinedMargin;
+          const costIncurred = data.kpis.closedWonCount > 0 ? realizedCost : totalCombinedCost;
+
           const winRatePct = Math.round((data.kpis.winRate ?? 0) * 100);
           const weightedRatioPct = data.kpis.totalPipeline > 0
             ? Math.round((data.kpis.weightedPipeline / data.kpis.totalPipeline) * 100)
             : 0;
-          const realizedBase = marginValue + costIncurred;
-          const marginPct = realizedBase > 0 ? Math.round((marginValue / realizedBase) * 100) : 0;
-          const costPct = realizedBase > 0 ? 100 - marginPct : 0;
-          // Thresholds are ours (not a stored config) — a simple, transparent bucketing of
-          // the real margin % computed above, not a fabricated data point.
+
+          const revenueBase = data.kpis.closedWonCount > 0 ? data.kpis.closedWonRevenue : data.kpis.totalPipeline;
+          const marginPct = revenueBase > 0 ? Math.round((marginValue / revenueBase) * 100) : 0;
+          const costPct = revenueBase > 0 ? Math.round((costIncurred / revenueBase) * 100) : 0;
+
           const marginHealthLabel = marginPct >= 20 ? "Optimal" : marginPct >= 10 ? "Moderate" : "Low";
           const marginHealthTone = marginPct >= 20 ? "green" : marginPct >= 10 ? "amber" : "rose";
 
@@ -788,6 +802,13 @@ export default function DashboardPage() {
           const winRateDelta = peerAvgWinRatePct !== null ? winRatePct - peerAvgWinRatePct : null;
 
           const velocityPct = data.kpis.pipelineVelocityPct ?? null;
+          const formattedVelocity = velocityPct !== null && !isNaN(velocityPct)
+            ? velocityPct > 999
+              ? ">+999%"
+              : velocityPct < -99
+              ? "<-99%"
+              : `${velocityPct >= 0 ? "+" : ""}${velocityPct.toFixed(1)}%`
+            : null;
 
           return (
             <>
@@ -796,12 +817,12 @@ export default function DashboardPage() {
                 icon={BarChart3} label="Total Pipeline" value={formatCurrency(data.kpis.totalPipeline)}
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Total Pipeline", key: "totalPipeline", format: formatCurrency }) : undefined}
-                badge={velocityPct !== null && !isNaN(velocityPct) ? (
+                badge={formattedVelocity ? (
                   <KpiPill
-                    tone={velocityPct >= 0 ? "green" : "rose"}
-                    title="New pipeline value created this month, compared to last month -- not the Total Pipeline figure's own change."
+                    tone={velocityPct && velocityPct >= 0 ? "green" : "rose"}
+                    title="New pipeline value created this month compared to last month."
                   >
-                    {velocityPct >= 0 ? "+" : ""}{velocityPct.toFixed(1)}% new pipeline
+                    {formattedVelocity} new pipeline
                   </KpiPill>
                 ) : undefined}
                 belowValue={data.charts.pipelineVelocity?.length > 0 ? <KpiSparkline data={data.charts.pipelineVelocity} full /> : undefined}
@@ -869,19 +890,19 @@ export default function DashboardPage() {
                 icon={Gauge} label="Margin Value" value={formatCurrency(marginValue)} tone="green"
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Margin Value", key: "marginValue", format: formatCurrency }) : undefined}
-                badge={realizedBase > 0 ? <KpiPill tone="green">{marginPct}% Net</KpiPill> : undefined}
-                bar={realizedBase > 0 ? <KpiBar pct={marginPct} /> : undefined}
-                footerLeft={realizedBase > 0 ? "Op Margin Health" : undefined}
-                footerRight={realizedBase > 0 ? <KpiPill tone={marginHealthTone as any}>{marginHealthLabel}</KpiPill> : undefined}
+                badge={revenueBase > 0 ? <KpiPill tone="green">{marginPct}% Net</KpiPill> : undefined}
+                bar={revenueBase > 0 ? <KpiBar pct={marginPct} /> : undefined}
+                footerLeft={data.kpis.closedWonCount > 0 ? "Realized Net Margin" : "Expected Pipeline Margin"}
+                footerRight={revenueBase > 0 ? <KpiPill tone={marginHealthTone as any}>{marginHealthLabel}</KpiPill> : undefined}
               />
 
               <Kpi
                 icon={CalendarClock} label="Cost Incurred to Company" value={formatCurrency(costIncurred)}
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Cost Incurred to Company", key: "costIncurred", format: formatCurrency }) : undefined}
-                badge={realizedBase > 0 ? <KpiPill>{costPct}% of value</KpiPill> : undefined}
-                bar={realizedBase > 0 ? <KpiBar pct={costPct} tone="ink" /> : undefined}
-                footerLeft={realizedBase > 0 ? "Share of realized value" : undefined}
+                badge={revenueBase > 0 ? <KpiPill>{costPct}% of value</KpiPill> : undefined}
+                bar={revenueBase > 0 ? <KpiBar pct={costPct} tone="ink" /> : undefined}
+                footerLeft={data.kpis.closedWonCount > 0 ? "Realized Cost (Won Deals)" : "Expected Pipeline Cost"}
               />
             </div>
 

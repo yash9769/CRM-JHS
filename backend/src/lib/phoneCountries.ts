@@ -41,7 +41,7 @@ export const PHONE_COUNTRIES: PhoneCountry[] = [
 
 export const DEFAULT_COUNTRY_CODE = "+91";
 
-/** A local phone number, once the dial code is stripped, must be exactly 10 digits. */
+/** A local phone or landline number, once the dial code is stripped, must be between 7 and 12 digits. */
 export function isValidLocalNumber(number: string): boolean {
-  return /^\d{10}$/.test(number);
+  return /^\d{7,12}$/.test(number);
 }

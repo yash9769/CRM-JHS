@@ -32,6 +32,7 @@ export default function ContactsPage() {
   const [showImport, setShowImport] = useState(false);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [ownerLabel, setOwnerLabel] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState("name_asc");
 
   const { visibleKeys, toggle, showAll, reset, isVisible, orderedColumns, reorder } = useColumnVisibility(
     "contacts-table",
@@ -46,6 +47,14 @@ export default function ContactsPage() {
           params: { search, pageSize: 50, ...(ownerId ? { ownerId } : {}) },
         })
       ).data,
+  });
+
+  const contactsList = data?.data || [];
+  const sortedContacts = [...contactsList].sort((a, b) => {
+    if (sortBy === "name_asc") return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+    if (sortBy === "name_desc") return `${b.firstName} ${b.lastName}`.localeCompare(`${a.firstName} ${a.lastName}`);
+    if (sortBy === "account_asc") return (a.account?.name || "").localeCompare(b.account?.name || "");
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
   });
 
   async function exportCsv() {
@@ -98,6 +107,17 @@ export default function ContactsPage() {
               style={inputStyle}
             />
           </div>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className={`${inputClass} font-medium`}
+            style={{ ...inputStyle, width: "auto" }}
+          >
+            <option value="name_asc">Sort by: Name (A-Z)</option>
+            <option value="name_desc">Sort by: Name (Z-A)</option>
+            <option value="account_asc">Sort by: Account Name</option>
+            <option value="created_desc">Sort by: Newest First</option>
+          </select>
           <div className="w-52">
             {user?.orgRole !== "MANAGER" && (
               <RelationshipSelector
@@ -117,7 +137,7 @@ export default function ContactsPage() {
         <Card>
           {isLoading ? (
             <div className="p-6 text-sm" style={{ color: "var(--ink-400)" }}>Loading…</div>
-          ) : !data?.data.length ? (
+          ) : !sortedContacts.length ? (
             <EmptyState
               title="No contacts yet"
               action={<Button onClick={() => setShowNew(true)}><Plus size={15} /> New Contact</Button>}
@@ -134,7 +154,7 @@ export default function ContactsPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.data.map((c) => {
+                {sortedContacts.map((c) => {
                   const cellRenderers: Record<string, () => ReactElement> = {
                     name: () => (
                       <td className="px-4 py-3">

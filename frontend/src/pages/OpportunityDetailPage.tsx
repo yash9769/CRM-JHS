@@ -8,6 +8,7 @@ import { ClosedWonModal } from "../components/ClosedWonModal";
 import { ClosedLostModal } from "../components/ClosedLostModal";
 import { NewContactModal, NewQuoteModal, AddLineItemModal } from "../components/CreateModals";
 import { EditOpportunityModal, ArchiveConfirmModal } from "../components/EditModals";
+import { ConfirmStageChangeModal } from "../components/ConfirmStageChangeModal";
 import { HistoryPanel } from "../components/HistoryPanel";
 import { formatCurrency, formatDate } from "../lib/format";
 import { computeOpportunityFinancials } from "../lib/financial";
@@ -33,6 +34,7 @@ export default function OpportunityDetailPage() {
   const [reviewModalApproval, setReviewModalApproval] = useState<any | null>(null);
   const [closedWonModalStageId, setClosedWonModalStageId] = useState<string | null>(null);
   const [closedLostModalStageId, setClosedLostModalStageId] = useState<string | null>(null);
+  const [confirmStageTarget, setConfirmStageTarget] = useState<any | null>(null);
 
   const archiveMutation = useMutation({
     mutationFn: () => api.post(`/opportunities/${id}/archive`),
@@ -111,7 +113,7 @@ export default function OpportunityDetailPage() {
     } else if (isLost) {
       setClosedLostModalStageId(targetStage.id);
     } else {
-      stageMutation.mutate({ stageId: targetStage.id });
+      setConfirmStageTarget(targetStage);
     }
   };
 
@@ -368,7 +370,7 @@ export default function OpportunityDetailPage() {
                   </div>
                 )}
 
-                {opp.lostReason && (
+                {opp.stage?.name === "Closed Lost" && opp.lostReason && (
                   <div className="sm:col-span-2 p-3 rounded-lg bg-rose-50 border border-rose-200">
                     <dt className="text-xs font-bold uppercase tracking-wider text-rose-800">Closed Lost Reason</dt>
                     <dd className="mt-1 text-sm text-rose-950 font-medium">{opp.lostReason}</dd>
@@ -824,6 +826,21 @@ export default function OpportunityDetailPage() {
           }}
           onClose={() => setReviewModalApproval(null)}
           isSubmitting={approveMutation.isPending || rejectMutation.isPending}
+        />
+      )}
+
+      {confirmStageTarget && (
+        <ConfirmStageChangeModal
+          opportunityName={opp.name}
+          fromStageName={opp.stage?.name || "—"}
+          toStageName={confirmStageTarget.name}
+          amount={financials.actualOpportunityValue !== null ? financials.actualOpportunityValue : opp.amount}
+          onConfirm={() => {
+            stageMutation.mutate({ stageId: confirmStageTarget.id });
+            setConfirmStageTarget(null);
+          }}
+          onClose={() => setConfirmStageTarget(null)}
+          isPending={stageMutation.isPending}
         />
       )}
     </div>

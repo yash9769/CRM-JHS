@@ -51,6 +51,8 @@ export default function OpportunitiesPage() {
   const [bulkOwnerLabel, setBulkOwnerLabel] = useState<string | null>(null);
   const [bulkStagePicker, setBulkStagePicker] = useState(false);
 
+  const [sortBy, setSortBy] = useState<string>("created_desc");
+
   const { visibleKeys, toggle, showAll, reset, isVisible, orderedColumns, reorder, applyColumns } = useColumnVisibility(
     "opportunities-table",
     OPPORTUNITY_COLUMNS
@@ -83,6 +85,15 @@ export default function OpportunitiesPage() {
   const filteredData = opportunitiesList.filter(o => {
     if (activeTab === "open") return !!o.stage?.name && OPEN_TAB_STAGE_NAMES.has(o.stage.name);
     return true;
+  });
+
+  const sortedData = [...filteredData].sort((a, b) => {
+    if (sortBy === "name_asc") return a.name.localeCompare(b.name);
+    if (sortBy === "name_desc") return b.name.localeCompare(a.name);
+    if (sortBy === "amount_desc") return (b.actualOpportunityValue || b.amount || 0) - (a.actualOpportunityValue || a.amount || 0);
+    if (sortBy === "amount_asc") return (a.actualOpportunityValue || a.amount || 0) - (b.actualOpportunityValue || b.amount || 0);
+    if (sortBy === "close_date_asc") return new Date(a.expectedCloseDate || 0).getTime() - new Date(b.expectedCloseDate || 0).getTime();
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
   });
 
   const bulkMutation = useMutation({
@@ -233,6 +244,19 @@ export default function OpportunitiesPage() {
               </option>
             ))}
           </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className={`${inputClass} min-h-[44px] sm:min-h-[38px] font-medium`}
+            style={{ ...inputStyle, width: "auto" }}
+          >
+            <option value="created_desc">Sort by: Newest First</option>
+            <option value="name_asc">Sort by: Name (A-Z)</option>
+            <option value="name_desc">Sort by: Name (Z-A)</option>
+            <option value="amount_desc">Sort by: Value (High to Low)</option>
+            <option value="amount_asc">Sort by: Value (Low to High)</option>
+            <option value="close_date_asc">Sort by: Expected Close Date</option>
+          </select>
           <div className="w-full sm:w-52">
             {user?.orgRole !== "MANAGER" && (
               <RelationshipSelector
@@ -270,7 +294,7 @@ export default function OpportunitiesPage() {
         <Card>
           {isLoading ? (
             <div className="p-6 text-sm text-[var(--ink-400)]">Loading…</div>
-          ) : !filteredData.length ? (
+          ) : !sortedData.length ? (
             <EmptyState
               title="No opportunities found"
               subtitle="Try adjusting filters or create a new opportunity."
@@ -294,7 +318,7 @@ export default function OpportunitiesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredData.map((o) => {
+                    {sortedData.map((o) => {
                       const financials = computeOpportunityFinancials(o);
                       const contactName = o.contact
                         ? `${o.contact.firstName} ${o.contact.lastName}`
@@ -390,7 +414,7 @@ export default function OpportunitiesPage() {
 
               {/* Mobile Card Layout */}
               <div className="block md:hidden divide-y divide-[var(--ink-100)]">
-                {filteredData.map((o) => (
+                {sortedData.map((o) => (
                   <div key={o.id} className="p-4 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <Link to={`/opportunities/${o.id}`} className="font-semibold text-base text-[var(--ledger-700)]">

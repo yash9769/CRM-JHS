@@ -65,10 +65,8 @@ export function KanbanBoard<T extends KanbanItem>({
 
     if (requiresApproval && currentStage) {
       setApprovalMove({ item, fromStage: currentStage, targetStage });
-    } else if (targetStage.isClosed || (currentStage && currentStage.isClosed)) {
-      setConfirmMove({ item, targetStage });
     } else {
-      onMove(item, targetStage.id);
+      setConfirmMove({ item, targetStage });
     }
     setDragId(null);
   }

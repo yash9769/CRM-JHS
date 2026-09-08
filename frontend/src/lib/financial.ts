@@ -33,11 +33,19 @@ export function computeOpportunityFinancials(input: FinancialsInput): ComputedFi
   }
 
   let actualOpportunityValue = toNum(input.actualOpportunityValue);
+  if (actualOpportunityValue === null) {
+    actualOpportunityValue = expectedOpportunityValue;
+  }
   if (actualOpportunityValue !== null && actualOpportunityValue < 0) {
     actualOpportunityValue = null;
   }
 
+  const proposalVal = actualOpportunityValue !== null ? actualOpportunityValue : expectedOpportunityValue;
+
   let bottomLineCost = toNum(input.bottomLineCost);
+  if (bottomLineCost === null && proposalVal !== null) {
+    bottomLineCost = Math.round(proposalVal * 0.65);
+  }
   if (bottomLineCost !== null && bottomLineCost < 0) {
     bottomLineCost = null;
   }
@@ -57,25 +65,18 @@ export function computeOpportunityFinancials(input: FinancialsInput): ComputedFi
       ? Math.max(expectedOpportunityValue - actualOpportunityValue, 0)
       : null;
 
-  const topLineRevenue = actualOpportunityValue !== null ? actualOpportunityValue : expectedOpportunityValue;
+  const topLineRevenue = proposalVal;
 
   const marginValue =
-    actualOpportunityValue !== null && bottomLineCost !== null
-      ? actualOpportunityValue - bottomLineCost
-      : expectedOpportunityValue !== null && bottomLineCost !== null
-      ? expectedOpportunityValue - bottomLineCost
+    proposalVal !== null && bottomLineCost !== null
+      ? proposalVal - bottomLineCost
       : null;
 
-  const revenueDenominator = actualOpportunityValue !== null ? actualOpportunityValue : expectedOpportunityValue;
   let marginPercentage: number | null = null;
-  if (marginValue !== null && revenueDenominator !== null) {
-    if (revenueDenominator > 0) {
-      marginPercentage = Math.round(((marginValue / revenueDenominator) * 100) * 100) / 100;
-    } else if (revenueDenominator === 0) {
-      marginPercentage = marginValue === 0 ? 0 : marginValue > 0 ? 100 : -100;
-    } else {
-      marginPercentage = 0;
-    }
+  if (marginValue !== null && proposalVal !== null && proposalVal > 0) {
+    marginPercentage = Math.round(((marginValue / proposalVal) * 100) * 100) / 100;
+  } else if (proposalVal === 0) {
+    marginPercentage = 0;
   }
 
   return {

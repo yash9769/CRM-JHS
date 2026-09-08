@@ -21,7 +21,7 @@ export const phoneEntrySchema = z.object({
   number: z
     .string()
     .trim()
-    .refine(isValidLocalNumber, "Phone number must be exactly 10 digits"),
+    .refine(isValidLocalNumber, "Phone or Landline number must be between 7 and 12 digits"),
   label: z.string().trim().optional().nullable(),
   isPrimary: z.boolean().optional(),
 });

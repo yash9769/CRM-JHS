@@ -10,19 +10,49 @@ import type { AuthUser } from "../plugins/auth.js";
  */
 export async function getVisibleUserIds(user: AuthUser): Promise<string[]> {
   if (user.orgRole === "SENIOR_PARTNER") {
-    const all = await prisma.user.findMany({
-      where: { tenantId: user.tenantId },
+    const partners = await prisma.user.findMany({
+      where: {
+        tenantId: user.tenantId,
+        orgRole: "PARTNER",
+        OR: [
+          { partnerId: user.id },
+          { createdById: user.id },
+        ],
+      },
       select: { id: true },
     });
-    return all.map((u) => u.id);
+    const partnerIds = partners.map((p) => p.id);
+
+    const managers = await prisma.user.findMany({
+      where: {
+        tenantId: user.tenantId,
+        orgRole: "MANAGER",
+        OR: [
+          { partnerId: { in: partnerIds.length ? partnerIds : ["__none__"] } },
+          { createdById: { in: partnerIds.length ? partnerIds : ["__none__"] } },
+          { createdById: user.id },
+        ],
+      },
+      select: { id: true },
+    });
+    const managerIds = managers.map((m) => m.id);
+
+    return Array.from(new Set([user.id, ...partnerIds, ...managerIds]));
   }
 
   if (user.orgRole === "PARTNER") {
     const managers = await prisma.user.findMany({
-      where: { tenantId: user.tenantId, partnerId: user.id },
+      where: {
+        tenantId: user.tenantId,
+        orgRole: "MANAGER",
+        OR: [
+          { partnerId: user.id },
+          { createdById: user.id },
+        ],
+      },
       select: { id: true },
     });
-    return [user.id, ...managers.map((m) => m.id)];
+    return Array.from(new Set([user.id, ...managers.map((m) => m.id)]));
   }
 
   // MANAGER — can only see their own records
@@ -45,7 +75,6 @@ export async function getVisibleUserIds(user: AuthUser): Promise<string[]> {
  *   if (q.search) where.AND.push({ OR: [ ...search clauses... ] });
  */
 export async function getCreatedByFilter(user: AuthUser): Promise<any> {
-  if (user.orgRole === "SENIOR_PARTNER") return {}; // no restriction
   const ids = await getVisibleUserIds(user);
   return {
     OR: [
@@ -63,8 +92,6 @@ export async function requireCanAccess(
   record: { createdById?: string | null; ownerId?: string | null },
   _action: "read" | "write" = "read"
 ) {
-  if (user.orgRole === "SENIOR_PARTNER") return;
-
   const visibleIds = await getVisibleUserIds(user);
   const createdByIdMatch = record.createdById && visibleIds.includes(record.createdById);
   const ownerIdMatch = record.ownerId && visibleIds.includes(record.ownerId);

@@ -166,6 +166,7 @@ export default async function approvalRoutes(app: FastifyInstance) {
           forecastCategory: isClosingWon ? "CLOSED_WON" : isClosingLost ? "CLOSED_LOST" : undefined,
           wonDate: isClosingWon ? new Date() : undefined,
           actualCloseDate: isClosingWon ? new Date() : undefined,
+          lostReason: isClosingLost ? (approval.opportunity.lostReason ?? null) : null,
           ...(isClosingWon ? {
             loeValue: approval.loeValue ?? undefined,
             loeUnit: approval.loeUnit ?? "Hours",

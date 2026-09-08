@@ -1085,7 +1085,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
           forecastCategory: isClosingWon ? "CLOSED_WON" : isClosingLost ? "CLOSED_LOST" : rest.forecastCategory,
           wonDate: isClosingWon ? (existing.wonDate ?? new Date()) : undefined,
           actualCloseDate: finalActualCloseDate,
-          lostReason: isClosingLost ? (rest.lostReason ?? existing.lostReason) : undefined,
+          lostReason: isClosingLost ? (rest.lostReason ?? existing.lostReason) : (stageChanged ? null : undefined),
           description: rest.description !== undefined ? rest.description : (remarks !== undefined ? remarks : undefined),
           createdAt: rest.createdAt ? new Date(rest.createdAt) : undefined,
           expectedCloseDate: rest.expectedCloseDate !== undefined ? (rest.expectedCloseDate ? new Date(rest.expectedCloseDate) : null) : undefined,

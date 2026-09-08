@@ -27,6 +27,20 @@ export default function AccountDetailPage() {
     enabled: !!id,
   });
 
+  async function handleDeleteAccount() {
+    if (user?.orgRole !== "MANAGER") {
+      try {
+        await api.delete(`/accounts/${account.id}`);
+        qcArchive.invalidateQueries({ queryKey: ["accounts"] });
+        navigate("/accounts");
+      } catch (err: any) {
+        alert(err?.response?.data?.error || err.message || "Could not delete account.");
+      }
+    } else {
+      setModal("delete");
+    }
+  }
+
   if (isLoading || !account) return <div className="p-8 text-sm text-[var(--ink-400)]">Loading…</div>;
 
   return (
@@ -50,7 +64,7 @@ export default function AccountDetailPage() {
           <Button variant="secondary" onClick={() => setModal("edit")}><Pencil size={14} /> Edit</Button>
           <Button variant="secondary" onClick={() => setModal("opportunity")}><Target size={14} /> Create Opportunity</Button>
           <Button variant="secondary" onClick={() => setModal("contact")}><Users size={14} /> Create Contact</Button>
-          <Button variant="danger" onClick={() => setModal("delete")}><Trash2 size={14} /> Delete Account</Button>
+          <Button variant="danger" onClick={handleDeleteAccount}><Trash2 size={14} /> Delete Account</Button>
         </div>
       </div>
 
@@ -80,7 +94,7 @@ export default function AccountDetailPage() {
               <div className="flex items-start gap-1.5">
                 <Phone size={13} className="mt-0.5 text-[var(--ink-400)]" />
                 <div>
-                  <dt className="text-xs text-[var(--ink-400)]">Phone{(account.phones?.length ?? 0) > 1 ? " Numbers" : ""}</dt>
+                  <dt className="text-xs text-[var(--ink-400)]">Phone / Landline{(account.phones?.length ?? 0) > 1 ? " Numbers" : ""}</dt>
                   {account.phones && account.phones.length > 0 ? (
                     <dd className="mt-0.5 space-y-0.5">
                       {account.phones.map((p) => (

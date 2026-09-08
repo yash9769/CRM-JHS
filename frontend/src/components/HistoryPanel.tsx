@@ -69,7 +69,7 @@ export function HistoryPanel({ objectType, recordId, fallbackHistory }: { object
   if (!entries.length) return <div className="text-xs text-[var(--ink-400)] py-2">No activity audit logs recorded yet.</div>;
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2.5 max-h-[290px] overflow-y-auto pr-1">
       {entries.map((entry) => {
         const roleLabel = entry.user?.orgRole?.replace("_", " ") || "";
         return (

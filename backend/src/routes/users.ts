@@ -64,22 +64,39 @@ export default async function userRoutes(app: FastifyInstance) {
       orderBy: { createdAt: "asc" },
     });
 
-    const seniorPartners = allUsers.filter((u) => u.orgRole === "SENIOR_PARTNER");
-    const seniorPartner = seniorPartners[0] || null;
-    const partners = allUsers.filter((u) => u.orgRole === "PARTNER");
-    const managers = allUsers.filter((u) => u.orgRole === "MANAGER");
-
     if (actor.orgRole === "PARTNER") {
-      const myManagers = managers.filter((m) => m.partnerId === actor.id);
+      const actorUser = allUsers.find((u) => u.id === actor.id);
+      const parentSpId = actorUser?.createdById || actorUser?.partnerId;
+      const parentSp = parentSpId ? allUsers.find((u) => u.id === parentSpId && u.orgRole === "SENIOR_PARTNER") : null;
+      const myManagers = allUsers.filter((u) => u.orgRole === "MANAGER" && u.partnerId === actor.id);
+
       return {
-        seniorPartner,
-        seniorPartners,
-        partners: partners.filter((p) => p.id === actor.id),
+        seniorPartner: parentSp,
+        seniorPartners: parentSp ? [parentSp] : [],
+        partners: actorUser ? [actorUser] : [],
         managers: myManagers,
       };
     }
 
-    return { seniorPartner, seniorPartners, partners, managers };
+    if (actor.orgRole === "SENIOR_PARTNER") {
+      const myPartners = allUsers.filter((u) => u.orgRole === "PARTNER" && (u.createdById === actor.id || u.partnerId === actor.id));
+      const myPartnerIds = new Set(myPartners.map((p) => p.id));
+      const myManagers = allUsers.filter((u) => u.orgRole === "MANAGER" && u.partnerId && myPartnerIds.has(u.partnerId));
+      const currentSp = allUsers.find((u) => u.id === actor.id) || null;
+
+      return {
+        seniorPartner: currentSp,
+        seniorPartners: currentSp ? [currentSp] : [],
+        partners: myPartners,
+        managers: myManagers,
+      };
+    }
+
+    const seniorPartners = allUsers.filter((u) => u.orgRole === "SENIOR_PARTNER");
+    const partners = allUsers.filter((u) => u.orgRole === "PARTNER");
+    const managers = allUsers.filter((u) => u.orgRole === "MANAGER");
+
+    return { seniorPartner: seniorPartners[0] || null, seniorPartners, partners, managers };
   });
 
   // POST /users — create a new user
@@ -87,20 +104,24 @@ export default async function userRoutes(app: FastifyInstance) {
     const actor = req.authUser;
 
     if (actor.orgRole === "MANAGER") {
-      return reply.code(403).send({ error: "Managers cannot create users" });
+      return reply.code(403).send({ error: "Managers cannot create team members" });
     }
 
     const body = CreateUserSchema.parse(req.body);
 
-    const partnerId =
-      actor.orgRole === "PARTNER" ? actor.id : (body.partnerId ?? null);
-
-    if (!canManageUser(actor, body.orgRole, partnerId)) {
-      return reply.code(403).send({ error: "You are not allowed to create this user type" });
+    if (actor.orgRole === "SENIOR_PARTNER" && body.orgRole !== "PARTNER") {
+      return reply.code(403).send({ error: "Senior Partners can only create Partners" });
     }
 
     if (actor.orgRole === "PARTNER" && body.orgRole !== "MANAGER") {
       return reply.code(403).send({ error: "Partners can only create Managers" });
+    }
+
+    const partnerId =
+      actor.orgRole === "PARTNER" ? actor.id : (body.partnerId ?? (actor.orgRole === "SENIOR_PARTNER" ? actor.id : null));
+
+    if (!canManageUser(actor, body.orgRole, partnerId)) {
+      return reply.code(403).send({ error: "You are not allowed to create this user type" });
     }
 
     if (body.orgRole === "MANAGER") {
@@ -130,7 +151,7 @@ export default async function userRoutes(app: FastifyInstance) {
         firstName: body.firstName,
         lastName: body.lastName,
         orgRole: body.orgRole,
-        partnerId: body.orgRole === "MANAGER" ? partnerId : null,
+        partnerId: body.orgRole === "MANAGER" ? partnerId : (body.orgRole === "PARTNER" ? actor.id : null),
         createdById: actor.id,
         passwordHash,
       },

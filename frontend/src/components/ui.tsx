@@ -125,7 +125,7 @@ export function Modal({ title, onClose, children, width = "480px" }: { title: st
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 bg-white" style={{ borderColor: "var(--ink-100)" }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 bg-white z-20" style={{ borderColor: "var(--ink-100)" }}>
           <h3 className="text-[15px] font-semibold">{title}</h3>
           <button onClick={onClose} className="p-1 rounded hover:bg-[var(--ink-50)]">
             <X size={16} style={{ color: "var(--ink-500)" }} />
