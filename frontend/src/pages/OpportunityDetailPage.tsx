@@ -30,6 +30,11 @@ export default function OpportunityDetailPage() {
   const isPartner = user?.orgRole === "PARTNER" || user?.orgRole === "SENIOR_PARTNER";
 
   const [modal, setModal] = useState<"edit" | "contact" | "lineItem" | "quote" | null>(null);
+  const [requestModalStage, setRequestModalStage] = useState<{ id: string; name: string } | null>(null);
+  const [reviewModalApproval, setReviewModalApproval] = useState<any | null>(null);
+  const [closedWonModalStageId, setClosedWonModalStageId] = useState<string | null>(null);
+  const [closedLostModalStageId, setClosedLostModalStageId] = useState<string | null>(null);
+  const [confirmStageTarget, setConfirmStageTarget] = useState<any | null>(null);
 
   const deleteLineItemMutation = useMutation({
     mutationFn: (lineItemId: string) => api.delete(`/opportunities/${id}/line-items/${lineItemId}`),
