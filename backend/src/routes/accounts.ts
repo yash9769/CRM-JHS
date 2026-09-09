@@ -206,7 +206,6 @@ export default async function accountRoutes(app: FastifyInstance) {
       { key: "name", label: "Account Name" },
       { key: "domain", label: "Domain" },
       { key: "industry", label: "Industry" },
-      { key: "accountType", label: "Account Type" },
       { key: "phone", label: "Phone" },
       { key: "website", label: "Website" },
       { key: "annualRevenue", label: "Annual Revenue" },
