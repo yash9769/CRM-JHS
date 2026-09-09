@@ -258,6 +258,7 @@ export interface Opportunity {
   activities?: Activity[];
   notes?: Note[];
   stageApprovals?: StageApproval[];
+  deletionRequests?: OpportunityDeletionRequest[];
   attachments?: OpportunityAttachment[];
   stageHistory?: any[];
 }
@@ -268,19 +269,91 @@ export interface DashboardMetrics {
     weightedPipeline: number;
     openOpportunities: number;
     closedWonRevenue: number;
+    closedWonCount?: number;
     winRate: number;
     avgOpportunitySize: number;
     oppsClosingThisMonth: number;
     totalExpectedMargin?: number;
     totalGrossMargin?: number;
     totalMarginLoss?: number;
+    openCostIncurred?: number;
+    closedWonCostIncurred?: number;
     totalBottomLineCost?: number;
+    pipelineVelocityPct?: number | null;
   };
   charts: {
     pipelineByStage: { stageName: string; count: number; amount: number }[];
     revenueByMonth: { month: string; revenue: number }[];
     oppsByOwner: { owner: string; count: number; amount: number }[];
+    pipelineVelocity?: { month: string; amount: number }[];
   };
+}
+
+export interface AccountDeletionRequest {
+  id: string;
+  tenantId: string;
+  accountId?: string | null;
+  account?: { id: string; name: string; domain?: string | null; industry?: string | null; owner?: Owner | null } | null;
+  accountName: string;
+  requestedById: string;
+  requestedBy?: { id: string; firstName: string; lastName: string; email?: string } | null;
+  approverId?: string | null;
+  approver?: { id: string; firstName: string; lastName: string } | null;
+  reason: string;
+  status: "PENDING" | "APPROVED" | "DISAPPROVED" | "CANCELLED";
+  reviewedById?: string | null;
+  reviewedBy?: { id: string; firstName: string; lastName: string } | null;
+  reviewComment?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  reviewedAt?: string | null;
+}
+
+export interface ContactDeletionRequest {
+  id: string;
+  tenantId: string;
+  contactId?: string | null;
+  contact?: { id: string; firstName: string; lastName: string; email?: string | null; jobTitle?: string | null; account?: { id: string; name: string } | null } | null;
+  contactName: string;
+  requestedById: string;
+  requestedBy?: { id: string; firstName: string; lastName: string; email?: string } | null;
+  approverId?: string | null;
+  approver?: { id: string; firstName: string; lastName: string } | null;
+  reason: string;
+  status: "PENDING" | "APPROVED" | "DISAPPROVED" | "CANCELLED";
+  reviewedById?: string | null;
+  reviewedBy?: { id: string; firstName: string; lastName: string } | null;
+  reviewComment?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  reviewedAt?: string | null;
+}
+
+export interface OpportunityDeletionRequest {
+  id: string;
+  tenantId: string;
+  opportunityId?: string | null;
+  opportunity?: {
+    id: string;
+    name: string;
+    amount?: number | string;
+    stage?: { id: string; name: string };
+    account?: { id: string; name: string };
+    owner?: { id: string; firstName: string; lastName: string };
+  } | null;
+  opportunityName: string;
+  requestedById: string;
+  requestedBy?: { id: string; firstName: string; lastName: string; email?: string } | null;
+  approverId?: string | null;
+  approver?: { id: string; firstName: string; lastName: string } | null;
+  reason: string;
+  status: "PENDING" | "APPROVED" | "DISAPPROVED" | "CANCELLED";
+  reviewedById?: string | null;
+  reviewedBy?: { id: string; firstName: string; lastName: string } | null;
+  reviewComment?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  reviewedAt?: string | null;
 }
 
 export interface Service {

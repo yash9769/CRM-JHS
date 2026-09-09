@@ -10,7 +10,7 @@ import { Info, IndianRupee } from "lucide-react";
 import { formatCurrency } from "../lib/format";
 import { MultiEmailField, MultiPhoneField, allPhonesValid, type EmailEntry, type PhoneEntry } from "./MultiValueFields";
 import { DEFAULT_COUNTRY_CODE } from "../lib/phoneCountries";
-import { ValidatedDomainInput, ValidatedEmailInput } from "./ValidatedInput";
+import { ValidatedDomainInput, NonNegativeNumberInput } from "./ValidatedInput";
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -123,13 +123,9 @@ export function NewAccountModal({
           </Field>
         </div>
         <Field label="Employees">
-          <input
-            type="number"
-            min="0"
+          <NonNegativeNumberInput
             value={form.employeeCount}
-            onChange={(e) => setForm({ ...form, employeeCount: e.target.value })}
-            className={inputClass}
-            style={inputStyle}
+            onChange={(val) => setForm({ ...form, employeeCount: val })}
             placeholder="250"
           />
         </Field>
@@ -345,9 +341,16 @@ export function NewOpportunityModal({
     fixedAccountOwnerLabel || (isManager && user ? `${user.firstName} ${user.lastName}` : null)
   );
 
+  const [poNumber, setPoNumber] = useState("");
+  const [poValue, setPoValue] = useState("");
+  const [loeValue, setLoeValue] = useState("");
+  const [loeUnit, setLoeUnit] = useState<"Hours" | "Days">("Hours");
+  const [lostReason, setLostReason] = useState("");
+
   const todayStr = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({
     name: initialName || "",
+    opportunityType: "NEW_BUSINESS",
     proposalSentValue: initialAmount ? String(initialAmount) : "",
     bottomLineCost: "",
     stageId: "",
@@ -363,6 +366,11 @@ export function NewOpportunityModal({
 
   const [clientError, setClientError] = useState<string | null>(null);
   const effectiveStageId = form.stageId || oppPipeline?.stages[0]?.id || "";
+
+  const selectedStage = oppPipeline?.stages?.find((s) => s.id === effectiveStageId);
+  const stageNameLower = selectedStage?.name?.toLowerCase().trim() || "";
+  const isClosedWon = (selectedStage?.isClosed && selectedStage?.isWon) || stageNameLower.includes("closed won") || stageNameLower === "won";
+  const isClosedLost = (selectedStage?.isClosed && !selectedStage?.isWon) || stageNameLower.includes("closed lost") || stageNameLower.includes("dead") || stageNameLower === "lost";
 
   function handleAccountSelect(id: string | null, opt?: RelationshipOption) {
     setAccountId(id);
@@ -399,19 +407,33 @@ export function NewOpportunityModal({
       if (proposalSent !== null && proposalSent < 0) throw new Error("Proposal Value must be non-negative");
       if (cost !== null && cost < 0) throw new Error("Cost Incurred to Company must be non-negative");
 
+      if (isClosedWon) {
+        if (!poNumber.trim()) throw new Error("PO Number is mandatory when creating in Closed Won stage");
+        const effectivePoValue = poValue ? Number(poValue) : proposalSent;
+        if (!effectivePoValue || effectivePoValue <= 0) throw new Error("A valid positive PO Value is mandatory when creating in Closed Won stage");
+      }
+      if (isClosedLost) {
+        if (!lostReason.trim()) throw new Error("A valid reason is mandatory when creating an opportunity in Closed Lost / Opportunity Dead stage");
+      }
+
       return api.post("/opportunities", {
         name: form.name,
+        opportunityType: form.opportunityType,
         accountId: accountId,
         contactId: contactId || null,
         contactIds: extraContacts.map((c) => c.id),
         amount: proposalSent ?? 0,
         expectedOpportunityValue: proposalSent,
-        actualOpportunityValue: proposalSent,
+        actualOpportunityValue: isClosedWon ? (poValue ? Number(poValue) : proposalSent) : proposalSent,
         bottomLineCost: cost,
         pipelineId: oppPipeline!.id,
         stageId: effectiveStageId,
         ownerId: ownerId,
-        createdAt: form.createdDate ? new Date(form.createdDate).toISOString() : undefined,
+        poNumber: isClosedWon ? poNumber : undefined,
+        poValue: isClosedWon ? (poValue ? Number(poValue) : proposalSent) : undefined,
+        loeValue: isClosedWon && loeValue ? loeValue : undefined,
+        loeUnit: isClosedWon ? loeUnit : undefined,
+        lostReason: isClosedLost ? lostReason : undefined,
         expectedCloseDate: form.closeDate ? new Date(form.closeDate).toISOString() : null,
         description: form.remarks || null,
         remarks: form.remarks || null,
@@ -551,21 +573,120 @@ export function NewOpportunityModal({
             <FieldError message={fieldErrors.name} />
           </Field>
 
-          <Field label="Opportunity Stage" required>
-            <select
-              value={effectiveStageId}
-              onChange={(e) => setForm({ ...form, stageId: e.target.value })}
-              className={inputClass}
-              style={inputStyle}
-            >
-              {oppPipeline.stages.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-            <FieldError message={fieldErrors.stageId} />
-          </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="Opportunity Stage" required>
+              <select
+                value={effectiveStageId}
+                onChange={(e) => setForm({ ...form, stageId: e.target.value })}
+                className={inputClass}
+                style={inputStyle}
+              >
+                {oppPipeline.stages.filter((s) => !s.isClosed).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <FieldError message={fieldErrors.stageId} />
+            </Field>
+
+            <Field label="Opportunity Type" required>
+              <select
+                value={form.opportunityType}
+                onChange={(e) => setForm({ ...form, opportunityType: e.target.value })}
+                className={inputClass}
+                style={inputStyle}
+              >
+                <option value="NEW_BUSINESS">New Business</option>
+                <option value="RENEWAL">Renewable Business</option>
+              </select>
+              <FieldError message={fieldErrors.opportunityType} />
+            </Field>
+          </div>
+
+          {/* CLOSED WON DETAILS (If Closed Won Stage Selected) */}
+          {isClosedWon && (
+            <div className="p-4 rounded-xl border bg-emerald-50/60 border-emerald-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-900">
+                  Closed Won Details
+                </h4>
+                {isManager && (
+                  <span className="text-[11px] font-medium text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                    Requires Partner Approval
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="PO Number" required>
+                  <input
+                    required
+                    value={poNumber}
+                    onChange={(e) => setPoNumber(e.target.value)}
+                    className={inputClass}
+                    style={inputStyle}
+                    placeholder="PO-2026-001"
+                  />
+                  <FieldError message={fieldErrors.poNumber} />
+                </Field>
+
+                <Field label="PO Value" required>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-semibold text-[var(--ink-500)]">₹</span>
+                    <NonNegativeNumberInput
+                      step="0.01"
+                      required
+                      value={poValue !== "" ? poValue : form.proposalSentValue}
+                      onChange={(val) => setPoValue(val)}
+                      className="pl-8 font-mono-num"
+                      placeholder="PO Value"
+                    />
+                  </div>
+                  <FieldError message={fieldErrors.poValue} />
+                </Field>
+
+                <Field label="LOE (Letter of Engagement)">
+                  <div className="flex gap-2">
+                    <NonNegativeNumberInput
+                      value={loeValue}
+                      onChange={(val) => setLoeValue(val)}
+                      placeholder="e.g. 120"
+                    />
+                    <select
+                      value={loeUnit}
+                      onChange={(e) => setLoeUnit(e.target.value as any)}
+                      className="text-xs px-2 rounded-lg border border-[var(--ink-200)] bg-white font-medium"
+                    >
+                      <option value="Hours">Hours</option>
+                      <option value="Days">Days</option>
+                    </select>
+                  </div>
+                  <FieldError message={fieldErrors.loeValue} />
+                </Field>
+              </div>
+            </div>
+          )}
+
+          {/* CLOSED LOST / DEAD REASON (If Closed Lost Stage Selected) */}
+          {isClosedLost && (
+            <div className="p-4 rounded-xl border bg-rose-50/60 border-rose-200 space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-rose-900">
+                Closed Lost / Dead Reason
+              </h4>
+              <Field label="Reason" required>
+                <textarea
+                  rows={2}
+                  required
+                  value={lostReason}
+                  onChange={(e) => setLostReason(e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                  placeholder="Explain why this opportunity was closed lost or dead (e.g. Budget constraints, selected competitor)…"
+                />
+                <FieldError message={fieldErrors.lostReason} />
+              </Field>
+            </div>
+          )}
 
           {/* FINANCIAL DETAILS SECTION */}
           <div className="p-4 rounded-xl border bg-[var(--ink-50)] border-[var(--ink-100)] space-y-3">
@@ -588,15 +709,12 @@ export function NewOpportunityModal({
               >
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 font-semibold text-[var(--ink-500)]">₹</span>
-                  <input
-                    type="number"
-                    min="0"
+                  <NonNegativeNumberInput
                     step="0.01"
                     required
                     value={form.proposalSentValue}
-                    onChange={(e) => setForm({ ...form, proposalSentValue: e.target.value })}
-                    className={`${inputClass} pl-8 font-mono-num`}
-                    style={inputStyle}
+                    onChange={(val) => setForm({ ...form, proposalSentValue: val })}
+                    className="pl-8 font-mono-num"
                     placeholder="10,00,000"
                   />
                 </div>
@@ -615,14 +733,11 @@ export function NewOpportunityModal({
               >
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 font-semibold text-[var(--ink-500)]">₹</span>
-                  <input
-                    type="number"
-                    min="0"
+                  <NonNegativeNumberInput
                     step="0.01"
                     value={form.bottomLineCost}
-                    onChange={(e) => setForm({ ...form, bottomLineCost: e.target.value })}
-                    className={`${inputClass} pl-8 font-mono-num`}
-                    style={inputStyle}
+                    onChange={(val) => setForm({ ...form, bottomLineCost: val })}
+                    className="pl-8 font-mono-num"
                     placeholder="7,00,000"
                   />
                 </div>
@@ -685,11 +800,12 @@ export function NewOpportunityModal({
               <input
                 type="date"
                 value={form.createdDate}
-                onChange={(e) => setForm({ ...form, createdDate: e.target.value })}
-                className={inputClass}
+                disabled
+                readOnly
+                className={`${inputClass} opacity-75 cursor-not-allowed bg-[var(--ink-50)]`}
                 style={inputStyle}
+                title="Created Date is fixed to today and cannot be changed"
               />
-              <FieldError message={fieldErrors.createdAt} />
             </Field>
 
             <Field label="Close Date">
@@ -830,35 +946,24 @@ export function AddLineItemModal({
 
         <div className="grid grid-cols-3 gap-3">
           <Field label="Quantity" required>
-            <input
-              type="number"
+            <NonNegativeNumberInput
               min="1"
               value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              className={inputClass}
-              style={inputStyle}
+              onChange={(val) => setQuantity(val)}
             />
           </Field>
           <Field label="Unit Price" required>
-            <input
-              type="number"
-              min="0"
+            <NonNegativeNumberInput
               step="0.01"
               value={unitPrice}
-              onChange={(e) => setUnitPrice(e.target.value)}
-              className={inputClass}
-              style={inputStyle}
+              onChange={(val) => setUnitPrice(val)}
             />
           </Field>
           <Field label="Discount %">
-            <input
-              type="number"
-              min="0"
+            <NonNegativeNumberInput
               max="100"
               value={discountPct}
-              onChange={(e) => setDiscountPct(e.target.value)}
-              className={inputClass}
-              style={inputStyle}
+              onChange={(val) => setDiscountPct(val)}
             />
           </Field>
         </div>
@@ -940,25 +1045,17 @@ export function NewQuoteModal({
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Discount %">
-            <input
-              type="number"
-              min="0"
+            <NonNegativeNumberInput
               max="100"
               value={discountPct}
-              onChange={(e) => setDiscountPct(e.target.value)}
-              className={inputClass}
-              style={inputStyle}
+              onChange={(val) => setDiscountPct(val)}
             />
           </Field>
           <Field label="Tax %">
-            <input
-              type="number"
-              min="0"
+            <NonNegativeNumberInput
               max="100"
               value={taxPct}
-              onChange={(e) => setTaxPct(e.target.value)}
-              className={inputClass}
-              style={inputStyle}
+              onChange={(val) => setTaxPct(val)}
             />
           </Field>
         </div>

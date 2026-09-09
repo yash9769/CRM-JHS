@@ -2,7 +2,7 @@ import { useState, Fragment, type ReactElement } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { PageHeader, Card, StageBadge, Button, EmptyState, inputClass, inputStyle } from "../components/ui";
+import { PageHeader, Card, StageBadge, Button, EmptyState, inputClass, inputStyle, Modal } from "../components/ui";
 import { NewOpportunityModal } from "../components/CreateModals";
 import { CsvImportModal } from "../components/CsvImportModal";
 import { downloadCsvExport } from "../lib/exportCsv";
@@ -15,7 +15,8 @@ import { computeOpportunityFinancials } from "../lib/financial";
 import { useAuth } from "../hooks/useAuth";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
 import type { Opportunity, Pipeline, Paginated } from "../lib/types";
-import { Plus, Search, Download, UploadCloud, Building2, User, FileSpreadsheet } from "lucide-react";
+import { OpportunityDeletionModal } from "../components/OpportunityDeletionModal";
+import { Plus, Search, Download, UploadCloud, Building2, User, FileSpreadsheet, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Trash2 } from "lucide-react";
 
 const OPPORTUNITY_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Opportunity Name", permanent: true },
@@ -27,6 +28,7 @@ const OPPORTUNITY_COLUMNS: ColumnDef[] = [
   { key: "bottomLineCost", label: "Cost Incurred to Company" },
   { key: "marginValue", label: "Margin Value" },
   { key: "marginPercentage", label: "Margin Percentage" },
+  { key: "weightedPipeline", label: "Weighted Pipeline" },
   { key: "createdAt", label: "Created Date" },
   { key: "closeDate", label: "Close Date" },
   { key: "remarks", label: "Remarks", defaultVisible: false },
@@ -37,6 +39,7 @@ const OPEN_TAB_STAGE_NAMES = new Set(["Scope Discussion", "Proposal Sent", "Nego
 
 export default function OpportunitiesPage() {
   const { user } = useAuth();
+  const isManager = user?.orgRole === "MANAGER";
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<"all" | "open" | "won" | "lost">("all");
   const [showNew, setShowNew] = useState(false);
@@ -50,6 +53,20 @@ export default function OpportunitiesPage() {
   const [bulkOwnerId, setBulkOwnerId] = useState<string | null>(null);
   const [bulkOwnerLabel, setBulkOwnerLabel] = useState<string | null>(null);
   const [bulkStagePicker, setBulkStagePicker] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [deletionTarget, setDeletionTarget] = useState<{ id: string; name: string } | null>(null);
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) => api.post("/opportunities/bulk-delete", { ids }).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["opportunities"] });
+      setSelected(new Set());
+      setShowBulkDeleteConfirm(false);
+    },
+    onError: (err: any) => {
+      alert(err?.response?.data?.error || "Failed to delete selected opportunities");
+    },
+  });
 
   const [sortBy, setSortBy] = useState<string>("created_desc");
 
@@ -88,13 +105,131 @@ export default function OpportunitiesPage() {
   });
 
   const sortedData = [...filteredData].sort((a, b) => {
+    const finA = computeOpportunityFinancials(a);
+    const finB = computeOpportunityFinancials(b);
+
     if (sortBy === "name_asc") return a.name.localeCompare(b.name);
     if (sortBy === "name_desc") return b.name.localeCompare(a.name);
-    if (sortBy === "amount_desc") return (b.actualOpportunityValue || b.amount || 0) - (a.actualOpportunityValue || a.amount || 0);
-    if (sortBy === "amount_asc") return (a.actualOpportunityValue || a.amount || 0) - (b.actualOpportunityValue || b.amount || 0);
+    if (sortBy === "owner_asc") return `${a.owner?.firstName || ""} ${a.owner?.lastName || ""}`.localeCompare(`${b.owner?.firstName || ""} ${b.owner?.lastName || ""}`);
+    if (sortBy === "owner_desc") return `${b.owner?.firstName || ""} ${b.owner?.lastName || ""}`.localeCompare(`${a.owner?.firstName || ""} ${a.owner?.lastName || ""}`);
+    if (sortBy === "account_asc") return (a.account?.name || "").localeCompare(b.account?.name || "");
+    if (sortBy === "account_desc") return (b.account?.name || "").localeCompare(a.account?.name || "");
+    if (sortBy === "stage_asc") return (a.stage?.name || "").localeCompare(b.stage?.name || "");
+    if (sortBy === "stage_desc") return (b.stage?.name || "").localeCompare(a.stage?.name || "");
+    if (sortBy === "amount_desc") return (Number(finB.actualOpportunityValue ?? b.amount ?? 0)) - (Number(finA.actualOpportunityValue ?? a.amount ?? 0));
+    if (sortBy === "amount_asc") return (Number(finA.actualOpportunityValue ?? a.amount ?? 0)) - (Number(finB.actualOpportunityValue ?? b.amount ?? 0));
+    if (sortBy === "cost_desc") return (Number(finB.bottomLineCost ?? 0)) - (Number(finA.bottomLineCost ?? 0));
+    if (sortBy === "cost_asc") return (Number(finA.bottomLineCost ?? 0)) - (Number(finB.bottomLineCost ?? 0));
+    if (sortBy === "margin_desc") return (Number(finB.marginValue ?? -Infinity)) - (Number(finA.marginValue ?? -Infinity));
+    if (sortBy === "margin_asc") return (Number(finA.marginValue ?? Infinity)) - (Number(finB.marginValue ?? Infinity));
+    if (sortBy === "margin_pct_desc") return (Number(finB.marginPercentage ?? -Infinity)) - (Number(finA.marginPercentage ?? -Infinity));
+    if (sortBy === "margin_pct_asc") return (Number(finA.marginPercentage ?? Infinity)) - (Number(finB.marginPercentage ?? Infinity));
+    if (sortBy === "weighted_desc") {
+      const wA = computeOpportunityFinancials(a).expectedOpportunityValue !== null ? computeOpportunityFinancials(a).expectedOpportunityValue! * (a.probability || 0) / 100 : Number(a.amount || 0) * (a.probability || 0) / 100;
+      const wB = computeOpportunityFinancials(b).expectedOpportunityValue !== null ? computeOpportunityFinancials(b).expectedOpportunityValue! * (b.probability || 0) / 100 : Number(b.amount || 0) * (b.probability || 0) / 100;
+      return wB - wA;
+    }
+    if (sortBy === "weighted_asc") {
+      const wA = computeOpportunityFinancials(a).expectedOpportunityValue !== null ? computeOpportunityFinancials(a).expectedOpportunityValue! * (a.probability || 0) / 100 : Number(a.amount || 0) * (a.probability || 0) / 100;
+      const wB = computeOpportunityFinancials(b).expectedOpportunityValue !== null ? computeOpportunityFinancials(b).expectedOpportunityValue! * (b.probability || 0) / 100 : Number(b.amount || 0) * (b.probability || 0) / 100;
+      return wA - wB;
+    }
     if (sortBy === "close_date_asc") return new Date(a.expectedCloseDate || 0).getTime() - new Date(b.expectedCloseDate || 0).getTime();
+    if (sortBy === "close_date_desc") return new Date(b.expectedCloseDate || 0).getTime() - new Date(a.expectedCloseDate || 0).getTime();
+    if (sortBy === "created_asc") return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
     return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
   });
+
+  const handleHeaderSort = (key: string) => {
+    switch (key) {
+      case "name":
+        setSortBy((prev) => (prev === "name_asc" ? "name_desc" : "name_asc"));
+        break;
+      case "owner":
+        setSortBy((prev) => (prev === "owner_asc" ? "owner_desc" : "owner_asc"));
+        break;
+      case "account":
+        setSortBy((prev) => (prev === "account_asc" ? "account_desc" : "account_asc"));
+        break;
+      case "stage":
+        setSortBy((prev) => (prev === "stage_asc" ? "stage_desc" : "stage_asc"));
+        break;
+      case "actualOpportunityValue":
+        setSortBy((prev) => (prev === "amount_desc" ? "amount_asc" : "amount_desc"));
+        break;
+      case "bottomLineCost":
+        setSortBy((prev) => (prev === "cost_desc" ? "cost_asc" : "cost_desc"));
+        break;
+      case "marginValue":
+        setSortBy((prev) => (prev === "margin_desc" ? "margin_asc" : "margin_desc"));
+        break;
+      case "marginPercentage":
+        setSortBy((prev) => (prev === "margin_pct_desc" ? "margin_pct_asc" : "margin_pct_desc"));
+        break;
+      case "weightedPipeline":
+        setSortBy((prev) => (prev === "weighted_desc" ? "weighted_asc" : "weighted_desc"));
+        break;
+      case "createdAt":
+        setSortBy((prev) => (prev === "created_desc" ? "created_asc" : "created_desc"));
+        break;
+      case "closeDate":
+        setSortBy((prev) => (prev === "close_date_asc" ? "close_date_desc" : "close_date_asc"));
+        break;
+      default:
+        break;
+    }
+  };
+
+  const getSortIcon = (key: string) => {
+    switch (key) {
+      case "name":
+        if (sortBy === "name_asc") return <ArrowUp size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        if (sortBy === "name_desc") return <ArrowDown size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        return <ArrowUpDown size={12} className="text-[var(--ink-300)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />;
+      case "owner":
+        if (sortBy === "owner_asc") return <ArrowUp size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        if (sortBy === "owner_desc") return <ArrowDown size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        return <ArrowUpDown size={12} className="text-[var(--ink-300)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />;
+      case "account":
+        if (sortBy === "account_asc") return <ArrowUp size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        if (sortBy === "account_desc") return <ArrowDown size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        return <ArrowUpDown size={12} className="text-[var(--ink-300)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />;
+      case "stage":
+        if (sortBy === "stage_asc") return <ArrowUp size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        if (sortBy === "stage_desc") return <ArrowDown size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        return <ArrowUpDown size={12} className="text-[var(--ink-300)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />;
+      case "actualOpportunityValue":
+        if (sortBy === "amount_asc") return <ArrowUp size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        if (sortBy === "amount_desc") return <ArrowDown size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        return <ArrowUpDown size={12} className="text-[var(--ink-300)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />;
+      case "bottomLineCost":
+        if (sortBy === "cost_asc") return <ArrowUp size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        if (sortBy === "cost_desc") return <ArrowDown size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        return <ArrowUpDown size={12} className="text-[var(--ink-300)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />;
+      case "marginValue":
+        if (sortBy === "margin_asc") return <ArrowUp size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        if (sortBy === "margin_desc") return <ArrowDown size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        return <ArrowUpDown size={12} className="text-[var(--ink-300)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />;
+      case "marginPercentage":
+        if (sortBy === "margin_pct_asc") return <ArrowUp size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        if (sortBy === "margin_pct_desc") return <ArrowDown size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        return <ArrowUpDown size={12} className="text-[var(--ink-300)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />;
+      case "weightedPipeline":
+        if (sortBy === "weighted_asc") return <ArrowUp size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        if (sortBy === "weighted_desc") return <ArrowDown size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        return <ArrowUpDown size={12} className="text-[var(--ink-300)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />;
+      case "createdAt":
+        if (sortBy === "created_asc") return <ArrowUp size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        if (sortBy === "created_desc") return <ArrowDown size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        return <ArrowUpDown size={12} className="text-[var(--ink-300)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />;
+      case "closeDate":
+        if (sortBy === "close_date_asc") return <ArrowUp size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        if (sortBy === "close_date_desc") return <ArrowDown size={12} className="text-[var(--ledger-600)] shrink-0" />;
+        return <ArrowUpDown size={12} className="text-[var(--ink-300)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />;
+      default:
+        return null;
+    }
+  };
 
   const bulkMutation = useMutation({
     mutationFn: (payload: any) => api.post("/opportunities/bulk", { ids: Array.from(selected), ...payload }),
@@ -251,11 +386,18 @@ export default function OpportunitiesPage() {
             style={{ ...inputStyle, width: "auto" }}
           >
             <option value="created_desc">Sort by: Newest First</option>
-            <option value="name_asc">Sort by: Name (A-Z)</option>
-            <option value="name_desc">Sort by: Name (Z-A)</option>
-            <option value="amount_desc">Sort by: Value (High to Low)</option>
-            <option value="amount_asc">Sort by: Value (Low to High)</option>
-            <option value="close_date_asc">Sort by: Expected Close Date</option>
+            <option value="created_asc">Sort by: Oldest First</option>
+            <option value="name_asc">Sort by: Name (A → Z)</option>
+            <option value="name_desc">Sort by: Name (Z → A)</option>
+            <option value="amount_desc">Sort by: Value (High → Low)</option>
+            <option value="amount_asc">Sort by: Value (Low → High)</option>
+            <option value="margin_desc">Sort by: Margin Value (High → Low)</option>
+            <option value="margin_pct_desc">Sort by: Margin % (High → Low)</option>
+            <option value="close_date_asc">Sort by: Close Date (Soonest)</option>
+            <option value="close_date_desc">Sort by: Close Date (Latest)</option>
+            <option value="account_asc">Sort by: Account (A → Z)</option>
+            <option value="stage_asc">Sort by: Stage (A → Z)</option>
+            <option value="owner_asc">Sort by: Assigned To (A → Z)</option>
           </select>
           <div className="w-full sm:w-52">
             {user?.orgRole !== "MANAGER" && (
@@ -310,11 +452,36 @@ export default function OpportunitiesPage() {
                       <th className="px-4 py-2.5 w-8 border-b border-[var(--ink-100)] bg-white">
                         <SelectAllCheckbox checked={allChecked} indeterminate={!!someChecked} onChange={toggleAll} />
                       </th>
-                      {orderedColumns.filter((c) => isVisible(c.key)).map((col) => (
-                        <th key={col.key} className="px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap text-[var(--ink-400)] border-b border-[var(--ink-100)] bg-white">
-                          {col.label}
-                        </th>
-                      ))}
+                      {orderedColumns.filter((c) => isVisible(c.key)).map((col) => {
+                        const isSortable = [
+                          "name",
+                          "owner",
+                          "account",
+                          "stage",
+                          "actualOpportunityValue",
+                          "bottomLineCost",
+                          "marginValue",
+                          "marginPercentage",
+                          "createdAt",
+                          "closeDate",
+                        ].includes(col.key);
+                        return (
+                          <th
+                            key={col.key}
+                            onClick={() => isSortable && handleHeaderSort(col.key)}
+                            className={`px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap border-b border-[var(--ink-100)] bg-white select-none ${
+                              isSortable
+                                ? "cursor-pointer group hover:bg-[var(--ink-50)] text-[var(--ink-600)] transition-colors"
+                                : "text-[var(--ink-400)]"
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span>{col.label}</span>
+                              {isSortable && getSortIcon(col.key)}
+                            </div>
+                          </th>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody>
@@ -375,12 +542,22 @@ export default function OpportunitiesPage() {
                             {mv !== null ? formatCurrency(mv) : "—"}
                           </td>
                         ),
-                        marginPercentage: () => (
-                          <td className={`px-4 py-3 font-mono-num ${marginColorClass}`}>
-                            {mp !== null ? `${mp.toFixed(1)}%` : "—"}
-                          </td>
-                        ),
-                        createdAt: () => (
+                         marginPercentage: () => (
+                           <td className={`px-4 py-3 font-mono-num ${marginColorClass}`}>
+                             {mp !== null ? `${mp.toFixed(1)}%` : "—"}
+                           </td>
+                         ),
+                         weightedPipeline: () => {
+                           const oppValue = financials.expectedOpportunityValue !== null ? financials.expectedOpportunityValue : Number(o.amount || 0);
+                           const prob = o.probability || o.stage?.probability || 0;
+                           const weighted = oppValue * (prob / 100);
+                           return (
+                             <td className="px-4 py-3 font-mono-num text-xs text-[var(--ledger-700)]">
+                               {formatCurrency(weighted)}
+                             </td>
+                           );
+                         },
+                         createdAt: () => (
                           <td className="px-4 py-3 font-mono-num text-xs text-[var(--ink-500)]">
                             {formatDate(o.createdAt)}
                           </td>
@@ -458,7 +635,42 @@ export default function OpportunitiesPage() {
         <Button size="sm" variant="secondary" onClick={() => setBulkStagePicker(true)}>
           Change Stage
         </Button>
+        <Button
+          size="sm"
+          variant="danger"
+          onClick={() => {
+            if (isManager) {
+              if (selected.size === 1) {
+                const selectedId = Array.from(selected)[0];
+                const target = opportunitiesList.find((o) => o.id === selectedId);
+                if (target) {
+                  setDeletionTarget({ id: target.id, name: target.name });
+                }
+              } else {
+                alert("As a Manager, deleting opportunities requires Partner approval with justification. Please select an individual opportunity to submit a deletion request.");
+              }
+            } else {
+              setShowBulkDeleteConfirm(true);
+            }
+          }}
+          disabled={bulkDeleteMutation.isPending}
+        >
+          <Trash2 size={13} /> {isManager ? "Request Deletion" : "Delete Selected"}
+        </Button>
       </BulkActionBar>
+
+      {deletionTarget && (
+        <OpportunityDeletionModal
+          opportunity={deletionTarget}
+          onClose={() => setDeletionTarget(null)}
+          onSuccess={() => {
+            qc.invalidateQueries({ queryKey: ["opportunities"] });
+            qc.invalidateQueries({ queryKey: ["opportunity-deletion-requests"] });
+            setSelected(new Set());
+            setDeletionTarget(null);
+          }}
+        />
+      )}
 
       {bulkOwnerPicker && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 w-72 p-3 rounded-lg border shadow-xl bg-white border-[var(--ink-100)]">
@@ -512,6 +724,27 @@ export default function OpportunitiesPage() {
             </Button>
           </div>
         </div>
+      )}
+      {showBulkDeleteConfirm && (
+        <Modal title="Delete Opportunities" onClose={() => setShowBulkDeleteConfirm(false)} width="480px">
+          <div className="space-y-4">
+            <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-900 flex items-start gap-2.5">
+              <AlertTriangle size={18} className="text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-bold mb-0.5">Permanent Deletion</div>
+                <div>This will permanently delete {selected.size} opportunit{selected.size > 1 ? "ies" : "y"} and all associated records (quotes, line items, attachments, stage history). This action cannot be undone.</div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--ink-100)]">
+              <Button variant="secondary" onClick={() => setShowBulkDeleteConfirm(false)} disabled={bulkDeleteMutation.isPending}>
+                Cancel
+              </Button>
+              <Button variant="danger" onClick={() => bulkDeleteMutation.mutate(Array.from(selected))} disabled={bulkDeleteMutation.isPending}>
+                {bulkDeleteMutation.isPending ? "Deleting…" : "Delete Permanently"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

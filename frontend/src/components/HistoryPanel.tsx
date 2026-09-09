@@ -8,25 +8,34 @@ import { AuditLogDetailModal, type AuditEntry } from "./AuditLogDetailModal";
 const TRACKED_FIELDS = ["stageId", "stage", "ownerId", "amount", "actualOpportunityValue", "bottomLineCost", "poNumber", "poValue", "loeValue", "remarks"];
 
 function describeChange(entry: AuditEntry): string {
-  if (entry.action === "CREATED") return "created this record";
+  const isUUID = (str: any) => typeof str === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str.trim());
+  const sanitize = (str: any) => (str && typeof str === "string" && !isUUID(str) ? str : null);
+
+  if (entry.action === "CREATED") {
+    const stage = sanitize(entry.newValues?.stageName);
+    return stage ? `created this record in "${stage}"` : "created this record";
+  }
   if (entry.action === "STAGE_CHANGED") {
-    const from = entry.newValues?.fromStageName || entry.oldValues?.stageName;
-    const to = entry.newValues?.toStageName || entry.newValues?.stageName;
+    const from = sanitize(entry.newValues?.fromStageName) || sanitize(entry.oldValues?.stageName);
+    const to = sanitize(entry.newValues?.toStageName) || sanitize(entry.newValues?.stageName);
     if (from && to) return `changed stage from "${from}" to "${to}"`;
     if (to) return `changed stage to "${to}"`;
     return "updated stage";
   }
   if (entry.action === "STAGE_APPROVAL_REQUESTED") {
-    const to = entry.newValues?.toStageName || entry.newValues?.stageName;
+    const to = sanitize(entry.newValues?.toStageName) || sanitize(entry.newValues?.stageName);
     return to ? `submitted Partner stage approval request for "${to}"` : "submitted stage approval request";
   }
   if (entry.action === "STAGE_APPROVAL_APPROVED" || entry.action === "APPROVED") {
-    const to = entry.newValues?.toStage || entry.newValues?.toStageName;
+    const to = sanitize(entry.newValues?.toStage) || sanitize(entry.newValues?.toStageName);
     return to ? `approved stage change request to "${to}"` : "approved stage change request";
   }
   if (entry.action === "STAGE_APPROVAL_DISAPPROVED" || entry.action === "REJECTED" || entry.action === "DISAPPROVED") {
     const comment = entry.newValues?.approverComment;
     return comment ? `disapproved stage change request (Reason: "${comment}")` : "disapproved stage change request";
+  }
+  if (entry.action === "STAGE_APPROVAL_CANCELLED") {
+    return "cancelled stage approval request";
   }
   if (entry.action === "ARCHIVED") return "archived this record";
   if (entry.action === "UNARCHIVED") return "restored this record";

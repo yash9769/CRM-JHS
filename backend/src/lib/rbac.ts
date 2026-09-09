@@ -10,34 +10,11 @@ import type { AuthUser } from "../plugins/auth.js";
  */
 export async function getVisibleUserIds(user: AuthUser): Promise<string[]> {
   if (user.orgRole === "SENIOR_PARTNER") {
-    const partners = await prisma.user.findMany({
-      where: {
-        tenantId: user.tenantId,
-        orgRole: "PARTNER",
-        OR: [
-          { partnerId: user.id },
-          { createdById: user.id },
-        ],
-      },
+    const allUsers = await prisma.user.findMany({
+      where: { tenantId: user.tenantId },
       select: { id: true },
     });
-    const partnerIds = partners.map((p) => p.id);
-
-    const managers = await prisma.user.findMany({
-      where: {
-        tenantId: user.tenantId,
-        orgRole: "MANAGER",
-        OR: [
-          { partnerId: { in: partnerIds.length ? partnerIds : ["__none__"] } },
-          { createdById: { in: partnerIds.length ? partnerIds : ["__none__"] } },
-          { createdById: user.id },
-        ],
-      },
-      select: { id: true },
-    });
-    const managerIds = managers.map((m) => m.id);
-
-    return Array.from(new Set([user.id, ...partnerIds, ...managerIds]));
+    return allUsers.map((u) => u.id);
   }
 
   if (user.orgRole === "PARTNER") {
@@ -75,6 +52,9 @@ export async function getVisibleUserIds(user: AuthUser): Promise<string[]> {
  *   if (q.search) where.AND.push({ OR: [ ...search clauses... ] });
  */
 export async function getCreatedByFilter(user: AuthUser): Promise<any> {
+  if (user.orgRole === "SENIOR_PARTNER") {
+    return {};
+  }
   const ids = await getVisibleUserIds(user);
   return {
     OR: [
@@ -92,6 +72,9 @@ export async function requireCanAccess(
   record: { createdById?: string | null; ownerId?: string | null },
   _action: "read" | "write" = "read"
 ) {
+  if (user.orgRole === "SENIOR_PARTNER") {
+    return;
+  }
   const visibleIds = await getVisibleUserIds(user);
   const createdByIdMatch = record.createdById && visibleIds.includes(record.createdById);
   const ownerIdMatch = record.ownerId && visibleIds.includes(record.ownerId);

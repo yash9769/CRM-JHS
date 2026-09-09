@@ -16,15 +16,27 @@ export const emailEntrySchema = z.object({
   isPrimary: z.boolean().optional(),
 });
 
-export const phoneEntrySchema = z.object({
-  countryCode: z.string().trim().min(1, "Select a country code"),
-  number: z
-    .string()
-    .trim()
-    .refine(isValidLocalNumber, "Phone or Landline number must be between 7 and 12 digits"),
-  label: z.string().trim().optional().nullable(),
-  isPrimary: z.boolean().optional(),
-});
+export const phoneEntrySchema = z
+  .object({
+    countryCode: z.string().trim().min(1, "Select a country code"),
+    number: z.string().trim(),
+    label: z.string().trim().optional().nullable(),
+    isPrimary: z.boolean().optional(),
+  })
+  .refine(
+    (entry) => {
+      const isLandline = (entry.label || "").toLowerCase().includes("landline");
+      const digits = entry.number.replace(/\D/g, "");
+      if (isLandline) {
+        return digits.length >= 7 && digits.length <= 12;
+      }
+      return digits.length >= 7 && digits.length <= 10;
+    },
+    {
+      message: "Phone number accepts max 10 digits for mobile and 7 to 12 digits for landlines",
+      path: ["number"],
+    }
+  );
 
 export const emailListSchema = z.array(emailEntrySchema).max(10).optional();
 export const phoneListSchema = z.array(phoneEntrySchema).max(10).optional();

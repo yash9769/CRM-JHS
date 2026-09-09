@@ -33,6 +33,7 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route element={<RequireAuth><AppShell /></RequireAuth>}>
         <Route path="/" element={<DashboardPage />} />
+        <Route path="/dashboard" element={<Navigate to="/" replace />} />
         <Route path="/accounts" element={<AccountsPage />} />
         <Route path="/accounts/:id" element={<AccountDetailPage />} />
         <Route path="/contacts" element={<ContactsPage />} />

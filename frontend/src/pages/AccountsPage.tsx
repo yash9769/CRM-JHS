@@ -1,8 +1,8 @@
 import { useState, Fragment, useMemo, type ReactElement } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { PageHeader, Card, Button, inputClass, inputStyle, EmptyState } from "../components/ui";
+import { PageHeader, Card, Button, inputClass, inputStyle, EmptyState, Modal } from "../components/ui";
 import { NewAccountModal } from "../components/CreateModals";
 import { CsvImportModal } from "../components/CsvImportModal";
 import { downloadCsvExport } from "../lib/exportCsv";
@@ -11,7 +11,7 @@ import { fetchOwnerOptions } from "../lib/pickers";
 import { formatDate } from "../lib/format";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
 import type { Account, Paginated } from "../lib/types";
-import { Plus, Search, Building2, Download, UploadCloud, ArrowUpDown, ArrowUp, ArrowDown, Filter } from "lucide-react";
+import { Plus, Search, Building2, Download, UploadCloud, ArrowUpDown, ArrowUp, ArrowDown, Trash2, AlertTriangle } from "lucide-react";
 
 import { useAuth } from "../hooks/useAuth";
 
@@ -32,8 +32,11 @@ const SORT_OPTIONS = [
   { label: "Oldest First", sortBy: "createdAt", sortDir: "asc" },
   { label: "Recently Updated", sortBy: "updatedAt", sortDir: "desc" },
   { label: "Industry (A → Z)", sortBy: "industry", sortDir: "asc" },
+  { label: "Industry (Z → A)", sortBy: "industry", sortDir: "desc" },
   { label: "Most Open Opps", sortBy: "opportunities", sortDir: "desc" },
+  { label: "Least Open Opps", sortBy: "opportunities", sortDir: "asc" },
   { label: "Most Contacts", sortBy: "contacts", sortDir: "desc" },
+  { label: "Least Contacts", sortBy: "contacts", sortDir: "asc" },
 ];
 
 export default function AccountsPage() {
@@ -45,6 +48,18 @@ export default function AccountsPage() {
   const [showImport, setShowImport] = useState(false);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [ownerLabel, setOwnerLabel] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const qc = useQueryClient();
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) => api.post("/accounts/bulk-delete", { ids }).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+      setSelectedIds(new Set());
+      setShowBulkDeleteConfirm(false);
+    },
+  });
 
   const { visibleKeys, toggle, showAll, reset, isVisible, orderedColumns, reorder } = useColumnVisibility(
     "accounts-table",
@@ -67,7 +82,7 @@ export default function AccountsPage() {
       ).data,
   });
 
-  // Client-side sorting fallback for non-Prisma database relations (e.g. _count.contacts, _count.opportunities)
+  // Client-side sorting fallback for non-Prisma database relations (e.g. _count.contacts, _count.opportunities) and createdBy
   const sortedAccounts = useMemo(() => {
     const raw = data?.data ? [...data.data] : [];
     if (sortBy === "opportunities") {
@@ -81,6 +96,12 @@ export default function AccountsPage() {
         const countA = a._count?.contacts ?? 0;
         const countB = b._count?.contacts ?? 0;
         return sortDir === "asc" ? countA - countB : countB - countA;
+      });
+    } else if (sortBy === "createdBy") {
+      raw.sort((a: any, b: any) => {
+        const nameA = a.createdBy ? `${a.createdBy.firstName} ${a.createdBy.lastName}`.toLowerCase() : "";
+        const nameB = b.createdBy ? `${b.createdBy.firstName} ${b.createdBy.lastName}`.toLowerCase() : "";
+        return sortDir === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
       });
     }
     return raw;
@@ -121,6 +142,13 @@ export default function AccountsPage() {
       } else {
         setSortBy("contacts");
         setSortDir("desc");
+      }
+    } else if (key === "createdBy") {
+      if (sortBy === "createdBy") {
+        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      } else {
+        setSortBy("createdBy");
+        setSortDir("asc");
       }
     }
   }
@@ -221,6 +249,14 @@ export default function AccountsPage() {
         </div>
 
         <Card>
+          {selectedIds.size > 0 && (
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--ink-100)] bg-rose-50/50">
+              <span className="text-xs font-medium text-[var(--ink-700)]">{selectedIds.size} account{selectedIds.size > 1 ? "s" : ""} selected</span>
+              <Button variant="danger" size="sm" onClick={() => setShowBulkDeleteConfirm(true)} disabled={bulkDeleteMutation.isPending}>
+                <Trash2 size={13} /> Delete Selected
+              </Button>
+            </div>
+          )}
           {isLoading ? (
             <div className="p-6 text-sm text-[var(--ink-400)]">Loading…</div>
           ) : !sortedAccounts.length ? (
@@ -238,8 +274,22 @@ export default function AccountsPage() {
               <table className="w-full text-sm border-separate border-spacing-0">
                 <thead className="sticky top-0 z-10 bg-white">
                   <tr className="text-left border-b bg-white border-[var(--ink-100)]">
+                    <th className="px-3 py-2.5 w-10">
+                      <input
+                        type="checkbox"
+                        checked={sortedAccounts.length > 0 && sortedAccounts.every(a => selectedIds.has(a.id))}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedIds(new Set(sortedAccounts.map(a => a.id)));
+                          } else {
+                            setSelectedIds(new Set());
+                          }
+                        }}
+                        className="rounded border-[var(--ink-300)]"
+                      />
+                    </th>
                     {orderedColumns.filter((c) => isVisible(c.key)).map((col) => {
-                      const isSortable = ["name", "industry", "updatedAt", "opportunities", "contacts"].includes(col.key);
+                      const isSortable = ["name", "industry", "updatedAt", "opportunities", "contacts", "createdBy"].includes(col.key);
                       const isCurrentSort = sortBy === col.key;
                       return (
                         <th
@@ -313,6 +363,18 @@ export default function AccountsPage() {
                     };
                     return (
                       <tr key={a.id} className="border-b last:border-0 hover:bg-[var(--ink-50)] border-[var(--ink-100)]">
+                        <td className="px-3 py-3 w-10">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(a.id)}
+                            onChange={(e) => {
+                              const next = new Set(selectedIds);
+                              if (e.target.checked) next.add(a.id); else next.delete(a.id);
+                              setSelectedIds(next);
+                            }}
+                            className="rounded border-[var(--ink-300)]"
+                          />
+                        </td>
                         {orderedColumns.filter((c) => isVisible(c.key)).map((col) => (
                           <Fragment key={col.key}>{cellRenderers[col.key]?.()}</Fragment>
                         ))}
@@ -326,6 +388,25 @@ export default function AccountsPage() {
         </Card>
       </div>
       {showNew && <NewAccountModal onClose={() => setShowNew(false)} />}
+      {showBulkDeleteConfirm && (
+        <Modal title="Delete Accounts" onClose={() => setShowBulkDeleteConfirm(false)} width="480px">
+          <div className="space-y-4">
+            <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-900 flex items-start gap-2.5">
+              <AlertTriangle size={18} className="text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-bold mb-0.5">Permanent Deletion</div>
+                <div>This will permanently delete {selectedIds.size} account{selectedIds.size > 1 ? "s" : ""} and all associated records. This action cannot be undone.</div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--ink-100)]">
+              <Button variant="secondary" onClick={() => setShowBulkDeleteConfirm(false)} disabled={bulkDeleteMutation.isPending}>Cancel</Button>
+              <Button variant="danger" onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))} disabled={bulkDeleteMutation.isPending}>
+                {bulkDeleteMutation.isPending ? "Deleting…" : "Delete Permanently"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

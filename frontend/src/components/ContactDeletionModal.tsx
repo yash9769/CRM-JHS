@@ -4,13 +4,13 @@ import { api } from "../lib/api";
 import { AlertTriangle, Trash2, Send } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
-interface AccountDeletionModalProps {
-  account: { id: string; name: string };
+interface ContactDeletionModalProps {
+  contact: { id: string; name: string };
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function AccountDeletionModal({ account, onClose, onSuccess }: AccountDeletionModalProps) {
+export function ContactDeletionModal({ contact, onClose, onSuccess }: ContactDeletionModalProps) {
   const { user } = useAuth();
   const isManager = user?.orgRole === "MANAGER";
 
@@ -31,17 +31,17 @@ export function AccountDeletionModal({ account, onClose, onSuccess }: AccountDel
     try {
       if (isManager) {
         // Raise Deletion Request for Senior Partner / Partner Approval
-        await api.post(`/accounts/${account.id}/deletion-request`, {
+        await api.post(`/contacts/${contact.id}/deletion-request`, {
           reason: reason.trim(),
         });
       } else {
         // Direct Delete by Partner / Senior Partner
-        await api.delete(`/accounts/${account.id}`);
+        await api.delete(`/contacts/${contact.id}`);
       }
       onSuccess();
       onClose();
     } catch (err: any) {
-      setError(err?.response?.data?.error || err.message || "Failed to process account deletion");
+      setError(err?.response?.data?.error || err.message || "Failed to process contact deletion");
     } finally {
       setIsSubmitting(false);
     }
@@ -49,7 +49,7 @@ export function AccountDeletionModal({ account, onClose, onSuccess }: AccountDel
 
   return (
     <Modal
-      title={isManager ? "Request Account Deletion" : "Delete Account"}
+      title={isManager ? "Request Contact Deletion" : "Delete Contact"}
       onClose={onClose}
       width="480px"
     >
@@ -58,12 +58,12 @@ export function AccountDeletionModal({ account, onClose, onSuccess }: AccountDel
           <AlertTriangle size={18} className="text-rose-600 shrink-0 mt-0.5" />
           <div>
             <div className="font-bold mb-0.5">
-              {isManager ? "Partner Approval Required" : "Permanent Account Deletion"}
+              {isManager ? "Partner Approval Required" : "Permanent Contact Deletion"}
             </div>
             <div>
               {isManager
-                ? `As a Manager, submitting this request will notify your Partner for approval. The account "${account.name}" will remain active until approved.`
-                : `Deleting "${account.name}" will permanently remove all associated records. This action cannot be undone.`}
+                ? `As a Manager, submitting this request will notify your Partner for approval. The contact "${contact.name}" will remain active until approved.`
+                : `Deleting "${contact.name}" will permanently remove this contact record and associations. This action cannot be undone.`}
             </div>
           </div>
         </div>
@@ -83,7 +83,7 @@ export function AccountDeletionModal({ account, onClose, onSuccess }: AccountDel
               required
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Explain why this account needs to be deleted (e.g. Created by mistake, Duplicate account)…"
+              placeholder="Explain why this contact needs to be deleted (e.g. Left organization, Duplicate record)…"
               rows={3}
               className={`${inputClass} resize-none`}
               style={inputStyle}

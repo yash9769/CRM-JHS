@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { Card, Button, Badge, Field, Modal, inputClass, inputStyle } from "../components/ui";
-import { formatCurrency, formatCurrencyCompact, relativeTime } from "../lib/format";
+import { formatCurrency, formatCurrencyCompact } from "../lib/format";
 import { downloadCsvExport } from "../lib/exportCsv";
 import { RoleBadge, BirdsEyeModal } from "./OrgChartPage";
 import {
@@ -12,8 +12,8 @@ import {
   RadialBarChart, RadialBar, PolarAngleAxis,
 } from "recharts";
 import {
-  TrendingUp, Target, Trophy, Percent, IndianRupee, BarChart3, Timer, CalendarClock, Flame,
-  ShieldAlert, AlertCircle, Download, Eye, FileDown, Gauge,
+  TrendingUp, Target, Trophy, Percent, IndianRupee, BarChart3, Timer, CalendarClock,
+  ShieldAlert, AlertCircle, Download, Eye, FileDown, Gauge, Flame,
 } from "lucide-react";
 import { useAuth, isManager as checkIsManager } from "../hooks/useAuth";
 import { ApprovalSummary } from "../components/ApprovalQueueTable";
@@ -24,12 +24,6 @@ interface ActionCenterData {
   upcomingTasks: { id: string; subject: string; dueDate: string | null; accountId?: string | null; contactId?: string | null; opportunityId?: string | null; leadId?: string | null }[];
   recentActivity: { id: string; type: string; subject: string; createdAt: string; owner?: { firstName: string; lastName: string } | null; account?: { id: string; name: string } | null; opportunity?: { id: string; name: string } | null; lead?: { id: string; firstName: string; lastName: string } | null }[];
   opportunitiesAtRisk: { id: string; name: string; amount: number; reason: string; account?: { id: string; name: string } | null }[];
-}
-
-function activityRelated(a: ActionCenterData["recentActivity"][number]) {
-  if (a.opportunity) return { label: a.opportunity.name, url: `/opportunities/${a.opportunity.id}` };
-  if (a.account) return { label: a.account.name, url: `/accounts/${a.account.id}` };
-  return null;
 }
 
 interface OwnerBreakdown {
@@ -46,6 +40,7 @@ interface DashboardData {
     totalPipeline: number; weightedPipeline: number; openOpportunities: number;
     closedWonRevenue: number; closedWonCount: number; winRate: number; avgOpportunitySize: number; oppsClosingThisMonth: number;
     totalExpectedMargin?: number; totalGrossMargin?: number; totalMarginLoss?: number; totalBottomLineCost?: number;
+    closedWonCostIncurred?: number; openCostIncurred?: number;
     pipelineVelocityPct: number | null;
   };
   charts: {
@@ -296,6 +291,7 @@ function ForecastSection({ period }: { period: string }) {
   const { data: users } = useQuery<any>({
     queryKey: ["users"],
     queryFn: async () => (await api.get("/users")).data,
+    enabled: showTarget,
   });
 
   const s = forecast?.summary;
@@ -330,7 +326,7 @@ function ForecastSection({ period }: { period: string }) {
             className="text-sm px-2.5 py-1 rounded-md border bg-white font-medium"
             style={{ borderColor: "var(--ink-200)" }}
           >
-            {[2026, 2025, 2024, 2023].map((y) => (
+            {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((y) => (
               <option key={y} value={y.toString()}>{y} (Full Year)</option>
             ))}
           </select>
@@ -463,7 +459,26 @@ function ForecastSection({ period }: { period: string }) {
 /* ---------- Pipeline Health section (merged from ReportsPage) ---------- */
 
 function PipelineHealthSection() {
-  const { data } = useQuery<any>({ queryKey: ["report-pipeline-health"], queryFn: async () => (await api.get("/reports/pipeline-health")).data });
+  const { data, isLoading, isError } = useQuery<any>({ queryKey: ["report-pipeline-health"], queryFn: async () => (await api.get("/reports/pipeline-health")).data });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <SectionHeader icon={Timer} title="Pipeline Health" />
+        <Card className="p-8 text-sm text-center text-[var(--ink-400)]">Loading…</Card>
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <div className="space-y-4">
+        <SectionHeader icon={Timer} title="Pipeline Health" />
+        <Card className="p-8 text-sm text-center text-[var(--rose-600)]">Failed to load pipeline health data.</Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <SectionHeader icon={Timer} title="Pipeline Health" />
@@ -520,8 +535,28 @@ const WIN_LOSS_PERIODS = [
 
 function WinLossSection() {
   const [months, setMonths] = useState(6);
-  const { data } = useQuery<any>({ queryKey: ["report-win-loss", months], queryFn: async () => (await api.get("/reports/win-loss", { params: { months } })).data });
-  if (!data) return null;
+  const { data, isLoading, isError } = useQuery<any>({ queryKey: ["report-win-loss", months], queryFn: async () => (await api.get("/reports/win-loss", { params: { months } })).data });
+
+  if (isLoading) {
+    const periodLabel = WIN_LOSS_PERIODS.find((p) => p.months === months)?.label || `Last ${months} months`;
+    return (
+      <div className="space-y-4">
+        <SectionHeader icon={Trophy} title={`Win / Loss (${periodLabel.toLowerCase()})`} />
+        <Card className="p-8 text-sm text-center text-[var(--ink-400)]">Loading…</Card>
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    const periodLabel = WIN_LOSS_PERIODS.find((p) => p.months === months)?.label || `Last ${months} months`;
+    return (
+      <div className="space-y-4">
+        <SectionHeader icon={Trophy} title={`Win / Loss (${periodLabel.toLowerCase()})`} />
+        <Card className="p-8 text-sm text-center text-[var(--rose-600)]">Failed to load win/loss data.</Card>
+      </div>
+    );
+  }
+
   const s = data.summary;
   const COLORS = ["var(--ledger-600)", "var(--rose-400)"];
   const pieData = [
@@ -673,25 +708,26 @@ export default function DashboardPage() {
   const [breakdown, setBreakdown] = useState<{ title: string; key: OwnerMetricKey; format: (n: number) => string } | null>(null);
   const isManager = checkIsManager(user);
   const canDrillDown = !isManager;
+  const KPI_CARD_COUNT = 8;
 
-  const { data, isLoading } = useQuery<DashboardData>({
+  const { data, isLoading, isError, refetch } = useQuery<DashboardData>({
     queryKey: ["dashboard", cyclePeriod],
     queryFn: async () => (await api.get("/dashboard", { params: { period: cyclePeriod } })).data,
   });
-  const { data: action } = useQuery<ActionCenterData>({
+  const { data: action, isError: isActionError } = useQuery<ActionCenterData>({
     queryKey: ["dashboard", "action-center"],
     queryFn: async () => (await api.get("/dashboard/action-center")).data,
   });
   // Cycle-scoped forecast summary — powers the "Target Achieved" badge on Closed Won
   // Revenue for whichever month the Current Cycle picker is set to.
   const { data: cycleForecast } = useQuery<any>({
-    queryKey: ["forecast", cyclePeriod],
+    queryKey: ["forecast-cycle-summary", cyclePeriod],
     queryFn: async () => (await api.get("/forecast", { params: { period: cyclePeriod } })).data,
   });
   // Peer win-rate comparison — leadership-only endpoint (403s for Managers), so only
   // fetch it when the viewer is allowed to see it, matching OwnerPerformanceSection below.
   const { data: ownerPerf } = useQuery<any>({
-    queryKey: ["report-owner-perf"],
+    queryKey: ["report-owner-perf-dashboard"],
     queryFn: async () => (await api.get("/reports/owner-performance")).data,
     enabled: !isManager,
   });
@@ -703,7 +739,6 @@ export default function DashboardPage() {
     : new Date();
   const fyBadgeLabel = fiscalYearQuarterLabel(selectedCycleDate);
 
-  const recentActivity = action?.recentActivity || [];
   const opportunitiesAtRisk = action?.opportunitiesAtRisk || [];
 
   async function downloadPdf() {
@@ -751,9 +786,14 @@ export default function DashboardPage() {
 
       <div className="px-4 md:px-8 space-y-8">
         {/* TOP: MAIN KPI METRICS CARDS */}
-        {isLoading || !data ? (
+        {isError && !isLoading ? (
+          <Card className="p-8 text-center">
+            <div className="text-sm text-[var(--rose-600)] mb-2">Failed to load dashboard data.</div>
+            <Button size="sm" onClick={() => refetch()}>Retry</Button>
+          </Card>
+        ) : isLoading || !data ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 animate-pulse">
-            {[...Array(8)].map((_, i) => (
+            {[...Array(KPI_CARD_COUNT)].map((_, i) => (
               <Card key={i} className="p-4 h-24 bg-gray-100/50">
                 <div />
               </Card>
@@ -803,11 +843,7 @@ export default function DashboardPage() {
 
           const velocityPct = data.kpis.pipelineVelocityPct ?? null;
           const formattedVelocity = velocityPct !== null && !isNaN(velocityPct)
-            ? velocityPct > 999
-              ? ">+999%"
-              : velocityPct < -99
-              ? "<-99%"
-              : `${velocityPct >= 0 ? "+" : ""}${velocityPct.toFixed(1)}%`
+            ? `${velocityPct >= 0 ? "+" : ""}${velocityPct.toFixed(1)}%`
             : null;
 
           return (
@@ -931,7 +967,9 @@ export default function DashboardPage() {
             action={<Link to="/opportunities" className="text-xs text-[var(--rose-600)] hover:underline font-medium">Review All Opportunities</Link>}
           />
           <Card className="p-4 border-l-4 border-l-[var(--rose-500)]">
-            {!opportunitiesAtRisk.length ? (
+            {isActionError ? (
+              <div className="py-6 text-center text-sm text-[var(--rose-600)]">Unable to load at-risk opportunities.</div>
+            ) : !opportunitiesAtRisk.length ? (
               <div className="py-6 text-center text-sm text-[var(--ink-400)]">No opportunities currently flagged as at-risk</div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">

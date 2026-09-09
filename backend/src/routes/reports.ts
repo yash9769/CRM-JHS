@@ -63,7 +63,7 @@ export default async function reportRoutes(app: FastifyInstance) {
       const [openOpps, wonOpps, lostOpps] = await Promise.all([
         prisma.opportunity.findMany({
           where: { tenantId, ...rbacFilter, ownerId: user.id, stage: { isClosed: false } },
-          select: { amount: true, probability: true },
+          select: { amount: true, probability: true, expectedOpportunityValue: true, stage: { select: { probability: true } } },
         }),
         prisma.opportunity.findMany({
           // `rbacFilter` and the date-window filter both use `OR`; compose them
@@ -77,8 +77,12 @@ export default async function reportRoutes(app: FastifyInstance) {
         }),
       ]);
 
-      const pipeline = openOpps.reduce((s, o) => s + Number(o.amount), 0);
-      const weighted = openOpps.reduce((s, o) => s + Number(o.amount) * (o.probability / 100), 0);
+      const pipeline = openOpps.reduce((s, o) => s + Number(o.expectedOpportunityValue ?? o.amount ?? 0), 0);
+      const weighted = openOpps.reduce((s, o) => {
+        const prob = (o.probability !== null && o.probability !== undefined) ? o.probability : (o.stage?.probability ?? 0);
+        const amt = Number(o.expectedOpportunityValue ?? o.amount ?? 0);
+        return s + amt * (prob / 100);
+      }, 0);
       const closedWon = wonOpps.reduce((s, o) => s + Number(o.amount), 0);
       const closedLost = lostOpps.reduce((s, o) => s + Number(o.amount), 0);
       const winRate = (wonOpps.length + lostOpps.length) > 0
@@ -114,7 +118,7 @@ export default async function reportRoutes(app: FastifyInstance) {
       const [openOpps, wonOpps, lostOpps] = await Promise.all([
         prisma.opportunity.findMany({
           where: { tenantId, ...rbacFilter, ownerId: user.id, stage: { isClosed: false } },
-          select: { amount: true, probability: true },
+          select: { amount: true, probability: true, expectedOpportunityValue: true, stage: { select: { probability: true } } },
         }),
         prisma.opportunity.findMany({
           where: { tenantId, ...rbacFilter, ownerId: user.id, stage: { isClosed: true, isWon: true } },
@@ -126,8 +130,12 @@ export default async function reportRoutes(app: FastifyInstance) {
         }),
       ]);
 
-      const pipeline = openOpps.reduce((s, o) => s + Number(o.amount), 0);
-      const weighted = openOpps.reduce((s, o) => s + Number(o.amount) * (o.probability / 100), 0);
+      const pipeline = openOpps.reduce((s, o) => s + Number(o.expectedOpportunityValue ?? o.amount ?? 0), 0);
+      const weighted = openOpps.reduce((s, o) => {
+        const prob = (o.probability !== null && o.probability !== undefined) ? o.probability : (o.stage?.probability ?? 0);
+        const amt = Number(o.expectedOpportunityValue ?? o.amount ?? 0);
+        return s + amt * (prob / 100);
+      }, 0);
       const closedWon = wonOpps.reduce((s, o) => s + Number(o.amount), 0);
       const winRate = (wonOpps.length + lostOpps.length) > 0
         ? `${Math.round((wonOpps.length / (wonOpps.length + lostOpps.length)) * 100)}%`

@@ -1,6 +1,7 @@
 import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import { ZodError } from "zod";
 import { registerAuth } from "./plugins/auth.js";
 
@@ -29,7 +30,22 @@ import stickyNoteRoutes from "./routes/stickyNotes.js";
 export async function buildApp(opts = {}) {
   const app = Fastify({ logger: false, ...opts });
 
-  await app.register(cors, { origin: true });
+  const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
+    : ["http://localhost:5173", "http://localhost:4173", "http://localhost:5174"];
+
+  await app.register(cors, {
+    origin: process.env.NODE_ENV === "production" && !process.env.CORS_ORIGIN ? true : allowedOrigins,
+    credentials: true,
+  });
+
+  await app.register(rateLimit, {
+    global: false,
+    max: process.env.NODE_ENV === "test" ? 10000 : 100,
+    timeWindow: "1 minute",
+    allowList: process.env.NODE_ENV === "production" ? [] : ["127.0.0.1", "::1", "localhost"],
+  });
+
   await registerAuth(app);
 
   app.get("/api/v1/health", async () => ({ status: "ok" }));

@@ -42,6 +42,8 @@ model Tenant {
   stickyNotes            StickyNote[]
   opportunityAttachments OpportunityAttachment[]
   accountDeletionRequests AccountDeletionRequest[]
+  contactDeletionRequests ContactDeletionRequest[]
+  opportunityDeletionRequests OpportunityDeletionRequest[]
 
   @@map("tenants")
 }
@@ -104,6 +106,12 @@ model User {
   requestedAccountDeletions      AccountDeletionRequest[] @relation("AccountDeletionRequestedBy")
   reviewedAccountDeletions       AccountDeletionRequest[] @relation("AccountDeletionApprover")
   reviewedAccountDeletionsHistory AccountDeletionRequest[] @relation("AccountDeletionReviewedBy")
+  requestedContactDeletions      ContactDeletionRequest[] @relation("ContactDeletionRequestedBy")
+  reviewedContactDeletions       ContactDeletionRequest[] @relation("ContactDeletionApprover")
+  reviewedContactDeletionsHistory ContactDeletionRequest[] @relation("ContactDeletionReviewedBy")
+  requestedOpportunityDeletions  OpportunityDeletionRequest[] @relation("OpportunityDeletionRequestedBy")
+  reviewedOpportunityDeletions   OpportunityDeletionRequest[] @relation("OpportunityDeletionApprover")
+  reviewedOpportunityDeletionsHistory OpportunityDeletionRequest[] @relation("OpportunityDeletionReviewedBy")
   stickyNotes                    StickyNote[]            @relation("UserStickyNotes")
   uploadedOpportunityAttachments OpportunityAttachment[] @relation("AttachmentUploader")
 
@@ -238,6 +246,7 @@ model Contact {
   sequenceEnrollments  SequenceEnrollment[]
   emails               ContactEmail[]
   phones               ContactPhone[]
+  deletionRequests     ContactDeletionRequest[]
 
   @@index([tenantId])
   @@index([tenantId, email])
@@ -468,6 +477,7 @@ model Opportunity {
   quotes         Quote[]
   stageApprovals StageApproval[]
   attachments    OpportunityAttachment[]
+  deletionRequests OpportunityDeletionRequest[]
 
   @@index([tenantId])
   @@index([tenantId, accountId])
@@ -1019,3 +1029,66 @@ model AccountDeletionRequest {
   @@index([tenantId, status])
   @@map("account_deletion_requests")
 }
+
+// ---------------------------------------------------------------------------
+// Contact Deletion Requests
+// ---------------------------------------------------------------------------
+
+model ContactDeletionRequest {
+  id            String         @id @default(uuid())
+  tenantId      String
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  contactId     String?
+  contact       Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contactName   String
+  requestedById String
+  requestedBy   User           @relation("ContactDeletionRequestedBy", fields: [requestedById], references: [id])
+  approverId    String?
+  approver      User?          @relation("ContactDeletionApprover", fields: [approverId], references: [id])
+  reason        String
+  status        ApprovalStatus @default(PENDING)
+  reviewedById  String?
+  reviewedBy    User?          @relation("ContactDeletionReviewedBy", fields: [reviewedById], references: [id])
+  reviewComment String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  reviewedAt    DateTime?
+
+  @@index([tenantId, contactId])
+  @@index([tenantId, requestedById])
+  @@index([tenantId, approverId])
+  @@index([tenantId, status])
+  @@map("contact_deletion_requests")
+}
+
+// ---------------------------------------------------------------------------
+// Opportunity Deletion Requests
+// ---------------------------------------------------------------------------
+
+model OpportunityDeletionRequest {
+  id              String         @id @default(uuid())
+  tenantId        String
+  tenant          Tenant         @relation(fields: [tenantId], references: [id])
+  opportunityId   String?
+  opportunity     Opportunity?   @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  opportunityName String
+  requestedById   String
+  requestedBy     User           @relation("OpportunityDeletionRequestedBy", fields: [requestedById], references: [id])
+  approverId      String?
+  approver        User?          @relation("OpportunityDeletionApprover", fields: [approverId], references: [id])
+  reason          String
+  status          ApprovalStatus @default(PENDING)
+  reviewedById    String?
+  reviewedBy      User?          @relation("OpportunityDeletionReviewedBy", fields: [reviewedById], references: [id])
+  reviewComment   String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  reviewedAt      DateTime?
+
+  @@index([tenantId, opportunityId])
+  @@index([tenantId, requestedById])
+  @@index([tenantId, approverId])
+  @@index([tenantId, status])
+  @@map("opportunity_deletion_requests")
+}
+

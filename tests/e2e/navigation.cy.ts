@@ -39,11 +39,14 @@ describe("Navigation & Active Sidebar State E2E", () => {
     cy.get("aside").contains("Contacts").click();
     cy.url().should("include", "/contacts");
 
-    cy.get("aside").contains("Forecast").click();
-    cy.url().should("include", "/forecasting");
+    cy.get("aside").contains("Services").click();
+    cy.url().should("include", "/services");
 
-    cy.get("aside").contains("Reports").click();
-    cy.url().should("include", "/reports");
+    cy.get("aside").contains("Products").click();
+    cy.url().should("include", "/products");
+
+    cy.get("aside").contains("Quotes").click();
+    cy.url().should("include", "/quotes");
   });
 
   it("Opportunity detail highlights Opportunities in sidebar", () => {

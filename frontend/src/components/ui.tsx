@@ -154,3 +154,50 @@ export function Field({ label, children, required }: { label: ReactNode; childre
 export const inputClass =
   "w-full px-3 py-2 rounded-md border text-sm outline-none focus:ring-2 focus:ring-[var(--ledger-500)]";
 export const inputStyle: React.CSSProperties = { borderColor: "var(--ink-200)" };
+
+export function ConfirmModal({
+  title = "Confirm Action",
+  message,
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  variant = "danger",
+  isOpen,
+  onConfirm,
+  onClose,
+  isSubmitting = false,
+}: {
+  title?: string;
+  message: ReactNode;
+  confirmText?: string;
+  cancelText?: string;
+  variant?: "danger" | "primary" | "secondary";
+  isOpen: boolean;
+  onConfirm: () => void | Promise<void>;
+  onClose: () => void;
+  isSubmitting?: boolean;
+}) {
+  if (!isOpen) return null;
+  return (
+    <Modal title={title} onClose={onClose} width="440px">
+      <div className="space-y-4">
+        <div className="text-sm text-[var(--ink-700)] leading-relaxed">
+          {message}
+        </div>
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--ink-100)]">
+          <Button variant="secondary" type="button" onClick={onClose} disabled={isSubmitting}>
+            {cancelText}
+          </Button>
+          <Button
+            variant={variant}
+            type="button"
+            onClick={onConfirm}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Processing…" : confirmText}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+

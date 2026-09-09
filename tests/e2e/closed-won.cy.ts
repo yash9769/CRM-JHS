@@ -15,10 +15,10 @@ describe("Closed Won Workflow E2E", () => {
       cy.visit(`/opportunities/${opp.id}`);
       
       // Select Closed Won stage from stage dropdown
-      cy.get("select").select("Closed Won");
+      cy.get("select").first().select("Closed Won");
 
       // Verify Closed Won modal mandatory fields
-      cy.contains("Deal Close Requirements").should("be.visible");
+      cy.contains("Opportunity Close Requirements").should("be.visible");
       
       // Select sample file
       cy.get('input[type="file"]').selectFile({
@@ -27,7 +27,8 @@ describe("Closed Won Workflow E2E", () => {
         mimeType: "application/pdf",
       }, { force: true });
 
-      // Enter PO Value
+      // Enter PO Number and PO Value
+      cy.get('input[placeholder*="PO-2026"]').clear().type("PO-2026-999");
       cy.get('input[placeholder="e.g. 1000000"]').clear().type("850000");
 
       cy.get('button[type="submit"]').click();
@@ -40,7 +41,7 @@ describe("Closed Won Workflow E2E", () => {
     cy.createOpportunity(accountId, undefined, { name: `Manager Closed Won Opp ${Date.now()}` }).then((opp) => {
       cy.visit(`/opportunities/${opp.id}`);
       
-      cy.get("select").select("Closed Won");
+      cy.get("select").first().select("Closed Won");
 
       cy.get('input[type="file"]').selectFile({
         contents: Cypress.Buffer.from("LOE Attachment"),
@@ -48,6 +49,7 @@ describe("Closed Won Workflow E2E", () => {
         mimeType: "application/pdf",
       }, { force: true });
 
+      cy.get('input[placeholder*="PO-2026"]').clear().type("PO-2026-MGR");
       cy.get('input[placeholder="e.g. 1000000"]').clear().type("500000");
 
       cy.get('button[type="submit"]').click();

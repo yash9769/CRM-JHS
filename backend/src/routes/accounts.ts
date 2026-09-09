@@ -463,12 +463,13 @@ export default async function accountRoutes(app: FastifyInstance) {
     });
     if (!account) return reply.code(404).send({ error: "Account not found" });
     await requireCanAccess(req.authUser, account, "read");
-    // The opportunities list here shows Margin, so attach the same derived
-    // financials (grossMargin/expectedMargin/etc.) every other opportunity
-    // view uses -- this endpoint previously returned raw rows with no
-    // margin, so the column silently showed "--" for every row.
+    // Prisma Decimal fields are serialized as strings; cast them to numbers
+    // so callers can round-trip values through PATCH without type errors.
+    const toNumber = (v: any): number | null => (v === null || v === undefined ? null : Number(v));
     return {
       ...account,
+      annualRevenue: toNumber(account.annualRevenue),
+      employeeCount: account.employeeCount ?? null,
       opportunities: account.opportunities.map((o) => ({ ...o, ...computeOpportunityFinancials(o) })),
     };
   });
@@ -508,17 +509,21 @@ export default async function accountRoutes(app: FastifyInstance) {
 
     const existing = await prisma.account.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Account not found" });
-    await requireCanAccess(req.authUser, existing, "write");
 
     if (req.authUser.orgRole === "MANAGER") {
       return reply.code(403).send({ error: "Managers cannot directly delete accounts. Please submit a deletion request with reason for Partner approval." });
     }
+
+    await requireCanAccess(req.authUser, existing, "write");
 
     await prisma.$transaction(async (tx) => {
       await tx.opportunityAttachment.deleteMany({ where: { opportunity: { accountId: id } } });
       await tx.stageApproval.deleteMany({ where: { opportunity: { accountId: id } } });
       await tx.opportunityStageHistory.deleteMany({ where: { opportunity: { accountId: id } } });
       await tx.opportunityContact.deleteMany({ where: { opportunity: { accountId: id } } });
+      await tx.lineItem.deleteMany({ where: { quote: { accountId: id } } });
+      await tx.lineItem.deleteMany({ where: { opportunity: { accountId: id } } });
+      await tx.quote.deleteMany({ where: { accountId: id } });
       await tx.opportunity.deleteMany({ where: { accountId: id } });
       await tx.contactEmail.deleteMany({ where: { contact: { accountId: id } } });
       await tx.contactPhone.deleteMany({ where: { contact: { accountId: id } } });
@@ -540,6 +545,48 @@ export default async function accountRoutes(app: FastifyInstance) {
       oldValues: existing,
     });
     return reply.code(204).send();
+  });
+
+  // Bulk delete — only for non-Managers, mirroring single-delete rules.
+  app.post("/api/v1/accounts/bulk-delete", { preHandler: app.authenticate }, async (req, reply) => {
+    if (req.authUser.orgRole === "MANAGER") {
+      return reply.code(403).send({ error: "Managers cannot directly delete accounts. Please submit a deletion request with reason for Partner approval." });
+    }
+    const body = z.object({ ids: z.array(z.string().uuid()).min(1, "Select at least one account") }).parse(req.body);
+    const results: { id: string; status: "deleted" | "not_found" | "forbidden" }[] = [];
+
+    for (const id of body.ids) {
+      const existing = await prisma.account.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
+      if (!existing) { results.push({ id, status: "not_found" }); continue; }
+      try {
+        await requireCanAccess(req.authUser, existing, "write");
+      } catch {
+        results.push({ id, status: "forbidden" }); continue;
+      }
+      await prisma.$transaction(async (tx) => {
+        await tx.opportunityAttachment.deleteMany({ where: { opportunity: { accountId: id } } });
+        await tx.stageApproval.deleteMany({ where: { opportunity: { accountId: id } } });
+        await tx.opportunityStageHistory.deleteMany({ where: { opportunity: { accountId: id } } });
+        await tx.opportunityContact.deleteMany({ where: { opportunity: { accountId: id } } });
+        await tx.lineItem.deleteMany({ where: { quote: { accountId: id } } });
+        await tx.lineItem.deleteMany({ where: { opportunity: { accountId: id } } });
+        await tx.quote.deleteMany({ where: { accountId: id } });
+        await tx.opportunity.deleteMany({ where: { accountId: id } });
+        await tx.contactEmail.deleteMany({ where: { contact: { accountId: id } } });
+        await tx.contactPhone.deleteMany({ where: { contact: { accountId: id } } });
+        await tx.contact.deleteMany({ where: { accountId: id } });
+        await tx.accountEmail.deleteMany({ where: { accountId: id } });
+        await tx.accountPhone.deleteMany({ where: { accountId: id } });
+        await tx.activity.deleteMany({ where: { accountId: id } });
+        await tx.note.deleteMany({ where: { accountId: id } });
+        await tx.accountDeletionRequest.deleteMany({ where: { accountId: id } });
+        await tx.account.delete({ where: { id } });
+      });
+      await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "ACCOUNT", recordId: id, action: "DELETED", oldValues: existing });
+      results.push({ id, status: "deleted" });
+    }
+
+    return { results };
   });
 
   // Raise deletion request (for Managers / Partners)
@@ -663,6 +710,9 @@ export default async function accountRoutes(app: FastifyInstance) {
         await tx.stageApproval.deleteMany({ where: { opportunity: { accountId: accId } } });
         await tx.opportunityStageHistory.deleteMany({ where: { opportunity: { accountId: accId } } });
         await tx.opportunityContact.deleteMany({ where: { opportunity: { accountId: accId } } });
+        await tx.lineItem.deleteMany({ where: { quote: { accountId: accId } } });
+        await tx.lineItem.deleteMany({ where: { opportunity: { accountId: accId } } });
+        await tx.quote.deleteMany({ where: { accountId: accId } });
         await tx.opportunity.deleteMany({ where: { accountId: accId } });
         await tx.contactEmail.deleteMany({ where: { contact: { accountId: accId } } });
         await tx.contactPhone.deleteMany({ where: { contact: { accountId: accId } } });

@@ -173,13 +173,14 @@ export default async function leadRoutes(app: FastifyInstance) {
     const rows = leads.map((l) => ({
       firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, companyName: l.companyName,
       jobTitle: l.jobTitle, source: l.source, status: l.status, score: l.score,
-      owner: l.owner ? `${l.owner.firstName} ${l.owner.lastName}` : "", createdAt: l.createdAt.toISOString(),
+      owner: l.owner ? `${l.owner.firstName} ${l.owner.lastName}` : "",
+      createdAt: l.createdAt ? l.createdAt.toISOString().slice(0, 10) : "",
     }));
     const csv = toCsv(rows, [
       { key: "firstName", label: "First Name" }, { key: "lastName", label: "Last Name" },
       { key: "email", label: "Email" }, { key: "phone", label: "Phone" }, { key: "companyName", label: "Company" },
       { key: "jobTitle", label: "Job Title" }, { key: "source", label: "Source" }, { key: "status", label: "Status" },
-      { key: "score", label: "Score" }, { key: "owner", label: "Owner" }, { key: "createdAt", label: "Created At" },
+      { key: "score", label: "Score" }, { key: "owner", label: "Account Owner" }, { key: "createdAt", label: "Created Date" },
     ]);
     reply.header("Content-Type", "text/csv");
     reply.header("Content-Disposition", 'attachment; filename="leads.csv"');

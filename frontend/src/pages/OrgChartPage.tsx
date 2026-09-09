@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
@@ -11,7 +11,7 @@ import {
   ExternalLink,
   Search, Network, Grid, ChevronDown, ChevronRight,
   Sparkles, Crown, ShieldCheck, UserCheck,
-  ZoomIn, ZoomOut, RotateCcw, Move, Maximize2
+  ZoomIn, ZoomOut, RotateCcw, Move
 } from "lucide-react";
 
 // ── Role Config & Badge ──────────────────────────────────────────────────────
@@ -379,7 +379,7 @@ export function BirdsEyeModal({
             <Building2 size={13} /> Accounts ({accounts.length})
           </button>
 
-          {user.orgRole === "PARTNER" && (
+          {(user.orgRole === "PARTNER" || user.orgRole === "SENIOR_PARTNER") && (
             <button
               onClick={() => setActiveTab("team")}
               className={`flex items-center gap-1.5 px-3 py-2 border-b-2 font-semibold transition-colors ${
@@ -469,7 +469,7 @@ export function BirdsEyeModal({
             </div>
           )}
 
-          {activeTab === "team" && user.orgRole === "PARTNER" && (
+          {activeTab === "team" && (user.orgRole === "PARTNER" || user.orgRole === "SENIOR_PARTNER") && (
             <div>
               {teamMembers.length === 0 ? (
                 <div className="text-center py-10 text-xs text-[var(--ink-400)]">No managers assigned under this Partner yet.</div>
@@ -511,7 +511,7 @@ export function BirdsEyeModal({
 // ── Add User modal ─────────────────────────────────────────────────────────
 function AddUserModal({
   actorOrgRole,
-  partners,
+  partners: _partners,
   onClose,
 }: {
   actorOrgRole: string;
@@ -751,13 +751,23 @@ function InteractiveZoomCanvas({
   managers,
   collapsedPartners,
   canEdit,
-  me,
   togglePartnerCollapse,
   setEditUser,
   setDeleteTarget,
   setDeleteError,
   setBirdEyeUser,
-}: any) {
+}: {
+  seniorPartners: any[];
+  partners: any[];
+  managers: any[];
+  collapsedPartners: Record<string, boolean>;
+  canEdit: boolean;
+  togglePartnerCollapse: (partnerId: string) => void;
+  setEditUser: (u: any) => void;
+  setDeleteTarget: (u: any) => void;
+  setDeleteError: (e: string) => void;
+  setBirdEyeUser: (u: any) => void;
+}) {
   const [scale, setScale] = useState(0.85);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -915,7 +925,7 @@ function InteractiveZoomCanvas({
                     <div key={partner.id} className="flex flex-col items-center min-w-max">
                       <EnhancedUserCard
                         user={partner}
-                        canEdit={canEdit && me?.orgRole === "SENIOR_PARTNER"}
+                         canEdit={canEdit}
                         hasChildren={myManagers.length > 0}
                         isExpanded={!isCollapsed}
                         onToggleExpand={() => togglePartnerCollapse(partner.id)}
@@ -1037,24 +1047,32 @@ export default function OrgChartPage() {
     setCollapsedPartners((prev) => ({ ...prev, [partnerId]: !prev[partnerId] }));
   };
 
-  // Filtered members list for search/grid view
+  // Filtered members list for search/grid/tree view
+  const filteredSeniorPartners = useMemo(() => seniorPartners.filter((u) => {
+    const matchesSearch = !searchQuery || `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesRole = roleFilter === "ALL" || u.orgRole === roleFilter;
+    return matchesSearch && matchesRole;
+  }), [seniorPartners, searchQuery, roleFilter]);
+
+  const filteredPartners = useMemo(() => partners.filter((u) => {
+    const matchesSearch = !searchQuery || `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesRole = roleFilter === "ALL" || u.orgRole === roleFilter;
+    return matchesSearch && matchesRole;
+  }), [partners, searchQuery, roleFilter]);
+
+  const filteredManagers = useMemo(() => managers.filter((u) => {
+    const matchesSearch = !searchQuery || `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesRole = roleFilter === "ALL" || u.orgRole === roleFilter;
+    return matchesSearch && matchesRole;
+  }), [managers, searchQuery, roleFilter]);
+
   const filteredUsers = useMemo(() => {
     const allUsers: any[] = [];
-    allUsers.push(...seniorPartners);
-    allUsers.push(...partners);
-    allUsers.push(...managers);
-
-    return allUsers.filter((u) => {
-      const matchesSearch =
-        !searchQuery ||
-        `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.email.toLowerCase().includes(searchQuery.toLowerCase());
-
-      const matchesRole = roleFilter === "ALL" || u.orgRole === roleFilter;
-
-      return matchesSearch && matchesRole;
-    });
-  }, [seniorPartners, partners, managers, searchQuery, roleFilter]);
+    allUsers.push(...filteredSeniorPartners);
+    allUsers.push(...filteredPartners);
+    allUsers.push(...filteredManagers);
+    return allUsers;
+  }, [filteredSeniorPartners, filteredPartners, filteredManagers]);
 
   if (isLoading) {
     return (
@@ -1217,12 +1235,11 @@ export default function OrgChartPage() {
       ) : (
         /* HIERARCHY TREE VIEW WITH INTERACTIVE ZOOM & PAN CANVAS */
         <InteractiveZoomCanvas
-          seniorPartners={seniorPartners}
-          partners={partners}
-          managers={managers}
+          seniorPartners={filteredSeniorPartners}
+          partners={filteredPartners}
+          managers={filteredManagers}
           collapsedPartners={collapsedPartners}
           canEdit={canEdit}
-          me={me}
           togglePartnerCollapse={togglePartnerCollapse}
           setEditUser={setEditUser}
           setDeleteTarget={setDeleteTarget}

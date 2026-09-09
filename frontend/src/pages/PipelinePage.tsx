@@ -55,8 +55,8 @@ export default function PipelinePage() {
   });
 
   const moveMutation = useMutation({
-    mutationFn: ({ id, stageId }: { id: string; stageId: string }) =>
-      api.patch(`/opportunities/${id}`, { stageId, pipelineId: pipeline!.id }),
+    mutationFn: ({ id, stageId, extra }: { id: string; stageId: string; extra?: { poNumber?: string; poValue?: string; lostReason?: string } }) =>
+      api.patch(`/opportunities/${id}`, { stageId, pipelineId: pipeline!.id, ...extra }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["opportunities"] });
       qc.invalidateQueries({ queryKey: ["opportunity"] });
@@ -65,7 +65,22 @@ export default function PipelinePage() {
   });
 
   if (isPipelinesLoading || !pipeline) {
-    return <div className="p-8 text-sm text-[var(--ink-400)]">Loading pipeline…</div>;
+    return (
+      <div className="px-4 md:px-8 py-5 md:py-7 space-y-6">
+        <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
+        <div className="flex gap-3 overflow-x-auto pb-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="w-72 shrink-0 rounded-xl flex flex-col space-y-2 p-3">
+              <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+              <div className="h-3 w-16 bg-gray-200 rounded animate-pulse" />
+              <div className="space-y-2 pt-2">
+                {[...Array(3)].map((_, j) => <div key={j} className="h-20 w-full bg-gray-200 rounded-lg animate-pulse" />)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   const items = opps?.data || [];
@@ -124,13 +139,23 @@ export default function PipelinePage() {
         </div>
 
         {isOppsLoading ? (
-          <div className="p-8 text-sm text-[var(--ink-400)]">Loading pipeline opportunities…</div>
+          <div className="flex gap-3 overflow-x-auto pb-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="w-72 shrink-0 rounded-xl flex flex-col space-y-2 p-3">
+                <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+                <div className="h-3 w-16 bg-gray-200 rounded animate-pulse" />
+                <div className="space-y-2 pt-2">
+                  {[...Array(3)].map((_, j) => <div key={j} className="h-20 w-full bg-gray-200 rounded-lg animate-pulse" />)}
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <KanbanBoard
             stages={pipeline.stages}
             items={items}
             basePath="/opportunities"
-            onMove={(item, stageId) => moveMutation.mutate({ id: item.id, stageId })}
+            onMove={(item, stageId, extra) => moveMutation.mutate({ id: item.id, stageId, extra })}
             visibleStageIds={visibleKeys}
           />
         )}

@@ -13,13 +13,16 @@ const registerSchema = z.object({
 
 const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(1),
+  password: z.string().min(8),
 });
 
 export default async function authRoutes(app: FastifyInstance) {
   // Registers a brand-new tenant with its first Senior Partner user.
-  app.post("/api/v1/auth/register", async (req, reply) => {
-    const body = registerSchema.parse(req.body);
+  app.post(
+    "/api/v1/auth/register",
+    { preHandler: app.rateLimit() },
+    async (req, reply) => {
+      const body = registerSchema.parse(req.body);
 
     const existing = await prisma.user.findFirst({ where: { email: body.email } });
     if (existing) {
@@ -70,13 +73,16 @@ export default async function authRoutes(app: FastifyInstance) {
       return { tenant, user };
     });
 
-    const token = app.jwt.sign({
-      id: result.user.id,
-      tenantId: result.tenant.id,
-      orgRole: result.user.orgRole,
-      email: result.user.email,
-      partnerId: null,
-    });
+    const token = app.jwt.sign(
+      {
+        id: result.user.id,
+        tenantId: result.tenant.id,
+        orgRole: result.user.orgRole,
+        email: result.user.email,
+        partnerId: null,
+      },
+      { expiresIn: "8h" }
+    );
 
     return reply.code(201).send({
       token,
@@ -92,8 +98,11 @@ export default async function authRoutes(app: FastifyInstance) {
     });
   });
 
-  app.post("/api/v1/auth/login", async (req, reply) => {
-    const body = loginSchema.parse(req.body);
+  app.post(
+    "/api/v1/auth/login",
+    { preHandler: app.rateLimit() },
+    async (req, reply) => {
+      const body = loginSchema.parse(req.body);
     const user = await prisma.user.findFirst({ where: { email: body.email } });
     if (!user || !user.active) {
       return reply.code(401).send({ error: "Invalid credentials" });
@@ -103,13 +112,16 @@ export default async function authRoutes(app: FastifyInstance) {
       return reply.code(401).send({ error: "Invalid credentials" });
     }
 
-    const token = app.jwt.sign({
-      id: user.id,
-      tenantId: user.tenantId,
-      orgRole: user.orgRole,
-      email: user.email,
-      partnerId: user.partnerId,
-    });
+    const token = app.jwt.sign(
+      {
+        id: user.id,
+        tenantId: user.tenantId,
+        orgRole: user.orgRole,
+        email: user.email,
+        partnerId: user.partnerId,
+      },
+      { expiresIn: "8h" }
+    );
 
     return reply.send({
       token,
@@ -138,7 +150,9 @@ export default async function authRoutes(app: FastifyInstance) {
         partner: { select: { id: true, firstName: true, lastName: true } },
       },
     });
-    const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: user.id.split("-")[0] ? req.authUser.tenantId : req.authUser.tenantId } });
+    const tenant = await prisma.tenant.findUniqueOrThrow({
+      where: { id: req.authUser.tenantId },
+    });
     return {
       user: {
         id: user.id,

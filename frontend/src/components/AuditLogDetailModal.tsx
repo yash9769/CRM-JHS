@@ -1,7 +1,5 @@
-import { useState } from "react";
 import { Modal } from "./ui";
 import { relativeTime, formatCurrency } from "../lib/format";
-import { useAuth, isManager } from "../hooks/useAuth";
 import {
   History,
   User,
@@ -9,8 +7,6 @@ import {
   ArrowRight,
   FileText,
   XCircle,
-  ChevronDown,
-  ChevronUp,
   Tag,
   Mail,
   Info
@@ -56,9 +52,6 @@ export function AuditLogDetailModal({
   entry: AuditEntry;
   onClose: () => void;
 }) {
-  const [showRawJson, setShowRawJson] = useState(false);
-  const { user } = useAuth();
-  const canViewRawJson = !isManager(user);
   const recordName = getRecordName(entry);
 
   const formattedDate = new Date(entry.createdAt).toLocaleString("en-US", {
@@ -102,6 +95,9 @@ export function AuditLogDetailModal({
       const newV = newVals[key];
 
       if (JSON.stringify(oldV) !== JSON.stringify(newV)) {
+        if (typeof oldV === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(oldV.trim())) continue;
+        if (typeof newV === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(newV.trim())) continue;
+
         const label = key
           .replace(/([A-Z])/g, " $1")
           .replace(/^./, (str) => str.toUpperCase());
@@ -120,8 +116,17 @@ export function AuditLogDetailModal({
 
   const diffs = computeFieldDiffs();
 
-  const fromStage = entry.newValues?.fromStageName || entry.oldValues?.stageName || entry.oldValues?.stageId;
-  const toStage = entry.newValues?.toStageName || entry.newValues?.stageName || entry.newValues?.toStage;
+  const isUUID = (str: any) => typeof str === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str.trim());
+  const sanitizeStage = (val: any) => {
+    if (!val || typeof val !== "string" || isUUID(val)) return null;
+    return val;
+  };
+
+  const rawFrom = sanitizeStage(entry.newValues?.fromStageName) || sanitizeStage(entry.oldValues?.stageName) || sanitizeStage(entry.oldValues?.stageId);
+  const rawTo = sanitizeStage(entry.newValues?.toStageName) || sanitizeStage(entry.newValues?.stageName) || sanitizeStage(entry.newValues?.toStage) || sanitizeStage(entry.newValues?.stageId);
+
+  const fromStage = rawFrom || (entry.action === "CREATED" ? null : (rawTo ? "Initial Stage" : null));
+  const toStage = rawTo;
   const remarks = entry.newValues?.remarks || entry.newValues?.requesterComment || entry.newValues?.description;
   const approverComment = entry.newValues?.approverComment;
   const poNumber = entry.newValues?.poNumber || entry.oldValues?.poNumber;

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { formatCurrency, formatDate, relativeTime } from "../lib/format";
-import { Button, Badge, Card } from "./ui";
+import { Button, Badge } from "./ui";
 import { useAuth } from "../hooks/useAuth";
 import type { StageApproval } from "../lib/types";
 import { ApprovalReviewModal } from "./ApprovalReviewModal";
@@ -25,7 +25,7 @@ export function ApprovalSummary() {
       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-[var(--ink-100)] shadow-xs">
         <Clock size={14} className="text-[var(--amber-600)]" />
         <span className="text-xs text-[var(--ink-500)]">Pending:</span>
-        <span className="font-mono-num font-bold text-sm">{counts?.pending ?? "—"}</span>
+        <span className="font-mono-num font-bold text-sm">{counts?.pending ?? 0}</span>
       </div>
       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-[var(--ink-100)] shadow-xs">
         <CheckCircle2 size={14} className="text-emerald-600" />

@@ -124,8 +124,12 @@ export function MultiPhoneField({ value, onChange }: { value: PhoneEntry[]; onCh
       </div>
       <div className="space-y-2.5">
         {value.map((entry, i) => {
+          const isLandline = (entry.label || "").toLowerCase().includes("landline") ||
+            (entry.label || "").toLowerCase().includes("office") ||
+            (entry.label || "").toLowerCase().includes("direct line");
+          const maxDigits = isLandline ? 12 : 10;
           const digitsOnly = entry.number.replace(/\D/g, "");
-          const invalid = entry.number.length > 0 && !isValidLocalNumber(digitsOnly);
+          const invalid = entry.number.length > 0 && !isValidLocalNumber(digitsOnly, isLandline);
           const isPreset = PRESET_LABELS.includes(entry.label || "");
 
           return (
@@ -142,8 +146,8 @@ export function MultiPhoneField({ value, onChange }: { value: PhoneEntry[]; onCh
                     className={`${inputClass} text-xs font-medium py-1`}
                     style={{ ...inputStyle, width: 145 }}
                   >
-                    <option value="Mobile">Mobile</option>
-                    <option value="Landline">Landline</option>
+                    <option value="Mobile">Mobile (max 10 digits)</option>
+                    <option value="Landline">Landline (7-12 digits)</option>
                     <option value="Company Landline">Company Landline</option>
                     <option value="Main">Main</option>
                     <option value="Direct Line">Direct Line</option>
@@ -186,18 +190,21 @@ export function MultiPhoneField({ value, onChange }: { value: PhoneEntry[]; onCh
                 <select
                   value={entry.countryCode}
                   onChange={(e) => update(i, { countryCode: e.target.value })}
-                  className={inputClass}
-                  style={{ ...inputStyle, width: 95 }}
+                  className={`${inputClass} shrink-0`}
+                  style={{ ...inputStyle, width: 175 }}
                 >
                   {PHONE_COUNTRIES.map((c) => (
-                    <option key={`${c.iso}-${c.code}`} value={c.code}>{c.code} {c.iso}</option>
+                    <option key={`${c.iso}-${c.code}`} value={c.code}>
+                      {c.name} ({c.code})
+                    </option>
                   ))}
                 </select>
 
                 <input
                   value={entry.number}
-                  onChange={(e) => update(i, { number: e.target.value.replace(/\D/g, "").slice(0, 12) })}
-                  placeholder="e.g. 02224001234 or 9876543210"
+                  maxLength={maxDigits}
+                  onChange={(e) => update(i, { number: e.target.value.replace(/\D/g, "").slice(0, maxDigits) })}
+                  placeholder={isLandline ? "e.g. 02224001234 (7 to 12 digits)" : "e.g. 9876543210 (max 10 digits)"}
                   inputMode="numeric"
                   className={`${inputClass} flex-1 font-mono-num`}
                   style={inputStyle}
@@ -205,7 +212,9 @@ export function MultiPhoneField({ value, onChange }: { value: PhoneEntry[]; onCh
               </div>
 
               {invalid && (
-                <div className="text-xs text-rose-600 font-medium pt-0.5">Must be 7 to 12 digits (Landline or Mobile)</div>
+                <div className="text-xs text-rose-600 font-medium pt-0.5">
+                  {isLandline ? "Landline number must be 7 to 12 digits" : "Mobile number must be max 10 digits"}
+                </div>
               )}
             </div>
           );
@@ -213,19 +222,24 @@ export function MultiPhoneField({ value, onChange }: { value: PhoneEntry[]; onCh
       </div>
       <div className="flex items-center gap-3 mt-2">
         <button type="button" onClick={() => add("mobile")} className="text-xs font-medium hover:underline flex items-center gap-1" style={{ color: "var(--ledger-700)" }}>
-          <Plus size={12} /> Add Mobile Phone
+          <Plus size={12} /> Add Mobile Phone (max 10 digits)
         </button>
         <span className="text-xs text-[var(--ink-300)]">|</span>
         <button type="button" onClick={() => add("landline")} className="text-xs font-medium hover:underline flex items-center gap-1 text-emerald-700">
-          <Plus size={12} /> Add Landline Number
+          <Plus size={12} /> Add Landline (7-12 digits)
         </button>
       </div>
     </div>
   );
 }
 
-/** True only when every phone row (if any) has a valid 10-digit number. */
+/** True only when every phone row (if any) has a valid number for its type. */
 export function allPhonesValid(phones: PhoneEntry[]): boolean {
-  return phones.every((p) => isValidLocalNumber(p.number));
+  return phones.every((p) => {
+    const isLandline = (p.label || "").toLowerCase().includes("landline") ||
+      (p.label || "").toLowerCase().includes("office") ||
+      (p.label || "").toLowerCase().includes("direct line");
+    return isValidLocalNumber(p.number, isLandline);
+  });
 }
 

@@ -17,19 +17,24 @@ async function computeDashboardData(tenantId: string, rbacFilter: any, period?: 
       prisma.opportunity.findMany({ where: { tenantId, ...rbacFilter, stage: { isClosed: true, isWon: false } }, select: { ownerId: true, owner: { select: { id: true, firstName: true, lastName: true } } } }),
     ]);
 
-    // Filter Closed Won opportunities by selected cycle period
+    // Filter Closed Won opportunities by selected cycle period.
+    // Do NOT fall back to all-time data: an empty cycle should show ₹0,
+    // not lifetime revenue, which would mislead the user.
     const cycleClosedWonOpps = closedWonOpps.filter((opp) => {
       const date = opp.wonDate || opp.actualCloseDate || opp.updatedAt;
       return date && date >= cycleStart && date < cycleEnd;
     });
-    // Use cycle-specific closed won opps if present; if no deals closed in target month, fallback to all-time won opps
-    const activeWonOpps = cycleClosedWonOpps.length > 0 ? cycleClosedWonOpps : closedWonOpps;
+    const activeWonOpps = cycleClosedWonOpps;
 
     const openOppsFinancials = openOpps.map((o) => computeOpportunityFinancials(o));
     const closedWonFinancials = activeWonOpps.map((o) => computeOpportunityFinancials(o));
 
-    const totalPipeline = openOppsFinancials.reduce((s, f) => s + (f.expectedOpportunityValue || 0), 0);
-    const weightedPipeline = openOpps.reduce((s, o, idx) => s + (openOppsFinancials[idx].expectedOpportunityValue || 0) * (o.probability / 100), 0);
+    const totalPipeline = openOppsFinancials.reduce((s, f, idx) => s + (f.expectedOpportunityValue ?? Number(openOpps[idx].amount || 0)), 0);
+    const weightedPipeline = openOpps.reduce((s, o, idx) => {
+      const oppValue = openOppsFinancials[idx].expectedOpportunityValue ?? Number(o.amount || 0);
+      const prob = (o.probability !== undefined && o.probability !== null && o.probability > 0) ? o.probability : (o.stage?.probability ?? 0);
+      return s + oppValue * (prob / 100);
+    }, 0);
     const closedWonRevenue = closedWonFinancials.reduce((s, f) => s + (f.actualOpportunityValue !== null ? f.actualOpportunityValue : (f.expectedOpportunityValue || 0)), 0);
 
     const totalExpectedMargin = openOppsFinancials.reduce((s, f) => s + (f.expectedMargin || 0), 0);
@@ -68,10 +73,12 @@ async function computeDashboardData(tenantId: string, rbacFilter: any, period?: 
     for (let i = 0; i < openOpps.length; i++) {
       const o = openOpps[i];
       const f = openOppsFinancials[i];
+      const oppValue = f.expectedOpportunityValue ?? Number(o.amount || 0);
+      const prob = (o.probability !== undefined && o.probability !== null && o.probability > 0) ? o.probability : (o.stage?.probability ?? 0);
       const e = ownerEntry(o.ownerId, `${o.owner.firstName} ${o.owner.lastName}`);
       e.openOpportunities += 1;
-      e.totalPipeline += f.expectedOpportunityValue || 0;
-      e.weightedPipeline += (f.expectedOpportunityValue || 0) * (o.probability / 100);
+      e.totalPipeline += oppValue;
+      e.weightedPipeline += oppValue * (prob / 100);
       e.marginValue += f.expectedMargin || 0;
       e.costIncurred += f.bottomLineCost || 0;
     }
