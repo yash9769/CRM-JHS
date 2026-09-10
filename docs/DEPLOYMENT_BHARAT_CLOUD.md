@@ -124,7 +124,38 @@ docker compose exec backend npx tsx prisma/seed_yash.ts
 
 ---
 
-## 6. Later: domain + subdomains via aaPanel
+## 6. Connecting pgAdmin (or psql) to the database
+
+Postgres is deliberately not exposed to the internet (no `0.0.0.0` port) — it's bound
+only to the VM's own loopback interface, on port `15432` for staging / `15433` for
+production (`DB_TUNNEL_PORT` in each environment's `.env`). To browse tables and data
+from your local machine, tunnel through SSH rather than opening the database publicly.
+
+**pgAdmin's built-in SSH tunnel** (Register → Server):
+- **General tab**: any name, e.g. "CRM Staging".
+- **Connection tab**: Host = `127.0.0.1`, Port = `15432` (staging) or `15433`
+  (production), Maintenance database = `crm_staging` or `crm_prod`, Username =
+  `crm_admin`, Password = the corresponding `*_POSTGRES_PASSWORD` secret value.
+- **SSH Tunnel tab**: enable it, Tunnel host = the VM's IP, Tunnel port = `22`,
+  Username = your SSH user, Authentication = Identity file (the same private key used
+  for the GitHub Actions deploy key) or password, whichever your SSH setup uses.
+
+pgAdmin opens the SSH connection itself and forwards through it — the "Host" in the
+Connection tab is what the *VM* uses to reach Postgres (its own loopback), not your
+local machine.
+
+**Manual tunnel** (if you'd rather not put SSH credentials in pgAdmin): from a
+terminal, `ssh -L 15432:127.0.0.1:15432 <user>@<VM_IP>` (leave that running), then in
+pgAdmin connect to `127.0.0.1:15432` directly with no SSH Tunnel tab needed.
+
+If a staging or production `.env` was written before this feature was added,
+`DB_TUNNEL_PORT` won't be in it yet — that's fine, `docker-compose.yml` defaults to
+`15432` when it's unset, so staging already works without touching its `.env`.
+Production's `.env` gets `DB_TUNNEL_PORT=15433` automatically on its first deploy.
+
+---
+
+## 7. Later: domain + subdomains via aaPanel
 
 When you have a domain, aaPanel's Website manager does the reverse proxy + SSL work
 you'd otherwise hand-write in nginx:

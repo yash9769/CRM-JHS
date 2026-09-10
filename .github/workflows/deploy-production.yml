@@ -26,12 +26,13 @@ jobs:
           JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
           FRONTEND_PORT: "8040"
           BACKEND_PORT: "8045"
+          DB_TUNNEL_PORT: "15433"
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          envs: REPO_URL,POSTGRES_PASSWORD,JWT_SECRET,FRONTEND_PORT,BACKEND_PORT
+          envs: REPO_URL,POSTGRES_PASSWORD,JWT_SECRET,FRONTEND_PORT,BACKEND_PORT,DB_TUNNEL_PORT
           script: |
             set -e
             DIR=~/apps/crm-production
@@ -53,6 +54,7 @@ jobs:
             JWT_SECRET=${JWT_SECRET}
             FRONTEND_PORT=${FRONTEND_PORT}
             BACKEND_PORT=${BACKEND_PORT}
+            DB_TUNNEL_PORT=${DB_TUNNEL_PORT}
             ENVEOF
               chmod 600 .env
             fi

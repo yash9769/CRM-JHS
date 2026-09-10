@@ -19,8 +19,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    # Not published to the host on purpose — only the backend container talks to it,
-    # and the VM may already have another Postgres bound to 5432.
+    # Bound to the VM's loopback interface only — never the internet. This is not a
+    # public port: it exists so a GUI client (pgAdmin, psql) can reach the database via
+    # an SSH tunnel to the VM (see docs/DEPLOYMENT_BHARAT_CLOUD.md), without ever
+    # exposing Postgres to 0.0.0.0. Staging and production need different host ports
+    # here since they run on the same VM — set DB_TUNNEL_PORT in each environment's
+    # .env (defaults to 15432 if unset, so this doesn't force a change on directories
+    # that predate this).
+    ports:
+      - "127.0.0.1:${DB_TUNNEL_PORT:-15432}:5432"
 
   backend:
     build:
