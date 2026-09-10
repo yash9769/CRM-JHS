@@ -36,8 +36,11 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY package*.json ./
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 
 EXPOSE 4000
 
-# Applies any pending migrations, then starts the API. One process, one container.
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+# Builds DATABASE_URL (with proper URL-encoding) from PG* env vars, applies any
+# pending migrations, then starts the API. One process, one container.
+CMD ["./docker-entrypoint.sh"]

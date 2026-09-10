@@ -33,7 +33,15 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-crm_admin}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-crm}?schema=public
+      # Passed as separate fields, not pre-assembled into a DATABASE_URL here — a
+      # generated password (e.g. from `openssl rand -base64`) can contain "/" or "+",
+      # which corrupts a connection-string URL if spliced in unencoded. The backend's
+      # entrypoint (see Dockerfile) builds DATABASE_URL itself with proper URL encoding.
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ${POSTGRES_USER:-crm_admin}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGDATABASE: ${POSTGRES_DB:-crm}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env, e.g. via openssl rand -base64 48}
     ports:
       - "${BACKEND_PORT:?Set BACKEND_PORT in .env — 8035 for staging, 8045 for production}:4000"
