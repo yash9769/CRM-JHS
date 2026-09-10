@@ -1,0 +1,52 @@
+# No top-level `name:` on purpose — Compose derives the project name from the
+# containing directory. Staging and production each get their own checkout in their
+# own directory on the VM (see docs/DEPLOYMENT_BHARAT_CLOUD.md), which is what keeps
+# their containers/volumes/network from colliding on the same Docker host without any
+# extra flags. Container names are intentionally NOT pinned for the same reason.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-crm_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-crm}
+    volumes:
+      - crm_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-crm_admin} -d ${POSTGRES_DB:-crm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Not published to the host on purpose — only the backend container talks to it,
+    # and the VM may already have another Postgres bound to 5432.
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-crm_admin}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-crm}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env, e.g. via openssl rand -base64 48}
+    ports:
+      - "${BACKEND_PORT:?Set BACKEND_PORT in .env — 8035 for staging, 8045 for production}:4000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:?Set FRONTEND_PORT in .env — 8030 for staging, 8040 for production}:80"
+
+volumes:
+  crm_pgdata:

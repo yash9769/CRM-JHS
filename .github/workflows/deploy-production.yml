@@ -1,0 +1,61 @@
+name: Deploy to production
+
+# Only `production` branch pushes reach production — see deploy-staging.yml for the
+# staging equivalent, triggered off `development` into a separate directory/ports on
+# the same VM. Manual re-run from the Actions tab is also available (workflow_dispatch),
+# for redeploying without a new commit (e.g. after fixing something directly on the VM).
+#
+# Fully self-bootstrapping: if ~/apps/crm-production doesn't exist yet on the VM, this
+# clones it and writes .env from the secrets below on its own — no manual SSH setup
+# needed beyond the deploy key and firewall access already in place. Once the directory
+# exists, later runs just pull and redeploy in place (deploy.sh's normal job).
+on:
+  push:
+    branches: [production]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          REPO_URL: https://github.com/${{ github.repository }}.git
+          POSTGRES_PASSWORD: ${{ secrets.PROD_POSTGRES_PASSWORD }}
+          JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
+          FRONTEND_PORT: "8040"
+          BACKEND_PORT: "8045"
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          envs: REPO_URL,POSTGRES_PASSWORD,JWT_SECRET,FRONTEND_PORT,BACKEND_PORT
+          script: |
+            set -e
+            DIR=~/apps/crm-production
+
+            if [ ! -d "$DIR/.git" ]; then
+              echo "First run — cloning into $DIR"
+              mkdir -p ~/apps
+              git clone -b production "$REPO_URL" "$DIR"
+            fi
+
+            cd "$DIR"
+
+            if [ ! -f .env ]; then
+              echo "No .env yet — writing one from GitHub secrets"
+              cat > .env <<ENVEOF
+            POSTGRES_USER=crm_admin
+            POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+            POSTGRES_DB=crm_prod
+            JWT_SECRET=${JWT_SECRET}
+            FRONTEND_PORT=${FRONTEND_PORT}
+            BACKEND_PORT=${BACKEND_PORT}
+            ENVEOF
+              chmod 600 .env
+            fi
+
+            chmod +x deploy.sh
+            ./deploy.sh

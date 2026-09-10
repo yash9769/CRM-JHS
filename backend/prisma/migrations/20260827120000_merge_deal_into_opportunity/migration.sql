@@ -47,18 +47,21 @@ BEGIN
     FROM "deals" d
     WHERE d."opportunityId" IS NOT NULL AND d."opportunityId" = o.id;
 
-    -- Insert direct deals into opportunities
+    -- Insert direct deals into opportunities. Note: deals never had direct
+    -- "contactId" or "createdById" columns (contacts link via the deal_contacts /
+    -- opportunity_contacts join tables, carried over separately below before
+    -- deal_contacts is dropped; deals never tracked a creator at all).
     INSERT INTO "opportunities" (
-      "id", "tenantId", "name", "accountId", "contactId", "amount",
+      "id", "tenantId", "name", "accountId", "amount",
       "pipelineId", "stageId", "probability", "expectedCloseDate",
-      "ownerId", "createdById", "opportunityType", "dealType",
+      "ownerId", "opportunityType", "dealType",
       "forecastCategory", "actualCloseDate", "wonDate", "lostReason",
       "description", "properties", "archived", "createdAt", "updatedAt"
     )
     SELECT
-      m.opportunity_id, d."tenantId", d."name", d."accountId", d."contactId", d."amount",
+      m.opportunity_id, d."tenantId", d."name", d."accountId", d."amount",
       d."pipelineId", d."stageId", d."probability", d."closeDate",
-      d."ownerId", d."createdById", 'NEW_BUSINESS'::"OpportunityType", d."dealType",
+      d."ownerId", 'NEW_BUSINESS'::"OpportunityType", d."dealType",
       d."forecastCategory", d."closeDate", d."wonDate", d."lostReason",
       d."description", d."properties", d."archived", d."createdAt", d."updatedAt"
     FROM "deals" d
@@ -89,6 +92,14 @@ BEGIN
     SET "opportunityId" = m.opportunity_id
     FROM temp_deal_opp_map m
     WHERE n."dealId" = m.deal_id;
+
+    -- Carry deal_contacts links over to opportunity_contacts before dropping
+    -- deal_contacts — otherwise these associations are silently lost.
+    INSERT INTO "opportunity_contacts" ("opportunityId", "contactId", "role")
+    SELECT m.opportunity_id, dc."contactId", dc."role"
+    FROM "deal_contacts" dc
+    JOIN temp_deal_opp_map m ON dc."dealId" = m.deal_id
+    ON CONFLICT ("opportunityId", "contactId") DO NOTHING;
 
     -- Drop old tables & columns
     DROP TABLE IF EXISTS "deal_contacts" CASCADE;
