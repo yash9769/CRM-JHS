@@ -1,8 +1,9 @@
 name: Deploy to staging
 
-# Pushes to `development` deploy here, into a separate checkout/ports from production
-# (see deploy-production.yml). Confirm changes on ports 8030 (frontend) / 8035 (backend)
-# before they reach the `production` branch.
+# Pushes to `staging` deploy here, into a separate checkout/ports from production (see
+# deploy-production.yml). `development` is the day-to-day working branch and doesn't
+# deploy anywhere by itself — merge into `staging` to test on ports 8030 (frontend) /
+# 8035 (backend), then into `main` when it's ready for production.
 #
 # Fully self-bootstrapping: if ~/apps/crm-staging doesn't exist yet on the VM, this
 # clones it and writes .env from the secrets below on its own — no manual SSH setup
@@ -10,7 +11,7 @@ name: Deploy to staging
 # exists, later runs just pull and redeploy in place (deploy.sh's normal job).
 on:
   push:
-    branches: [development]
+    branches: [staging]
   workflow_dispatch:
 
 jobs:
@@ -26,12 +27,13 @@ jobs:
           FRONTEND_PORT: "8030"
           BACKEND_PORT: "8035"
           DB_TUNNEL_PORT: "15432"
+          DEPLOY_BRANCH: "staging"
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          envs: REPO_URL,POSTGRES_PASSWORD,JWT_SECRET,FRONTEND_PORT,BACKEND_PORT,DB_TUNNEL_PORT
+          envs: REPO_URL,POSTGRES_PASSWORD,JWT_SECRET,FRONTEND_PORT,BACKEND_PORT,DB_TUNNEL_PORT,DEPLOY_BRANCH
           script: |
             set -e
             DIR=~/apps/crm-staging
@@ -39,7 +41,7 @@ jobs:
             if [ ! -d "$DIR/.git" ]; then
               echo "First run — cloning into $DIR"
               mkdir -p ~/apps
-              git clone -b development "$REPO_URL" "$DIR"
+              git clone -b staging "$REPO_URL" "$DIR"
             fi
 
             cd "$DIR"
@@ -54,9 +56,14 @@ jobs:
             FRONTEND_PORT=${FRONTEND_PORT}
             BACKEND_PORT=${BACKEND_PORT}
             DB_TUNNEL_PORT=${DB_TUNNEL_PORT}
+            DEPLOY_BRANCH=${DEPLOY_BRANCH}
             ENVEOF
               chmod 600 .env
             fi
+
+            # One-time fixup for a directory that predates DEPLOY_BRANCH / the
+            # staging-branch rename (it was originally cloned from `development`).
+            grep -q '^DEPLOY_BRANCH=' .env || echo "DEPLOY_BRANCH=${DEPLOY_BRANCH}" >> .env
 
             chmod +x deploy.sh
             ./deploy.sh

@@ -3,15 +3,17 @@
 Two environments, same VM (the one already running the vendor management app under
 aaPanel), managed the same way: push-to-deploy via GitHub Actions over SSH.
 
-| Environment | Branch        | Directory on VM           | Frontend port | Backend port |
-|-------------|---------------|----------------------------|----------------|---------------|
-| Staging     | `development` | `~/apps/crm-staging`       | 8030           | 8035          |
-| Production  | `production`  | `~/apps/crm-production`    | 8040           | 8045          |
+| Environment | Branch    | Directory on VM           | Frontend port | Backend port |
+|-------------|-----------|----------------------------|----------------|---------------|
+| Staging     | `staging` | `~/apps/crm-staging`       | 8030           | 8035          |
+| Production  | `main`    | `~/apps/crm-production`    | 8040           | 8045          |
 
-Pushing to `development` deploys to staging; pushing to `production` deploys to
-production. Each is a separate git checkout, separate `.env`, separate Docker Compose
-project (containers, volumes, network) — they don't share a database or interfere with
-each other, they just happen to live on the same box as vendor.
+`development` is the day-to-day working branch — pushing there doesn't deploy anywhere
+by itself. Merge `development` into `staging` to test on 8030/8035, then merge `staging`
+into `main` when it's ready for production (8040/8045). Each deployed environment is a
+separate git checkout, separate `.env`, separate Docker Compose project (containers,
+volumes, network) — they don't share a database or interfere with each other, they just
+happen to live on the same box as vendor.
 
 **Architecture per environment**: a `frontend` container (nginx serving the built React
 SPA, and reverse-proxying `/api/` to the backend container internally — so the browser
@@ -78,13 +80,12 @@ repository secret**, add:
 - `STAGING_POSTGRES_PASSWORD` and `STAGING_JWT_SECRET` — generate **different** values
   than production's, same commands
 
-Push to `development` → GitHub Actions SSHes in, clones the repo into
-`~/apps/crm-staging` if it's not there yet, writes `.env` from the two `STAGING_*`
-secrets if one doesn't exist yet, then builds and starts the stack on ports 8030/8035.
-Push (merge) to `production` → the same thing happens in `~/apps/crm-production`, using
-the `PROD_*` secrets and ports 8040/8045. Both are also runnable on-demand from the
-Actions tab (`workflow_dispatch`) without a new commit — useful for the very first
-deploy.
+Push to `staging` → GitHub Actions SSHes in, clones the repo into `~/apps/crm-staging`
+if it's not there yet, writes `.env` from the two `STAGING_*` secrets if one doesn't
+exist yet, then builds and starts the stack on ports 8030/8035. Push (merge) to `main` →
+the same thing happens in `~/apps/crm-production`, using the `PROD_*` secrets and ports
+8040/8045. Both are also runnable on-demand from the Actions tab (`workflow_dispatch`)
+without a new commit — useful for the very first deploy.
 
 Confirm it worked:
 ```bash
@@ -172,24 +173,16 @@ No changes to the app or containers needed for any of this.
 
 ---
 
-## Note for whoever maintains the `production` branch
+## History: the old `production` branch
 
-The `production` branch already has its own `docker-compose.yml` / `backend/Dockerfile`
-/ `frontend/Dockerfile` from an earlier deployment attempt, and they have three bugs
-worth fixing before relying on them:
-
-1. `docker-compose.yml` published Postgres on host port `5432:5432` — exposes the
-   database to the internet.
-2. Each service had a pinned `container_name` (`crm_postgres`, `crm_backend`,
-   `crm_frontend`) — if staging and production ever run on the same Docker host (as
-   they will here), the second `docker compose up` would fail with a name collision.
-3. `backend/Dockerfile`'s runner stage ran `npm ci --omit=dev`, which strips out the
-   `prisma` CLI (a devDependency) — so the documented
-   `docker compose exec backend npx prisma migrate deploy` step would fail at runtime
-   with that image.
-
-This branch's versions of those three files fix all three (no published DB port, no
-pinned container names, and the backend image keeps its full `node_modules` so
-`prisma migrate deploy` runs automatically on container start). When `development` next
-merges into `production`, these fixed versions will replace the old ones — no action
-needed beyond a normal merge.
+Before `staging`/`main` existed, there was a `production` branch with its own earlier
+`docker-compose.yml` / `backend/Dockerfile` / `frontend/Dockerfile`, which had three
+real bugs (Postgres published on `5432:5432` — exposed to the internet; pinned
+`container_name`s that would collide once staging and production ran on the same
+Docker host; and a runner stage that stripped the `prisma` CLI via `npm ci --omit=dev`,
+breaking `prisma migrate deploy` at runtime). `production` also had 16 commits of real
+app fixes/features not present anywhere else. Both — the bug-fixed deployment files
+(from `development`) and those 16 commits (from `production`) — have since been merged
+into `development`, so `staging` and `main` both descend from that reconciled history.
+The old `production` branch itself is now dormant and superseded; nothing further
+deploys from it.
