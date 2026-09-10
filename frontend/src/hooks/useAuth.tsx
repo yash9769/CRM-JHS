@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("crm_token");
     setUser(null);
     setTenant(null);
-    window.location.href = "/login";
+    window.location.replace("/login");
   }
 
   return (

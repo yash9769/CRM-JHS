@@ -57,12 +57,21 @@ export function createAccountFixture(overrides: Partial<TestAccountInput> = {}):
   };
 }
 
+export function generateUniqueLetters(prefix: string = "user"): string {
+  const letters = "abcdefghijklmnopqrstuvwxyz";
+  let str = "";
+  for (let i = 0; i < 6; i++) {
+    str += letters.charAt(Math.floor(Math.random() * letters.length));
+  }
+  return `${prefix} ${str}`;
+}
+
 export function createContactFixture(accountId?: string, overrides: Partial<TestContactInput> = {}): TestContactInput {
   const uid = generateUniqueId("user");
   const randomPhone = `9${Math.floor(100000000 + Math.random() * 900000000)}`;
   return {
     firstName: "Test",
-    lastName: `Contact ${uid}`,
+    lastName: generateUniqueLetters("Contact"),
     email: `contact.${uid.toLowerCase()}@example.com`,
     phone: randomPhone,
     jobTitle: "IT Director",

@@ -106,14 +106,26 @@ export function EmptyState({ title, subtitle, action }: { title: string; subtitl
 }
 
 export function Modal({ title, onClose, children, width = "480px" }: { title: string; onClose: () => void; children: ReactNode; width?: string }) {
+  // Prevent accidental form submit on Enter key inside input textboxes across all modals
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "SELECT") {
+        e.preventDefault();
+        target.blur();
+      }
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(20,23,26,0.5)" }} onClick={onClose}>
       <div
         className="rounded-xl bg-white shadow-2xl w-full max-h-[88vh] overflow-y-auto"
         style={{ maxWidth: width }}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleKeyDown}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 bg-white" style={{ borderColor: "var(--ink-100)" }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 bg-white z-20" style={{ borderColor: "var(--ink-100)" }}>
           <h3 className="text-[15px] font-semibold">{title}</h3>
           <button onClick={onClose} className="p-1 rounded hover:bg-[var(--ink-50)]">
             <X size={16} style={{ color: "var(--ink-500)" }} />
@@ -128,7 +140,10 @@ export function Modal({ title, onClose, children, width = "480px" }: { title: st
 export function Field({ label, children, required }: { label: ReactNode; children: ReactNode; required?: boolean }) {
   return (
     <label className="block mb-3.5">
-      <div className="text-xs font-medium mb-1.5" style={{ color: "var(--ink-600)" }}>
+      {/* inline-flex so a required "*" never wraps onto its own line after a
+          custom label (e.g. label text + an info icon) -- it stays on the
+          same row as the label content, keeping side-by-side fields aligned. */}
+      <div className="flex items-center gap-1 text-xs font-medium mb-1.5" style={{ color: "var(--ink-600)" }}>
         {label} {required && <span style={{ color: "var(--rose-600)" }}>*</span>}
       </div>
       {children}
@@ -139,3 +154,50 @@ export function Field({ label, children, required }: { label: ReactNode; childre
 export const inputClass =
   "w-full px-3 py-2 rounded-md border text-sm outline-none focus:ring-2 focus:ring-[var(--ledger-500)]";
 export const inputStyle: React.CSSProperties = { borderColor: "var(--ink-200)" };
+
+export function ConfirmModal({
+  title = "Confirm Action",
+  message,
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  variant = "danger",
+  isOpen,
+  onConfirm,
+  onClose,
+  isSubmitting = false,
+}: {
+  title?: string;
+  message: ReactNode;
+  confirmText?: string;
+  cancelText?: string;
+  variant?: "danger" | "primary" | "secondary";
+  isOpen: boolean;
+  onConfirm: () => void | Promise<void>;
+  onClose: () => void;
+  isSubmitting?: boolean;
+}) {
+  if (!isOpen) return null;
+  return (
+    <Modal title={title} onClose={onClose} width="440px">
+      <div className="space-y-4">
+        <div className="text-sm text-[var(--ink-700)] leading-relaxed">
+          {message}
+        </div>
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--ink-100)]">
+          <Button variant="secondary" type="button" onClick={onClose} disabled={isSubmitting}>
+            {cancelText}
+          </Button>
+          <Button
+            variant={variant}
+            type="button"
+            onClick={onConfirm}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Processing…" : confirmText}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+

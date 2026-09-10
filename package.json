@@ -15,5 +15,8 @@
     "@playwright/test": "^1.62.1",
     "cypress": "^16.0.0",
     "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@fastify/rate-limit": "^11.2.0"
   }
 }

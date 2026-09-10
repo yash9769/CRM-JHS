@@ -177,7 +177,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
             },
           },
         },
-        orderBy: { updatedAt: "desc" },
+        orderBy: { createdAt: "desc" },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -218,7 +218,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         stage: { select: { name: true } },
         owner: { select: { firstName: true, lastName: true } },
       },
-      orderBy: { updatedAt: "desc" },
+      orderBy: { createdAt: "desc" },
     });
     const rows = opps.map((o) => {
       const f = formatOppWithFinancials(o);
@@ -228,18 +228,17 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         accountOwner: o.account?.owner ? `${o.account.owner.firstName} ${o.account.owner.lastName}` : "",
         contactPerson: o.contact ? `${o.contact.firstName} ${o.contact.lastName}` : "",
         stage: o.stage.name,
-        opportunityType: o.opportunityTypeLegacy || o.opportunityType || "NEW_BUSINESS",
+        opportunityType: o.opportunityType === "RENEWAL" || o.opportunityTypeLegacy === "Renewable Business" ? "Renewable Business" : "New Business",
         assignedTo: o.owner ? `${o.owner.firstName} ${o.owner.lastName}` : "",
-        expectedOpportunityValue: f.expectedOpportunityValue ?? "",
-        toplineValue: f.actualOpportunityValue ?? "",
+        proposalValue: f.actualOpportunityValue ?? f.expectedOpportunityValue ?? o.amount,
         costIncurred: f.bottomLineCost ?? "",
         marginValue: f.marginValue ?? "",
-        marginPercentage: f.marginPercentage ?? "",
+        marginPercentage: f.marginPercentage !== null ? `${f.marginPercentage.toFixed(1)}%` : "",
         remarks: o.description || "",
         createdDate: o.createdAt ? o.createdAt.toISOString().slice(0, 10) : "",
         closeDate: o.expectedCloseDate ? o.expectedCloseDate.toISOString().slice(0, 10) : "",
         lostReason: o.lostReason || "",
-        loe: o.loeValue ? `${o.loeValue} ${o.loeUnit || "Hours"}` : "",
+        loe: o.loeValue || "",
         poNumber: o.poNumber || "",
         poValue: o.poValue ? Number(o.poValue) : "",
       };
@@ -252,8 +251,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       { key: "stage", label: "Opportunity Stage" },
       { key: "opportunityType", label: "Opportunity Type" },
       { key: "assignedTo", label: "Assigned To" },
-      { key: "expectedOpportunityValue", label: "Expected Opportunity Value" },
-      { key: "toplineValue", label: "Topline Value" },
+      { key: "proposalValue", label: "Proposal Value" },
       { key: "costIncurred", label: "Cost Incurred to Company" },
       { key: "marginValue", label: "Margin Value" },
       { key: "marginPercentage", label: "Margin Percentage" },
@@ -261,7 +259,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       { key: "createdDate", label: "Created Date" },
       { key: "closeDate", label: "Close Date" },
       { key: "lostReason", label: "Closed Lost Reason" },
-      { key: "loe", label: "LOE" },
+      { key: "loe", label: "Letter of Engagement (LOE)" },
       { key: "poNumber", label: "PO Number" },
       { key: "poValue", label: "PO Value" },
     ]);
@@ -278,19 +276,18 @@ export default async function opportunityRoutes(app: FastifyInstance) {
         account: "Acme Corporation",
         accountOwner: "John Doe",
         contactPerson: "Jane Smith",
-        stage: "Lead Qualified",
-        opportunityType: "NEW_BUSINESS",
+        stage: "Scope Discussion",
+        opportunityType: "New Business",
         assignedTo: "John Doe",
-        expectedOpportunityValue: "500000",
-        toplineValue: "520000",
+        proposalValue: "500000",
         costIncurred: "350000",
         remarks: "Scope covers cloud infrastructure penetration testing",
         createdDate: new Date().toISOString().slice(0, 10),
         closeDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
         lostReason: "",
-        loe: "160 Hours",
+        loe: "LOE-2026-001",
         poNumber: "PO-2026-001",
-        poValue: "520000",
+        poValue: "500000",
       },
     ];
     const csv = toCsv(sampleRows, [
@@ -301,14 +298,13 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       { key: "stage", label: "Opportunity Stage" },
       { key: "opportunityType", label: "Opportunity Type" },
       { key: "assignedTo", label: "Assigned To" },
-      { key: "expectedOpportunityValue", label: "Expected Opportunity Value" },
-      { key: "toplineValue", label: "Topline Value" },
+      { key: "proposalValue", label: "Proposal Value" },
       { key: "costIncurred", label: "Cost Incurred to Company" },
       { key: "remarks", label: "Remarks" },
       { key: "createdDate", label: "Created Date" },
       { key: "closeDate", label: "Close Date" },
       { key: "lostReason", label: "Closed Lost Reason" },
-      { key: "loe", label: "LOE" },
+      { key: "loe", label: "Letter of Engagement (LOE)" },
       { key: "poNumber", label: "PO Number" },
       { key: "poValue", label: "PO Value" },
     ]);
@@ -335,7 +331,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     const [oppPipeline, users, accounts, contacts] = await Promise.all([
       prisma.pipeline.findFirst({ where: { tenantId, type: "OPPORTUNITY" }, include: { stages: { orderBy: { order: "asc" } } } }),
       prisma.user.findMany({ where: { tenantId } }),
-      prisma.account.findMany({ where: { tenantId, archived: false } }),
+      prisma.account.findMany({ where: { tenantId } }),
       prisma.contact.findMany({ where: { tenantId, archived: false } }),
     ]);
 
@@ -369,10 +365,11 @@ export default async function opportunityRoutes(app: FastifyInstance) {
 
       const oppName = mapped.name || mapped.opportunityName || mapped.dealName;
       const accountName = mapped.account || mapped.accountName || mapped.companyName || mapped.company;
-      const amountStr = mapped.amount || mapped.expectedOpportunityValue || mapped.expectedDealValue || mapped.dealValue || mapped.value;
-      const toplineValueStr = mapped.toplineValue || mapped.actualOpportunityValue || mapped.actualDealValue;
-      const costIncurredStr = mapped.costIncurred || mapped.bottomLineCost;
+      const amountStr = mapped.proposalValue || mapped.amount || mapped.expectedOpportunityValue || mapped.expectedDealValue || mapped.dealValue || mapped.value;
+      const toplineValueStr = mapped.actualOpportunityValue || mapped.toplineValue || mapped.actualDealValue || mapped.proposalValue;
+      const costIncurredStr = mapped.costIncurred || mapped.costIncurredToCompany || mapped.bottomLineCost || mapped.cost;
       const oppStageName = mapped.opportunityStage || mapped.stage || mapped.dealStage;
+      const oppTypeName = mapped.opportunityType || mapped.type;
       const contactPersonName = mapped.contactPerson || mapped.contact;
       const accountOwnerName = mapped.accountOwner;
       const assignedToName = mapped.assignedTo || mapped.owner;
@@ -383,6 +380,14 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       const loeStr = mapped.loe || mapped.loeValue || "";
       const poNumberStr = mapped.poNumber || "";
       const poValueStr = mapped.poValue || "";
+
+      let resolvedOppType: "NEW_BUSINESS" | "RENEWAL" = "NEW_BUSINESS";
+      if (oppTypeName) {
+        const lower = oppTypeName.toLowerCase().trim();
+        if (lower.includes("renew") || lower === "renewal") {
+          resolvedOppType = "RENEWAL";
+        }
+      }
 
       if (!oppName) {
         results.push({ row: i, status: "error", error: "Opportunity Name is required" });
@@ -607,6 +612,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
               expectedOpportunityValue: parsedAmount,
               actualOpportunityValue: parsedTopline ?? undefined,
               bottomLineCost: parsedCost ?? undefined,
+              opportunityType: resolvedOppType,
               stageId: stageReqApproval ? existingOpp.stageId : stage.id,
               probability: stageReqApproval ? existingOpp.probability : stage.probability,
               expectedCloseDate: closeDate,
@@ -636,6 +642,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
               expectedOpportunityValue: parsedAmount,
               actualOpportunityValue: parsedTopline ?? (isClosedWon && !stageReqApproval ? parsedPoValue : null),
               bottomLineCost: parsedCost ?? null,
+              opportunityType: resolvedOppType,
               probability: effectiveStage.probability,
               expectedCloseDate: closeDate,
               lostReason: isClosedLost ? lostReasonStr : null,
@@ -730,6 +737,10 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     if (body.accountId && !account) return reply.code(400).send({ error: "Account not found for this tenant" });
     if (!stage) return reply.code(400).send({ error: "Stage does not belong to the specified pipeline" });
 
+    if (body.accountId && account?.ownerId && !body.ownerId) {
+      body.ownerId = account.ownerId;
+    }
+
     const isClosingWon = stage.isClosed && stage.isWon;
     const isClosingLost = stage.isClosed && !stage.isWon;
 
@@ -740,14 +751,17 @@ export default async function opportunityRoutes(app: FastifyInstance) {
 
     // Closed Won validation
     if (isClosingWon) {
+      if (!body.poNumber || !body.poNumber.trim()) {
+        return reply.code(400).send({ error: "PO Number is mandatory when moving an opportunity to Closed Won." });
+      }
       if (body.poValue === undefined || body.poValue === null || Number(body.poValue) <= 0) {
         return reply.code(400).send({ error: "A valid positive PO Value is mandatory when moving an opportunity to Closed Won." });
       }
     }
 
     const stageReqApproval = isApprovalRequiredStage(stage.name, req.authUser.orgRole);
-    const initialStage = oppPipeline?.stages[0] || stage;
-    const effectiveStage = stageReqApproval ? initialStage : stage;
+    const proposalSentStage = oppPipeline?.stages.find((s) => s.name.toLowerCase().includes("proposal")) || oppPipeline?.stages[0] || stage;
+    const effectiveStage = stageReqApproval ? proposalSentStage : stage;
 
     const opportunity = await prisma.$transaction(async (tx) => {
       let accountId = body.accountId;
@@ -811,7 +825,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
           pipelineId: body.pipelineId,
           stageId: effectiveStage.id,
           probability: effectiveStage.probability,
-          createdAt: body.createdAt ? new Date(body.createdAt) : undefined,
+          createdAt: new Date(),
           expectedCloseDate: body.expectedCloseDate ? new Date(body.expectedCloseDate) : null,
           actualCloseDate: isClosingWon && !stageReqApproval ? new Date() : null,
           wonDate: isClosingWon && !stageReqApproval ? new Date() : null,
@@ -877,10 +891,26 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       return opp;
     });
 
+    const stageObj = await prisma.pipelineStage.findUnique({ where: { id: effectiveStage.id }, select: { name: true } });
     await logAudit({
       tenantId, userId: req.authUser.id, objectType: "OPPORTUNITY",
-      recordId: opportunity.id, action: "CREATED", newValues: opportunity,
+      recordId: opportunity.id, action: "CREATED", newValues: { ...opportunity, stageName: stageObj?.name || null },
     });
+
+    if (stageReqApproval) {
+      const partnersToNotify = await prisma.user.findMany({
+        where: { tenantId, orgRole: { in: ["PARTNER", "SENIOR_PARTNER"] }, active: true, id: { not: req.authUser.id } },
+        select: { id: true },
+      });
+      for (const p of partnersToNotify) {
+        await notify({
+          tenantId,
+          userId: p.id,
+          message: `Stage Change Requested on Creation: "${opportunity.name}" → "${stage.name}" requested by ${req.authUser.firstName} ${req.authUser.lastName}`,
+          link: `/approvals`,
+        });
+      }
+    }
 
     const fullOpp = await prisma.opportunity.findFirst({
       where: { id: opportunity.id },
@@ -894,7 +924,11 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       },
     });
 
-    return reply.code(201).send(formatOppWithFinancials(fullOpp));
+    return reply.code(201).send({
+      ...formatOppWithFinancials(fullOpp),
+      pendingApproval: stageReqApproval,
+      message: stageReqApproval ? `Opportunity created. Stage change to "${stage.name}" submitted for Partner approval.` : undefined,
+    });
   });
 
   app.get("/api/v1/opportunities/:id", { preHandler: app.authenticate }, async (req, reply) => {
@@ -934,6 +968,14 @@ export default async function opportunityRoutes(app: FastifyInstance) {
             },
           },
         },
+        deletionRequests: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            requestedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+            approver: { select: { id: true, firstName: true, lastName: true } },
+            reviewedBy: { select: { id: true, firstName: true, lastName: true } },
+          },
+        },
       },
     });
     if (!opp) return reply.code(404).send({ error: "Opportunity not found" });
@@ -948,7 +990,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     if (!existing) return reply.code(404).send({ error: "Opportunity not found" });
     await requireCanAccess(req.authUser, existing, "write");
 
-    const effectiveCreatedAt = body.createdAt ? new Date(body.createdAt) : existing.createdAt;
+    const effectiveCreatedAt = existing.createdAt;
     const effectiveCloseDate = body.expectedCloseDate !== undefined ? (body.expectedCloseDate ? new Date(body.expectedCloseDate) : null) : existing.expectedCloseDate;
     if (effectiveCreatedAt && effectiveCloseDate && effectiveCloseDate < effectiveCreatedAt) {
       return reply.code(400).send({ error: "Close Date cannot be earlier than Created Date" });
@@ -974,19 +1016,23 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       }
     }
 
-    // Closed Won validation
-    if (isMovingToClosedWon) {
-      if (body.poValue === undefined || body.poValue === null || Number(body.poValue) <= 0) {
+    let isApprovalRequired = false;
+    let pendingApprovalRecord: any = null;
+    const targetRequiresApproval = stageChanged && targetStage ? isApprovalRequiredStage(targetStage.name, req.authUser.orgRole) : false;
+
+    // Closed Won validation (only required for direct close, not when requesting partner approval)
+    if (isMovingToClosedWon && !targetRequiresApproval) {
+      const candidatePoNumber = body.poNumber !== undefined ? body.poNumber : existing.poNumber;
+      if (!candidatePoNumber || !candidatePoNumber.trim()) {
+        return reply.code(400).send({ error: "PO Number is mandatory when moving an opportunity to Closed Won." });
+      }
+      const candidatePoValue = body.poValue !== undefined ? body.poValue : existing.poValue;
+      if (candidatePoValue === undefined || candidatePoValue === null || Number(candidatePoValue) <= 0) {
         return reply.code(400).send({ error: "A valid positive PO Value is mandatory when moving an opportunity to Closed Won." });
       }
     }
 
-    let isApprovalRequired = false;
-    let pendingApprovalRecord: any = null;
-
     if (stageChanged && targetStage) {
-      const targetRequiresApproval = isApprovalRequiredStage(targetStage.name, req.authUser.orgRole);
-
       if (targetRequiresApproval) {
         isApprovalRequired = true;
 
@@ -1044,7 +1090,25 @@ export default async function opportunityRoutes(app: FastifyInstance) {
 
     const { contactIds, remarks, newAccount, newContact, ...rest } = body;
     if (isApprovalRequired) {
-      delete rest.stageId;
+      // While stuck / in pending approval state, opportunity will be in "Proposal Sent" stage
+      const proposalSentStage = await prisma.pipelineStage.findFirst({
+        where: {
+          pipelineId: existing.pipelineId,
+          name: { contains: "Proposal", mode: "insensitive" },
+        },
+      }) || await prisma.pipelineStage.findFirst({
+        where: {
+          pipeline: { tenantId: req.authUser.tenantId },
+          name: { contains: "Proposal", mode: "insensitive" },
+        },
+      });
+
+      if (proposalSentStage) {
+        rest.stageId = proposalSentStage.id;
+        rest.probability = proposalSentStage.probability;
+      } else {
+        delete rest.stageId;
+      }
     }
 
     const updatedExpectedDealValue = rest.expectedOpportunityValue !== undefined ? rest.expectedOpportunityValue : (rest.amount !== undefined ? rest.amount : undefined);
@@ -1073,9 +1137,8 @@ export default async function opportunityRoutes(app: FastifyInstance) {
           forecastCategory: isClosingWon ? "CLOSED_WON" : isClosingLost ? "CLOSED_LOST" : rest.forecastCategory,
           wonDate: isClosingWon ? (existing.wonDate ?? new Date()) : undefined,
           actualCloseDate: finalActualCloseDate,
-          lostReason: isClosingLost ? (rest.lostReason ?? existing.lostReason) : undefined,
+          lostReason: isClosingLost ? (rest.lostReason ?? existing.lostReason) : (stageChanged ? null : undefined),
           description: rest.description !== undefined ? rest.description : (remarks !== undefined ? remarks : undefined),
-          createdAt: rest.createdAt ? new Date(rest.createdAt) : undefined,
           expectedCloseDate: rest.expectedCloseDate !== undefined ? (rest.expectedCloseDate ? new Date(rest.expectedCloseDate) : null) : undefined,
           contactId: rest.contactId !== undefined ? rest.contactId : undefined,
         },
@@ -1087,6 +1150,15 @@ export default async function opportunityRoutes(app: FastifyInstance) {
             opportunityId: id,
             fromStageId: existing.stageId,
             toStageId: body.stageId!,
+            changedById: req.authUser.id,
+          },
+        });
+      } else if (isApprovalRequired && rest.stageId && rest.stageId !== existing.stageId) {
+        await tx.opportunityStageHistory.create({
+          data: {
+            opportunityId: id,
+            fromStageId: existing.stageId,
+            toStageId: rest.stageId,
             changedById: req.authUser.id,
           },
         });
@@ -1123,7 +1195,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     });
 
     let fromStageName: string | null = null;
-    if (stageChanged && existing.stageId) {
+    if (existing.stageId) {
       const fromStageObj = await prisma.pipelineStage.findUnique({ where: { id: existing.stageId }, select: { name: true } });
       fromStageName = fromStageObj?.name || null;
     }
@@ -1171,9 +1243,11 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     if (isApprovalRequired) {
       return {
         ...formatted,
+        isApprovalRequired: true,
+        approvalId: pendingApprovalRecord?.id,
+        approval: pendingApprovalRecord,
         pendingApproval: true,
         message: `Stage change to "${targetStage?.name}" submitted for Partner approval.`,
-        approval: pendingApprovalRecord,
       };
     }
 
@@ -1227,15 +1301,259 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     return reply.code(204).send();
   });
 
+  // DELETION REQUEST — Manager submits deletion request for Partner Approval
+  app.post("/api/v1/opportunities/:id/deletion-request", { preHandler: app.authenticate }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = z.object({ reason: z.string().min(1, "Reason is required") }).parse(req.body);
+
+    const existing = await prisma.opportunity.findFirst({
+      where: { id, tenantId: req.authUser.tenantId },
+    });
+    if (!existing) return reply.code(404).send({ error: "Opportunity not found" });
+    await requireCanAccess(req.authUser, existing);
+
+    const activePending = await prisma.opportunityDeletionRequest.findFirst({
+      where: { tenantId: req.authUser.tenantId, opportunityId: id, status: "PENDING" },
+    });
+    if (activePending) {
+      return reply.code(400).send({
+        error: "A pending deletion request already exists for this opportunity. Please wait for partner review.",
+      });
+    }
+
+    let partnerId = req.authUser.partnerId;
+    if (!partnerId) {
+      const partnerUser = await prisma.user.findFirst({
+        where: { tenantId: req.authUser.tenantId, orgRole: { in: ["PARTNER", "SENIOR_PARTNER"] }, active: true, id: { not: req.authUser.id } },
+      });
+      partnerId = partnerUser?.id || null;
+    }
+
+    const deletionRequest = await prisma.opportunityDeletionRequest.create({
+      data: {
+        tenantId: req.authUser.tenantId,
+        opportunityId: id,
+        opportunityName: existing.name,
+        requestedById: req.authUser.id,
+        approverId: partnerId,
+        reason: body.reason,
+        status: "PENDING",
+      },
+      include: {
+        opportunity: { select: { id: true, name: true, amount: true } },
+        requestedBy: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    const partnersToNotify = await prisma.user.findMany({
+      where: { tenantId: req.authUser.tenantId, orgRole: { in: ["PARTNER", "SENIOR_PARTNER"] }, active: true, id: { not: req.authUser.id } },
+      select: { id: true },
+    });
+    for (const p of partnersToNotify) {
+      await notify({
+        tenantId: req.authUser.tenantId,
+        userId: p.id,
+        message: `Opportunity Deletion Requested: "${existing.name}" requested by ${req.authUser.firstName} ${req.authUser.lastName}. Reason: ${body.reason}`,
+        link: `/approvals`,
+      });
+    }
+
+    return deletionRequest;
+  });
+
+  // GET pending/historical Opportunity Deletion Requests
+  app.get("/api/v1/opportunities/deletion-requests", { preHandler: app.authenticate }, async (req) => {
+    const q = req.query as { status?: string };
+    const statusFilter = q.status && q.status !== "all" ? (q.status as any) : "PENDING";
+    const isManager = req.authUser.orgRole === "MANAGER";
+
+    const where: any = {
+      tenantId: req.authUser.tenantId,
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(isManager
+        ? { requestedById: req.authUser.id }
+        : {
+            OR: [
+              { approverId: req.authUser.id },
+              { approverId: null },
+              { tenantId: req.authUser.tenantId },
+            ],
+          }),
+    };
+
+    const requests = await prisma.opportunityDeletionRequest.findMany({
+      where,
+      include: {
+        opportunity: {
+          select: {
+            id: true,
+            name: true,
+            amount: true,
+            stage: { select: { id: true, name: true } },
+            account: { select: { id: true, name: true } },
+            owner: { select: { id: true, firstName: true, lastName: true } },
+          },
+        },
+        requestedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+        reviewedBy: { select: { id: true, firstName: true, lastName: true } },
+        approver: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return { data: requests };
+  });
+
+  // Approve Opportunity Deletion Request
+  app.post("/api/v1/opportunities/deletion-requests/:requestId/approve", { preHandler: app.authenticate }, async (req, reply) => {
+    if (req.authUser.orgRole === "MANAGER") {
+      return reply.code(403).send({ error: "Only Partners and Senior Partners can approve opportunity deletion requests." });
+    }
+    const { requestId } = req.params as { requestId: string };
+    const delReq = await prisma.opportunityDeletionRequest.findFirst({
+      where: { id: requestId, tenantId: req.authUser.tenantId, status: "PENDING" },
+      include: { opportunity: true, requestedBy: true },
+    });
+    if (!delReq) return reply.code(404).send({ error: "Pending deletion request not found" });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.opportunityDeletionRequest.update({
+        where: { id: requestId },
+        data: {
+          status: "APPROVED",
+          reviewedById: req.authUser.id,
+          reviewedAt: new Date(),
+        },
+      });
+      if (delReq.opportunityId) {
+        const oppId = delReq.opportunityId;
+        await tx.opportunityAttachment.deleteMany({ where: { opportunityId: oppId } });
+        await tx.stageApproval.deleteMany({ where: { opportunityId: oppId } });
+        await tx.opportunityStageHistory.deleteMany({ where: { opportunityId: oppId } });
+        await tx.opportunityContact.deleteMany({ where: { opportunityId: oppId } });
+        await tx.lineItem.deleteMany({ where: { opportunityId: oppId } });
+        const quotes = await tx.quote.findMany({ where: { opportunityId: oppId }, select: { id: true } });
+        if (quotes.length > 0) {
+          const quoteIds = quotes.map((q) => q.id);
+          await tx.lineItem.deleteMany({ where: { quoteId: { in: quoteIds } } });
+          await tx.quote.deleteMany({ where: { id: { in: quoteIds } } });
+        }
+        await tx.activity.deleteMany({ where: { opportunityId: oppId } });
+        await tx.note.deleteMany({ where: { opportunityId: oppId } });
+        await tx.opportunity.delete({ where: { id: oppId } });
+      }
+    });
+
+    await logAudit({
+      tenantId: req.authUser.tenantId,
+      userId: req.authUser.id,
+      objectType: "OPPORTUNITY",
+      recordId: delReq.opportunityId || requestId,
+      action: "DELETED",
+      oldValues: { opportunityName: delReq.opportunityName, reason: delReq.reason, approvedBy: req.authUser.email },
+    });
+
+    if (delReq.requestedById) {
+      await notify({
+        tenantId: req.authUser.tenantId,
+        userId: delReq.requestedById,
+        message: `Your deletion request for opportunity "${delReq.opportunityName}" was approved.`,
+        link: `/opportunities`,
+      });
+    }
+
+    return { success: true, message: `Opportunity "${delReq.opportunityName}" deleted successfully.` };
+  });
+
+  // Disapprove Opportunity Deletion Request
+  app.post("/api/v1/opportunities/deletion-requests/:requestId/disapprove", { preHandler: app.authenticate }, async (req, reply) => {
+    if (req.authUser.orgRole === "MANAGER") {
+      return reply.code(403).send({ error: "Only Partners and Senior Partners can reject opportunity deletion requests." });
+    }
+    const { requestId } = req.params as { requestId: string };
+    const body = z.object({ reviewComment: z.string().optional() }).parse(req.body);
+
+    const delReq = await prisma.opportunityDeletionRequest.findFirst({
+      where: { id: requestId, tenantId: req.authUser.tenantId, status: "PENDING" },
+    });
+    if (!delReq) return reply.code(404).send({ error: "Pending deletion request not found" });
+
+    const updated = await prisma.opportunityDeletionRequest.update({
+      where: { id: requestId },
+      data: {
+        status: "DISAPPROVED",
+        reviewedById: req.authUser.id,
+        reviewedAt: new Date(),
+        reviewComment: body.reviewComment || null,
+      },
+    });
+
+    if (delReq.requestedById) {
+      await notify({
+        tenantId: req.authUser.tenantId,
+        userId: delReq.requestedById,
+        message: `Your deletion request for opportunity "${delReq.opportunityName}" was rejected${body.reviewComment ? `: ${body.reviewComment}` : "."}`,
+        link: `/opportunities`,
+      });
+    }
+
+    return updated;
+  });
+
+  // Revoke Opportunity Deletion Request (by Manager requester)
+  app.post("/api/v1/opportunities/deletion-requests/:requestId/revoke", { preHandler: app.authenticate }, async (req, reply) => {
+    const { requestId } = req.params as { requestId: string };
+    const delReq = await prisma.opportunityDeletionRequest.findFirst({
+      where: { id: requestId, tenantId: req.authUser.tenantId, status: "PENDING" },
+    });
+    if (!delReq) return reply.code(404).send({ error: "Pending deletion request not found" });
+    if (delReq.requestedById !== req.authUser.id && req.authUser.orgRole === "MANAGER") {
+      return reply.code(403).send({ error: "You can only revoke your own deletion requests." });
+    }
+
+    const updated = await prisma.opportunityDeletionRequest.update({
+      where: { id: requestId },
+      data: { status: "CANCELLED", reviewedAt: new Date() },
+    });
+    return updated;
+  });
+
   app.delete("/api/v1/opportunities/:id", { preHandler: app.authenticate }, async (req, reply) => {
+    if (req.authUser.orgRole === "MANAGER") {
+      return reply.code(403).send({
+        error: "Managers cannot directly delete opportunities. Please submit a deletion request for Partner approval.",
+      });
+    }
     const { id } = req.params as { id: string };
     const existing = await prisma.opportunity.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Opportunity not found" });
     await requireCanAccess(req.authUser, existing);
-    await prisma.opportunity.delete({ where: { id } });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.opportunityAttachment.deleteMany({ where: { opportunityId: id } });
+      await tx.stageApproval.deleteMany({ where: { opportunityId: id } });
+      await tx.opportunityStageHistory.deleteMany({ where: { opportunityId: id } });
+      await tx.opportunityContact.deleteMany({ where: { opportunityId: id } });
+      await tx.lineItem.deleteMany({ where: { opportunityId: id } });
+      const quotes = await tx.quote.findMany({ where: { opportunityId: id }, select: { id: true } });
+      if (quotes.length > 0) {
+        const quoteIds = quotes.map((q) => q.id);
+        await tx.lineItem.deleteMany({ where: { quoteId: { in: quoteIds } } });
+        await tx.quote.deleteMany({ where: { id: { in: quoteIds } } });
+      }
+      await tx.activity.deleteMany({ where: { opportunityId: id } });
+      await tx.note.deleteMany({ where: { opportunityId: id } });
+      await tx.opportunityDeletionRequest.deleteMany({ where: { opportunityId: id } });
+      await tx.opportunity.delete({ where: { id } });
+    });
+
     await logAudit({
-      tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "OPPORTUNITY",
-      recordId: id, action: "DELETED", oldValues: existing,
+      tenantId: req.authUser.tenantId,
+      userId: req.authUser.id,
+      objectType: "OPPORTUNITY",
+      recordId: id,
+      action: "DELETED",
+      oldValues: existing,
     });
     return reply.code(204).send();
   });
@@ -1288,16 +1606,6 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     return reply.code(204).send();
   });
 
-  app.post("/api/v1/opportunities/:id/archive", { preHandler: app.authenticate }, async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const existing = await prisma.opportunity.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
-    if (!existing) return reply.code(404).send({ error: "Opportunity not found" });
-    await requireCanAccess(req.authUser, existing);
-    const opp = await prisma.opportunity.update({ where: { id }, data: { archived: true } });
-    await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "OPPORTUNITY", recordId: id, action: "ARCHIVED" });
-    return opp;
-  });
-
   app.post("/api/v1/opportunities/bulk", { preHandler: app.authenticate }, async (req, reply) => {
     const body = z.object({
       ids: z.array(z.string().uuid()).min(1),
@@ -1329,7 +1637,9 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     if (!ids.length) return reply.code(404).send({ error: "No matching opportunities found" });
 
     let data: any = {};
-    if (body.action === "assignOwner") {
+    if (body.action === "archive") {
+      data = { archived: true };
+    } else if (body.action === "assignOwner") {
       if (!body.ownerId) return reply.code(400).send({ error: "ownerId is required" });
       data = { ownerId: body.ownerId };
     } else if (body.action === "changeStage") {
@@ -1401,12 +1711,88 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       }
 
       data = { ...data, stageId: body.stageId, probability: stage.probability };
-    } else if (body.action === "archive") {
-      data = { archived: true };
     }
 
     await prisma.opportunity.updateMany({ where: { id: { in: ids }, tenantId }, data });
     await logAudit({ tenantId, userId: req.authUser.id, objectType: "OPPORTUNITY", recordId: ids.join(","), action: `BULK_${body.action.toUpperCase()}`, newValues: data });
     return { updated: ids.length, skipped: skippedIds };
+  });
+
+  app.post("/api/v1/opportunities/bulk-delete", { preHandler: app.authenticate }, async (req, reply) => {
+    if (req.authUser.orgRole === "MANAGER") {
+      return reply.code(403).send({
+        error: "Managers cannot directly delete opportunities. Please submit a deletion request for Partner approval.",
+      });
+    }
+
+    const body = z.object({ ids: z.array(z.string().uuid()).min(1, "Select at least one opportunity") }).parse(req.body);
+    const tenantId = req.authUser.tenantId;
+    const scoped = await prisma.opportunity.findMany({
+      where: { id: { in: body.ids }, tenantId },
+      select: { id: true, createdById: true, ownerId: true },
+    });
+
+    let visibleScoped = scoped;
+    let skippedIds: string[] = [];
+    if (req.authUser.orgRole !== "SENIOR_PARTNER") {
+      const visibleUserIds = await getVisibleUserIds(req.authUser);
+      visibleScoped = scoped.filter(
+        (o) =>
+          (o.createdById && visibleUserIds.includes(o.createdById)) ||
+          (o.ownerId && visibleUserIds.includes(o.ownerId))
+      );
+      skippedIds = scoped.filter((o) => !visibleScoped.includes(o)).map((o) => o.id);
+    }
+
+    const ids = visibleScoped.map((o) => o.id);
+    if (!ids.length) return reply.code(404).send({ error: "No matching opportunities found" });
+
+    const results: { id: string; status: "deleted" | "not_found" | "forbidden" }[] = [];
+
+    for (const id of ids) {
+      const existing = await prisma.opportunity.findFirst({ where: { id, tenantId } });
+      if (!existing) {
+        results.push({ id, status: "not_found" });
+        continue;
+      }
+
+      try {
+        await requireCanAccess(req.authUser, existing, "write");
+      } catch {
+        results.push({ id, status: "forbidden" });
+        continue;
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await tx.opportunityAttachment.deleteMany({ where: { opportunityId: id } });
+        await tx.stageApproval.deleteMany({ where: { opportunityId: id } });
+        await tx.opportunityStageHistory.deleteMany({ where: { opportunityId: id } });
+        await tx.opportunityContact.deleteMany({ where: { opportunityId: id } });
+        await tx.lineItem.deleteMany({ where: { opportunityId: id } });
+        const quotes = await tx.quote.findMany({ where: { opportunityId: id }, select: { id: true } });
+        if (quotes.length > 0) {
+          const quoteIds = quotes.map((q) => q.id);
+          await tx.lineItem.deleteMany({ where: { quoteId: { in: quoteIds } } });
+          await tx.quote.deleteMany({ where: { id: { in: quoteIds } } });
+        }
+        await tx.activity.deleteMany({ where: { opportunityId: id } });
+        await tx.note.deleteMany({ where: { opportunityId: id } });
+        await tx.opportunityDeletionRequest.deleteMany({ where: { opportunityId: id } });
+        await tx.opportunity.delete({ where: { id } });
+      });
+
+      await logAudit({
+        tenantId,
+        userId: req.authUser.id,
+        objectType: "OPPORTUNITY",
+        recordId: id,
+        action: "DELETED",
+        oldValues: existing,
+      });
+
+      results.push({ id, status: "deleted" });
+    }
+
+    return { results, updated: results.filter((r) => r.status === "deleted").length, skipped: skippedIds };
   });
 }

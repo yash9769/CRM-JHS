@@ -7,15 +7,18 @@ describe("Account Flow E2E", () => {
 
   it("creates a new account via UI modal and views account details", () => {
     const accountName = `Beta Account ${Date.now()}`;
+    const domain = `beta-${Date.now()}.com`;
     cy.visit("/accounts");
     cy.contains("button", "New Account").click();
 
     cy.get('input[placeholder="e.g. Acme Technologies"]').type(accountName);
     cy.get('input[placeholder="Information Technology"]').type("Enterprise Security");
-    cy.get('input[placeholder="+91 98765 43210"]').type("9876543210");
-    cy.get('input[placeholder="https://acme.com"]').type("https://beta-account.com");
+    cy.get('input[placeholder="acme.com"]').type(domain);
 
+    cy.intercept("POST", "**/api/v1/accounts*").as("createAccount");
     cy.get('button[type="submit"]').click();
+    cy.wait("@createAccount");
+    cy.get('input[placeholder="Search accounts…"]').type(accountName);
     cy.contains(accountName).should("be.visible");
 
     // Click into detail page

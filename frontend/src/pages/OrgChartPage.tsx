@@ -3,14 +3,15 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth, roleLabel, canManageUsers } from "../hooks/useAuth";
-import { formatCurrency, relativeTime } from "../lib/format";
-import { StageBadge, Badge } from "../components/ui";
+import { formatCurrency } from "../lib/format";
+import { StageBadge } from "../components/ui";
 import {
   UserPlus, Trash2, Edit2, X, Users,
-  Eye, Trophy, TrendingUp, Target, Building2, Phone, Mail,
-  Calendar, FileText, CheckSquare, Activity, ExternalLink,
-  Award, Search, Network, Grid, ChevronDown, ChevronRight,
-  Sparkles, Crown, ShieldCheck, UserCheck
+  Eye, Trophy, TrendingUp, Target, Building2,
+  ExternalLink,
+  Search, Network, Grid, ChevronDown, ChevronRight,
+  Sparkles, Crown, ShieldCheck, UserCheck,
+  ZoomIn, ZoomOut, RotateCcw, Move
 } from "lucide-react";
 
 // ── Role Config & Badge ──────────────────────────────────────────────────────
@@ -203,7 +204,7 @@ export function BirdsEyeModal({
   onSelectUser?: (user: any) => void;
 }) {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"activity" | "opportunities" | "accounts" | "team">("activity");
+  const [activeTab, setActiveTab] = useState<"opportunities" | "accounts" | "team">("opportunities");
 
   const { data, isLoading, error } = useQuery<any>({
     queryKey: ["user-bird-eye", userId],
@@ -233,18 +234,8 @@ export function BirdsEyeModal({
     );
   }
 
-  const { user, teamMembers = [], kpis = {}, recentActivities = [], recentOpps = [], accounts = [] } = data;
+  const { user, teamMembers = [], kpis = {}, recentOpps = [], accounts = [] } = data;
   const initials = `${user.firstName?.[0] || ""}${user.lastName?.[0] || ""}`.toUpperCase();
-
-  const activityIcons: Record<string, any> = {
-    CALL: Phone,
-    EMAIL: Mail,
-    MEETING: Calendar,
-    TASK: CheckSquare,
-    NOTE: FileText,
-    DEMO: Activity,
-    PROPOSAL: Award,
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto" onClick={onClose}>
@@ -367,17 +358,6 @@ export function BirdsEyeModal({
         {/* Tab Sub-header */}
         <div className="flex items-center gap-2 px-6 pt-3 border-b text-xs font-medium bg-[var(--ink-50)] border-[var(--ink-100)]">
           <button
-            onClick={() => setActiveTab("activity")}
-            className={`flex items-center gap-1.5 px-3 py-2 border-b-2 font-semibold transition-colors ${
-              activeTab === "activity"
-                ? "border-[var(--ledger-700)] text-[var(--ledger-700)]"
-                : "border-transparent text-[var(--ink-500)] hover:text-[var(--ink-800)]"
-            }`}
-          >
-            <Activity size={13} /> Activity Feed ({recentActivities.length})
-          </button>
-
-          <button
             onClick={() => setActiveTab("opportunities")}
             className={`flex items-center gap-1.5 px-3 py-2 border-b-2 font-semibold transition-colors ${
               activeTab === "opportunities"
@@ -399,7 +379,7 @@ export function BirdsEyeModal({
             <Building2 size={13} /> Accounts ({accounts.length})
           </button>
 
-          {user.orgRole === "PARTNER" && (
+          {(user.orgRole === "PARTNER" || user.orgRole === "SENIOR_PARTNER") && (
             <button
               onClick={() => setActiveTab("team")}
               className={`flex items-center gap-1.5 px-3 py-2 border-b-2 font-semibold transition-colors ${
@@ -415,83 +395,6 @@ export function BirdsEyeModal({
 
         {/* Tab Content Body */}
         <div className="p-6 overflow-y-auto flex-1 max-h-[480px]">
-          {activeTab === "activity" && (
-            <div>
-              {recentActivities.length === 0 ? (
-                <div className="text-center py-10 text-xs text-[var(--ink-400)]">No recent activity logged for this user.</div>
-              ) : (
-                <div className="space-y-3">
-                  {recentActivities.map((act: any) => {
-                    const ActIcon = activityIcons[act.type] || Activity;
-                    const targetUrl = act.opportunity
-                      ? `/opportunities/${act.opportunity.id}`
-                      : act.account
-                      ? `/accounts/${act.account.id}`
-                      : null;
-
-                    return (
-                      <div
-                        key={act.id}
-                        onClick={() => {
-                          if (targetUrl) {
-                            navigate(targetUrl);
-                            onClose();
-                          }
-                        }}
-                        className={`flex items-start gap-3 p-3 rounded-xl border transition-all border-[var(--ink-100)] ${
-                          targetUrl ? "hover:bg-[var(--ink-50)] hover:border-[var(--ledger-300)] cursor-pointer group" : ""
-                        }`}
-                      >
-                        <div className="p-2 rounded-lg shrink-0 bg-[var(--ink-100)] text-[var(--ledger-700)]">
-                          <ActIcon size={15} />
-                        </div>
-                        <div className="flex-1 min-w-0 text-xs">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-semibold truncate text-[var(--ink-900)] group-hover:text-[var(--ledger-700)] transition-colors">
-                              {act.subject}
-                            </span>
-                            <span className="text-[11px] font-mono-num whitespace-nowrap text-[var(--ink-400)]">{relativeTime(act.createdAt)}</span>
-                          </div>
-                          {act.body && <p className="text-[11px] mt-0.5 line-clamp-2 text-[var(--ink-600)]">{act.body}</p>}
-                          <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[10px]">
-                            <Badge tone={act.status === "COMPLETED" ? "green" : "neutral"}>{act.type}</Badge>
-                            {act.account && (
-                              <Link
-                                to={`/accounts/${act.account.id}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onClose();
-                                }}
-                                className="font-semibold text-[var(--ledger-700)] hover:underline flex items-center gap-0.5"
-                              >
-                                Account: {act.account.name} <ExternalLink size={9} />
-                              </Link>
-                            )}
-                            {act.opportunity && (
-                              <Link
-                                to={`/opportunities/${act.opportunity.id}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onClose();
-                                }}
-                                className="font-semibold text-[var(--ledger-700)] hover:underline flex items-center gap-0.5"
-                              >
-                                Opp: {act.opportunity.name} <ExternalLink size={9} />
-                              </Link>
-                            )}
-                            {act.owner && (
-                              <span className="ml-auto text-[var(--ink-400)]">By: {act.owner.firstName} {act.owner.lastName}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
           {activeTab === "opportunities" && (
             <div>
               {recentOpps.length === 0 ? (
@@ -566,7 +469,7 @@ export function BirdsEyeModal({
             </div>
           )}
 
-          {activeTab === "team" && user.orgRole === "PARTNER" && (
+          {activeTab === "team" && (user.orgRole === "PARTNER" || user.orgRole === "SENIOR_PARTNER") && (
             <div>
               {teamMembers.length === 0 ? (
                 <div className="text-center py-10 text-xs text-[var(--ink-400)]">No managers assigned under this Partner yet.</div>
@@ -608,7 +511,7 @@ export function BirdsEyeModal({
 // ── Add User modal ─────────────────────────────────────────────────────────
 function AddUserModal({
   actorOrgRole,
-  partners,
+  partners: _partners,
   onClose,
 }: {
   actorOrgRole: string;
@@ -680,27 +583,16 @@ function AddUserModal({
             <input required type="email" className={inputCls} style={inputStyle} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </div>
 
-          {actorOrgRole === "SENIOR_PARTNER" && (
-            <div>
-              <label className="block text-xs font-medium mb-1 text-[var(--ink-600)]">Role</label>
-              <select className={inputCls} style={inputStyle} value={form.orgRole} onChange={(e) => setForm({ ...form, orgRole: e.target.value })}>
-                <option value="PARTNER">Partner</option>
-                <option value="MANAGER">Manager</option>
-              </select>
-            </div>
-          )}
-
-          {(actorOrgRole === "SENIOR_PARTNER" && form.orgRole === "MANAGER") && (
-            <div>
-              <label className="block text-xs font-medium mb-1 text-[var(--ink-600)]">Reports to (Partner)</label>
-              <select required className={inputCls} style={inputStyle} value={form.partnerId} onChange={(e) => setForm({ ...form, partnerId: e.target.value })}>
-                <option value="">— Select Partner —</option>
-                {partners.map((p: any) => (
-                  <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div>
+            <label className="block text-xs font-medium mb-1 text-[var(--ink-600)]">Assigned Role</label>
+            <input
+              readOnly
+              disabled
+              className={`${inputCls} bg-slate-100 text-slate-700 font-semibold cursor-not-allowed`}
+              style={inputStyle}
+              value={actorOrgRole === "SENIOR_PARTNER" ? "Partner / Sales Lead" : "Manager / Sales Rep"}
+            />
+          </div>
 
           <div>
             <label className="block text-xs font-medium mb-1 text-[var(--ink-600)]">Temporary password</label>
@@ -852,6 +744,263 @@ function EditUserModal({
   );
 }
 
+// ── Interactive Canvas Component with Zoom & Pan ───────────────────────────
+function InteractiveZoomCanvas({
+  seniorPartners,
+  partners,
+  managers,
+  collapsedPartners,
+  canEdit,
+  togglePartnerCollapse,
+  setEditUser,
+  setDeleteTarget,
+  setDeleteError,
+  setBirdEyeUser,
+}: {
+  seniorPartners: any[];
+  partners: any[];
+  managers: any[];
+  collapsedPartners: Record<string, boolean>;
+  canEdit: boolean;
+  togglePartnerCollapse: (partnerId: string) => void;
+  setEditUser: (u: any) => void;
+  setDeleteTarget: (u: any) => void;
+  setDeleteError: (e: string) => void;
+  setBirdEyeUser: (u: any) => void;
+}) {
+  const [scale, setScale] = useState(0.85);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const zoomIn = () => setScale((s) => Math.min(s + 0.15, 2.0));
+  const zoomOut = () => setScale((s) => Math.max(s - 0.15, 0.3));
+  const resetZoom = () => {
+    setScale(0.85);
+    setPosition({ x: 0, y: 0 });
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button") || target.closest("a") || target.closest("input") || target.closest(".group")) {
+      return;
+    }
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    setPosition({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y,
+    });
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 0.08 : -0.08;
+      setScale((s) => Math.min(Math.max(s + delta, 0.3), 2.0));
+    }
+  };
+
+  return (
+    <div className="relative w-full rounded-2xl border border-[var(--ink-100)] bg-[var(--ink-50)]/60 overflow-hidden shadow-inner select-none h-[720px]">
+      {/* Floating Toolbar Controls */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 p-1.5 rounded-2xl bg-white/95 backdrop-blur-md border border-[var(--ink-200)] shadow-lg">
+        <button
+          type="button"
+          onClick={zoomOut}
+          className="p-2 rounded-xl text-[var(--ink-700)] hover:bg-[var(--ink-100)] transition-colors"
+          title="Zoom Out (-)"
+        >
+          <ZoomOut size={16} />
+        </button>
+
+        <span className="px-2.5 py-1 text-xs font-mono font-bold text-[var(--ink-800)] min-w-[52px] text-center border-x border-[var(--ink-100)]">
+          {Math.round(scale * 100)}%
+        </span>
+
+        <button
+          type="button"
+          onClick={zoomIn}
+          className="p-2 rounded-xl text-[var(--ink-700)] hover:bg-[var(--ink-100)] transition-colors"
+          title="Zoom In (+)"
+        >
+          <ZoomIn size={16} />
+        </button>
+
+        <button
+          type="button"
+          onClick={resetZoom}
+          className="p-2 rounded-xl text-[var(--ink-700)] hover:bg-[var(--ink-100)] transition-colors ml-1 border-l border-[var(--ink-100)]"
+          title="Reset View & Centering"
+        >
+          <RotateCcw size={16} />
+        </button>
+      </div>
+
+      {/* Panning Hint Badge */}
+      <div className="absolute bottom-4 left-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/90 backdrop-blur-md border border-[var(--ink-200)] shadow-sm text-xs text-[var(--ink-600)] font-medium">
+        <Move size={14} className="text-[var(--ledger-600)]" />
+        <span>Click & drag to pan canvas horizontally. Ctrl+Scroll to zoom.</span>
+      </div>
+
+      {/* Interactive Drag Canvas Viewport */}
+      <div
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onWheel={handleWheel}
+        className={`w-full h-full p-12 overflow-auto flex items-center justify-center ${
+          isDragging ? "cursor-grabbing" : "cursor-grab"
+        }`}
+      >
+        <div
+          className="transition-transform duration-75 origin-top-center min-w-max flex flex-col items-center py-6 px-16"
+          style={{
+            transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+          }}
+        >
+          {/* Senior Partners Level (Horizontal Row) */}
+          {seniorPartners.length > 0 && (
+            <div className="flex flex-col items-center">
+              <div className="text-[10px] uppercase font-bold tracking-widest px-3.5 py-1 rounded-full bg-slate-900 text-slate-100 mb-4 shadow-sm flex items-center gap-1.5">
+                <Crown size={12} className="text-amber-400" /> Senior Executive{seniorPartners.length > 1 ? `s (${seniorPartners.length})` : ""}
+              </div>
+              <div className="flex flex-nowrap items-center justify-center gap-12 min-w-max">
+                {seniorPartners.map((sp: any) => (
+                  <EnhancedUserCard
+                    key={sp.id}
+                    user={sp}
+                    canEdit={false}
+                    onEdit={() => {}}
+                    onDelete={() => {}}
+                    onSelect={(u) => setBirdEyeUser(u)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Vertical Stem from SP down to Partners */}
+          {seniorPartners.length > 0 && partners.length > 0 && (
+            <div className="flex flex-col items-center my-3">
+              <div className="w-0.5 h-8 bg-slate-800" />
+            </div>
+          )}
+
+          {/* Partners Level (Strict Horizontal Row) */}
+          {partners.length > 0 && (
+            <div className="flex flex-col items-center min-w-max">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <div className="h-px w-24 bg-emerald-300" />
+                <span className="text-[10px] font-bold uppercase tracking-widest px-3.5 py-1 rounded-full bg-emerald-800 text-emerald-100 flex items-center gap-1.5 shadow-sm">
+                  <ShieldCheck size={12} className="text-emerald-300" /> Partners ({partners.length})
+                </span>
+                <div className="h-px w-24 bg-emerald-300" />
+              </div>
+
+              {/* Horizontal Connecting Crossbar between Partners */}
+              {partners.length > 1 && (
+                <div className="flex justify-center -mt-2 mb-4">
+                  <div
+                    className="h-0.5 bg-emerald-500/70 rounded-full"
+                    style={{ width: `${Math.max(partners.length * 310 - 200, 300)}px` }}
+                  />
+                </div>
+              )}
+
+              {/* Strict Horizontal Row of Partners */}
+              <div className="flex flex-nowrap items-start justify-center gap-16 min-w-max px-8">
+                {partners.map((partner: any) => {
+                  const myManagers = managers.filter((m: any) => m.partnerId === partner.id);
+                  const isCollapsed = !!collapsedPartners[partner.id];
+
+                  return (
+                    <div key={partner.id} className="flex flex-col items-center min-w-max">
+                      <EnhancedUserCard
+                        user={partner}
+                         canEdit={canEdit}
+                        hasChildren={myManagers.length > 0}
+                        isExpanded={!isCollapsed}
+                        onToggleExpand={() => togglePartnerCollapse(partner.id)}
+                        onEdit={(u) => setEditUser(u)}
+                        onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
+                        onSelect={(u) => setBirdEyeUser(u)}
+                      />
+
+                      {/* Managers Horizontal Row under Partner */}
+                      {myManagers.length > 0 && !isCollapsed && (
+                        <div className="flex flex-col items-center mt-3 w-full min-w-max">
+                          <div className="w-0.5 h-6 bg-emerald-500" />
+                          {myManagers.length > 1 && (
+                            <div
+                              className="h-0.5 bg-indigo-400/80 rounded-full mb-3"
+                              style={{ width: `${Math.max(myManagers.length * 280 - 180, 200)}px` }}
+                            />
+                          )}
+                          <div className="flex flex-nowrap items-center justify-center gap-6 min-w-max">
+                            {myManagers.map((mgr: any) => (
+                              <div key={mgr.id} className="flex flex-col items-center min-w-max">
+                                {myManagers.length > 1 && <div className="w-0.5 h-3 bg-indigo-400" />}
+                                <EnhancedUserCard
+                                  user={mgr}
+                                  canEdit={canEdit}
+                                  onEdit={(u) => setEditUser(u)}
+                                  onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
+                                  onSelect={(u) => setBirdEyeUser(u)}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Unassigned Managers */}
+          {(() => {
+            const orphans = managers.filter((m: any) => !m.partnerId);
+            if (!orphans.length) return null;
+            return (
+              <div className="mt-12 pt-8 border-t border-[var(--ink-200)] flex flex-col items-center min-w-max">
+                <div className="flex items-center justify-center gap-2 mb-6">
+                  <div className="h-px w-24 bg-indigo-200" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-indigo-900 text-indigo-100 flex items-center gap-1.5 shadow-sm">
+                    <Users size={12} className="text-indigo-300" /> Unassigned Sales Managers ({orphans.length})
+                  </span>
+                  <div className="h-px w-24 bg-indigo-200" />
+                </div>
+                <div className="flex flex-nowrap gap-6 justify-center min-w-max">
+                  {orphans.map((mgr: any) => (
+                    <EnhancedUserCard
+                      key={mgr.id}
+                      user={mgr}
+                      canEdit={canEdit}
+                      onEdit={(u) => setEditUser(u)}
+                      onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
+                      onSelect={(u) => setBirdEyeUser(u)}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────
 export default function OrgChartPage() {
   const { user: me } = useAuth();
@@ -898,24 +1047,32 @@ export default function OrgChartPage() {
     setCollapsedPartners((prev) => ({ ...prev, [partnerId]: !prev[partnerId] }));
   };
 
-  // Filtered members list for search/grid view
+  // Filtered members list for search/grid/tree view
+  const filteredSeniorPartners = useMemo(() => seniorPartners.filter((u) => {
+    const matchesSearch = !searchQuery || `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesRole = roleFilter === "ALL" || u.orgRole === roleFilter;
+    return matchesSearch && matchesRole;
+  }), [seniorPartners, searchQuery, roleFilter]);
+
+  const filteredPartners = useMemo(() => partners.filter((u) => {
+    const matchesSearch = !searchQuery || `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesRole = roleFilter === "ALL" || u.orgRole === roleFilter;
+    return matchesSearch && matchesRole;
+  }), [partners, searchQuery, roleFilter]);
+
+  const filteredManagers = useMemo(() => managers.filter((u) => {
+    const matchesSearch = !searchQuery || `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesRole = roleFilter === "ALL" || u.orgRole === roleFilter;
+    return matchesSearch && matchesRole;
+  }), [managers, searchQuery, roleFilter]);
+
   const filteredUsers = useMemo(() => {
     const allUsers: any[] = [];
-    allUsers.push(...seniorPartners);
-    allUsers.push(...partners);
-    allUsers.push(...managers);
-
-    return allUsers.filter((u) => {
-      const matchesSearch =
-        !searchQuery ||
-        `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.email.toLowerCase().includes(searchQuery.toLowerCase());
-
-      const matchesRole = roleFilter === "ALL" || u.orgRole === roleFilter;
-
-      return matchesSearch && matchesRole;
-    });
-  }, [seniorPartners, partners, managers, searchQuery, roleFilter]);
+    allUsers.push(...filteredSeniorPartners);
+    allUsers.push(...filteredPartners);
+    allUsers.push(...filteredManagers);
+    return allUsers;
+  }, [filteredSeniorPartners, filteredPartners, filteredManagers]);
 
   if (isLoading) {
     return (
@@ -1076,137 +1233,19 @@ export default function OrgChartPage() {
           )}
         </div>
       ) : (
-        /* HIERARCHY TREE VIEW */
-        <div className="bg-white p-6 md:p-10 rounded-2xl border border-[var(--ink-100)] shadow-xs overflow-x-auto">
-          {/* Senior Partner Level */}
-          {seniorPartners.length > 0 && (
-            <div className="flex flex-col items-center">
-              <div className="text-[10px] uppercase font-bold tracking-widest px-3 py-1 rounded-full bg-slate-900 text-slate-100 mb-3 shadow-xs flex items-center gap-1.5">
-                <Crown size={12} className="text-amber-400" /> Senior Partner{seniorPartners.length > 1 ? `s (${seniorPartners.length})` : ""}
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-6">
-                {seniorPartners.map((sp) => (
-                  <EnhancedUserCard
-                    key={sp.id}
-                    user={sp}
-                    canEdit={false}
-                    onEdit={() => {}}
-                    onDelete={() => {}}
-                    onSelect={(u) => setBirdEyeUser(u)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Connector down from SP to Partners */}
-          {seniorPartners.length > 0 && partners.length > 0 && (
-            <div className="flex flex-col items-center my-4">
-              <div className="w-0.5 h-8 bg-gradient-to-b from-slate-800 to-emerald-600" />
-            </div>
-          )}
-
-          {/* Partners Level */}
-          {partners.length > 0 && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <div className="h-px w-24 bg-emerald-200" />
-                <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-800 text-emerald-100 flex items-center gap-1.5">
-                  <ShieldCheck size={12} className="text-emerald-300" /> Partners ({partners.length})
-                </span>
-                <div className="h-px w-24 bg-emerald-200" />
-              </div>
-
-              {/* Horizontal Connecting Line across Partners */}
-              {partners.length > 1 && (
-                <div className="flex justify-center -mt-2 mb-4">
-                  <div
-                    className="h-0.5 bg-emerald-400/60 rounded-full"
-                    style={{ width: `${Math.min(partners.length * 280, 1000)}px` }}
-                  />
-                </div>
-              )}
-
-              <div className="flex flex-wrap justify-center gap-8 items-start">
-                {partners.map((partner) => {
-                  const myManagers = managers.filter((m) => m.partnerId === partner.id);
-                  const isCollapsed = !!collapsedPartners[partner.id];
-
-                  return (
-                    <div key={partner.id} className="flex flex-col items-center">
-                      <EnhancedUserCard
-                        user={partner}
-                        canEdit={canEdit && me?.orgRole === "SENIOR_PARTNER"}
-                        hasChildren={myManagers.length > 0}
-                        isExpanded={!isCollapsed}
-                        onToggleExpand={() => togglePartnerCollapse(partner.id)}
-                        onEdit={(u) => setEditUser(u)}
-                        onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
-                        onSelect={(u) => setBirdEyeUser(u)}
-                      />
-
-                      {/* Partner's Sub-Tree of Managers */}
-                      {myManagers.length > 0 && !isCollapsed && (
-                        <div className="flex flex-col items-center mt-3 w-full">
-                          <div className="w-0.5 h-6 bg-emerald-400" />
-                          {myManagers.length > 1 && (
-                            <div
-                              className="h-0.5 bg-indigo-300 rounded-full mb-3"
-                              style={{ width: `${Math.min(myManagers.length * 260, 800)}px` }}
-                            />
-                          )}
-                          <div className="flex flex-wrap justify-center gap-4">
-                            {myManagers.map((mgr) => (
-                              <div key={mgr.id} className="flex flex-col items-center">
-                                {myManagers.length > 1 && <div className="w-0.5 h-3 bg-indigo-300" />}
-                                <EnhancedUserCard
-                                  user={mgr}
-                                  canEdit={canEdit}
-                                  onEdit={(u) => setEditUser(u)}
-                                  onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
-                                  onSelect={(u) => setBirdEyeUser(u)}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Unassigned Managers */}
-          {(() => {
-            const orphans = managers.filter((m) => !m.partnerId);
-            if (!orphans.length) return null;
-            return (
-              <div className="mt-12 pt-8 border-t border-[var(--ink-100)]">
-                <div className="flex items-center justify-center gap-2 mb-6">
-                  <div className="h-px w-24 bg-indigo-200" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-indigo-900 text-indigo-100 flex items-center gap-1.5">
-                    <Users size={12} className="text-indigo-300" /> Unassigned Sales Managers ({orphans.length})
-                  </span>
-                  <div className="h-px w-24 bg-indigo-200" />
-                </div>
-                <div className="flex flex-wrap gap-5 justify-center">
-                  {orphans.map((mgr) => (
-                    <EnhancedUserCard
-                      key={mgr.id}
-                      user={mgr}
-                      canEdit={canEdit}
-                      onEdit={(u) => setEditUser(u)}
-                      onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
-                      onSelect={(u) => setBirdEyeUser(u)}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-        </div>
+        /* HIERARCHY TREE VIEW WITH INTERACTIVE ZOOM & PAN CANVAS */
+        <InteractiveZoomCanvas
+          seniorPartners={filteredSeniorPartners}
+          partners={filteredPartners}
+          managers={filteredManagers}
+          collapsedPartners={collapsedPartners}
+          canEdit={canEdit}
+          togglePartnerCollapse={togglePartnerCollapse}
+          setEditUser={setEditUser}
+          setDeleteTarget={setDeleteTarget}
+          setDeleteError={setDeleteError}
+          setBirdEyeUser={setBirdEyeUser}
+        />
       )}
 
       {/* Bird's-Eye View Modal */}

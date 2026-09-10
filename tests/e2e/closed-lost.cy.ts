@@ -13,7 +13,7 @@ describe("Closed Lost Workflow E2E", () => {
   it("Closed Lost requires mandatory loss reason", () => {
     cy.createOpportunity(accountId, undefined, { name: `Closed Lost Test Opp ${Date.now()}` }).then((opp) => {
       cy.visit(`/opportunities/${opp.id}`);
-      cy.get("button").contains("Closed Lost").click();
+      cy.get("select").first().select("Closed Lost");
 
       cy.contains("Closed Lost Reason Required").should("be.visible");
 

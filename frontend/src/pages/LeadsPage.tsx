@@ -12,7 +12,7 @@ import { SavedViewsBar } from "../components/SavedViewsBar";
 import { fetchOwnerOptions } from "../lib/pickers";
 import { initials, relativeTime } from "../lib/format";
 import type { Lead, Paginated, LeadStatus } from "../lib/types";
-import { Plus, Search, Archive, UploadCloud, Download } from "lucide-react";
+import { Plus, Search, UploadCloud, Download } from "lucide-react";
 
 const STATUSES: (LeadStatus | "ALL")[] = ["ALL", "NEW", "CONTACTED", "QUALIFIED", "NURTURING", "UNQUALIFIED", "CONVERTED"];
 
@@ -158,7 +158,6 @@ export default function LeadsPage() {
       <BulkActionBar count={selected.size} onClear={() => setSelected(new Set())}>
         <Button size="sm" variant="secondary" onClick={() => setBulkOwnerPicker(true)}>Assign Owner</Button>
         <Button size="sm" variant="secondary" onClick={() => setBulkStatusPicker(true)}>Change Status</Button>
-        <Button size="sm" variant="danger" onClick={() => bulkMutation.mutate({ action: "archive" })} disabled={bulkMutation.isPending}><Archive size={13} /> Archive</Button>
       </BulkActionBar>
 
       {bulkOwnerPicker && (

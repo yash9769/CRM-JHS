@@ -13,15 +13,23 @@ import { QuickCreateButton } from "./QuickCreate";
 import { StageApprovalsWidget } from "./StageApprovalsWidget";
 import { StickyNotesWidget } from "./StickyNotesWidget";
 
-const navigationItems = [
+type NavigationItem = {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  exact?: boolean;
+  roles?: Array<"SENIOR_PARTNER" | "PARTNER" | "MANAGER">;
+};
+
+const navigationItems: NavigationItem[] = [
   { to: "/",              label: "Dashboard",     icon: LayoutDashboard, exact: true },
-  { to: "/pipeline",       label: "Pipeline",      icon: KanbanSquare },
-  { to: "/accounts",       label: "Accounts",      icon: Building2 },
-  { to: "/opportunities",  label: "Opportunities", icon: Target },
-  { to: "/contacts",       label: "Contacts",      icon: Users },
-  { to: "/services",       label: "Services",      icon: Layers },
-  { to: "/products",       label: "Products",      icon: Package },
-  { to: "/quotes",         label: "Quotes",        icon: FileText },
+  { to: "/pipeline",      label: "Pipeline",      icon: KanbanSquare },
+  { to: "/accounts",      label: "Accounts",      icon: Building2 },
+  { to: "/opportunities", label: "Opportunities", icon: Target },
+  { to: "/contacts",      label: "Contacts",      icon: Users },
+  { to: "/services",      label: "Services",      icon: Layers },
+  { to: "/products",      label: "Products",      icon: Package },
+  { to: "/quotes",        label: "Quotes",        icon: FileText, roles: ["SENIOR_PARTNER", "PARTNER"] },
 ];
 
 function NotificationBell() {
@@ -197,7 +205,9 @@ export default function AppShell() {
 
       {/* Navigation items in strictly required order */}
       <div className="space-y-0.5 mb-4">
-        {navigationItems.map((item) => {
+        {navigationItems
+          .filter((item) => !item.roles || (user?.orgRole && item.roles.includes(user.orgRole as NonNullable<NavigationItem["roles"]>[number])))
+          .map((item) => {
           const isActive = item.exact
             ? location.pathname === item.to
             : (location.pathname === item.to || location.pathname.startsWith(item.to + "/"));

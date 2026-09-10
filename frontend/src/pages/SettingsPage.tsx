@@ -166,27 +166,6 @@ export default function SettingsPage() {
                 )}
               </div>
             </div>
-
-            <div className="p-3.5 rounded-lg border border-[var(--ink-100)] bg-[var(--ink-50)] flex flex-col justify-between">
-              <div>
-                <div className="font-semibold text-sm text-[var(--ink-900)]">Tasks & Activity Log</div>
-                <p className="text-xs text-[var(--ink-500)] mt-0.5">Export all tasks, calls, meetings, and follow-ups across the team.</p>
-              </div>
-              <div className="flex items-center gap-2 mt-3 pt-2 border-t border-[var(--ink-100)]">
-                {me?.orgRole !== "MANAGER" ? (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => downloadCsvExport("/activities/export", {}, "tasks.csv")}
-                    className="text-xs"
-                  >
-                    <Download size={13} className="mr-1" /> Export Tasks CSV
-                  </Button>
-                ) : (
-                  <span className="text-xs text-[var(--ink-400)] italic">Export restricted for Manager</span>
-                )}
-              </div>
-            </div>
           </div>
         </Card>
 

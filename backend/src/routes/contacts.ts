@@ -1,10 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { logAudit } from "../lib/audit.js";
+import { logAudit, notify } from "../lib/audit.js";
 import { toCsv } from "../lib/csv.js";
 import { getCreatedByFilter, requireCanAccess, requireExportPermission } from "../lib/rbac.js";
 import { phoneSchema, nameSchema } from "../lib/validators.js";
+import {
+  emailListSchema, phoneListSchema, primaryEmail, primaryPhoneString, normalizePrimary,
+  type EmailEntry, type PhoneEntry,
+} from "../lib/multiValueFields.js";
 
 const contactSchema = z.object({
   firstName: nameSchema,
@@ -12,6 +16,8 @@ const contactSchema = z.object({
   email: z.string().email().optional().nullable().or(z.literal("")),
   phone: phoneSchema,
   phoneNumber: phoneSchema,
+  emails: emailListSchema,
+  phones: phoneListSchema,
   jobTitle: z.string().optional().nullable(),
   designation: z.string().optional().nullable(),
   lifecycleStage: z
@@ -24,6 +30,36 @@ const contactSchema = z.object({
   address: z.string().optional().nullable(),
   properties: z.record(z.any()).optional(),
 });
+
+/** Writes the full emails[]/phones[] replacement set for a contact inside a transaction. */
+async function syncContactMultiFields(
+  tx: any,
+  tenantId: string,
+  contactId: string,
+  emails: EmailEntry[] | undefined,
+  phones: PhoneEntry[] | undefined
+) {
+  if (emails !== undefined) {
+    await tx.contactEmail.deleteMany({ where: { contactId } });
+    const normalized = normalizePrimary(emails);
+    if (normalized.length) {
+      await tx.contactEmail.createMany({
+        data: normalized.map((e) => ({ tenantId, contactId, email: e.email, label: e.label || null, isPrimary: !!e.isPrimary })),
+      });
+    }
+  }
+  if (phones !== undefined) {
+    await tx.contactPhone.deleteMany({ where: { contactId } });
+    const normalized = normalizePrimary(phones);
+    if (normalized.length) {
+      await tx.contactPhone.createMany({
+        data: normalized.map((p) => ({
+          tenantId, contactId, countryCode: p.countryCode, number: p.number, label: p.label || null, isPrimary: !!p.isPrimary,
+        })),
+      });
+    }
+  }
+}
 
 async function findDuplicateContacts(tenantId: string, data: { email?: string | null; phone?: string | null }) {
   const or: any[] = [];
@@ -72,6 +108,7 @@ export default async function contactRoutes(app: FastifyInstance) {
           { firstName: { contains: q.search, mode: "insensitive" as const } },
           { lastName: { contains: q.search, mode: "insensitive" as const } },
           { email: { contains: q.search, mode: "insensitive" as const } },
+          { phone: { contains: q.search, mode: "insensitive" as const } },
         ],
       });
     }
@@ -84,7 +121,7 @@ export default async function contactRoutes(app: FastifyInstance) {
           account: { select: { id: true, name: true } },
           owner: { select: { id: true, firstName: true, lastName: true } },
         },
-        orderBy: { updatedAt: "desc" },
+        orderBy: { createdAt: "desc" },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -121,10 +158,11 @@ export default async function contactRoutes(app: FastifyInstance) {
           { firstName: { contains: q.search, mode: "insensitive" as const } },
           { lastName: { contains: q.search, mode: "insensitive" as const } },
           { email: { contains: q.search, mode: "insensitive" as const } },
+          { phone: { contains: q.search, mode: "insensitive" as const } },
         ],
       });
     }
-    const contacts = await prisma.contact.findMany({ where, include: { account: { select: { name: true } }, owner: { select: { firstName: true, lastName: true } } }, orderBy: { updatedAt: "desc" } });
+    const contacts = await prisma.contact.findMany({ where, include: { account: { select: { name: true } }, owner: { select: { firstName: true, lastName: true } } }, orderBy: { createdAt: "desc" } });
     const rows = contacts.map((c) => ({
       firstName: c.firstName,
       lastName: c.lastName,
@@ -336,12 +374,28 @@ export default async function contactRoutes(app: FastifyInstance) {
 
   app.post("/api/v1/contacts", { preHandler: app.authenticate }, async (req, reply) => {
     const body = contactSchema.parse(req.body);
-    const { designation, phoneNumber, ...rest } = body;
+    const { designation, phoneNumber, emails, phones, ...rest } = body;
+    // The emails[]/phones[] lists are the source of truth when present; the
+    // legacy scalar columns are kept as a mirror of whichever entry is
+    // primary so existing search/CSV/dedupe code keeps working unchanged.
+    const resolvedEmail = emails !== undefined ? primaryEmail(emails) : (rest.email || null);
+    const resolvedPhone = phones !== undefined
+      ? primaryPhoneString(phones)
+      : (phoneNumber !== undefined ? phoneNumber : body.phone);
     const dataToSave = {
       ...rest,
-      phone: phoneNumber !== undefined ? phoneNumber : body.phone,
+      email: resolvedEmail,
+      phone: resolvedPhone,
       jobTitle: designation !== undefined ? designation : body.jobTitle,
     };
+    // A contact with neither a phone nor an email is unreachable -- require
+    // at least one, mirroring the same check the create/edit forms run.
+    if (!dataToSave.email && !dataToSave.phone) {
+      return reply.code(400).send({
+        error: "Validation error",
+        details: [{ path: ["email"], message: "Provide a phone number or an email address." }],
+      });
+    }
     if (dataToSave.accountId) {
       const account = await prisma.account.findFirst({
         where: { id: dataToSave.accountId, tenantId: req.authUser.tenantId },
@@ -353,7 +407,13 @@ export default async function contactRoutes(app: FastifyInstance) {
       const duplicates = await findDuplicateContacts(req.authUser.tenantId, dataToSave);
       if (duplicates.length) return reply.code(409).send({ error: "Possible duplicate contact", duplicates });
     }
-    const contact = await prisma.contact.create({ data: { ...dataToSave, tenantId: req.authUser.tenantId, createdById: req.authUser.id } });
+    const contact = await prisma.$transaction(async (tx) => {
+      const created = await tx.contact.create({
+        data: { ...dataToSave, tenantId: req.authUser.tenantId, createdById: req.authUser.id },
+      });
+      await syncContactMultiFields(tx, req.authUser.tenantId, created.id, emails, phones);
+      return created;
+    });
     await logAudit({
       tenantId: req.authUser.tenantId,
       userId: req.authUser.id,
@@ -375,6 +435,8 @@ export default async function contactRoutes(app: FastifyInstance) {
         opportunityContacts: { include: { opportunity: { include: { stage: true } } } },
         activities: { orderBy: { createdAt: "desc" }, take: 50 },
         notes: { include: { author: { select: { id: true, firstName: true, lastName: true } } }, orderBy: { createdAt: "desc" } },
+        emails: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
+        phones: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
       },
     });
     if (!contact) return reply.code(404).send({ error: "Contact not found" });
@@ -388,13 +450,20 @@ export default async function contactRoutes(app: FastifyInstance) {
     const existing = await prisma.contact.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Contact not found" });
     await requireCanAccess(req.authUser, existing, "write");
-    const { designation, phoneNumber, ...rest } = body;
+    const { designation, phoneNumber, emails, phones, ...rest } = body;
     const dataToUpdate = {
       ...rest,
-      ...(phoneNumber !== undefined ? { phone: phoneNumber } : {}),
+      ...(emails !== undefined ? { email: primaryEmail(emails) } : {}),
+      ...(phones !== undefined
+        ? { phone: primaryPhoneString(phones) }
+        : phoneNumber !== undefined ? { phone: phoneNumber } : {}),
       ...(designation !== undefined ? { jobTitle: designation } : {}),
     };
-    const contact = await prisma.contact.update({ where: { id }, data: dataToUpdate });
+    const contact = await prisma.$transaction(async (tx) => {
+      const updated = await tx.contact.update({ where: { id }, data: dataToUpdate });
+      await syncContactMultiFields(tx, req.authUser.tenantId, id, emails, phones);
+      return updated;
+    });
     await logAudit({
       tenantId: req.authUser.tenantId,
       userId: req.authUser.id,
@@ -407,12 +476,229 @@ export default async function contactRoutes(app: FastifyInstance) {
     return contact;
   });
 
+  // DELETION REQUEST — Manager submits deletion request for Partner Approval
+  app.post("/api/v1/contacts/:id/deletion-request", { preHandler: app.authenticate }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = z.object({ reason: z.string().min(1, "Reason is required") }).parse(req.body);
+
+    const existing = await prisma.contact.findFirst({
+      where: { id, tenantId: req.authUser.tenantId },
+    });
+    if (!existing) return reply.code(404).send({ error: "Contact not found" });
+    await requireCanAccess(req.authUser, existing, "write");
+
+    const activePending = await prisma.contactDeletionRequest.findFirst({
+      where: { tenantId: req.authUser.tenantId, contactId: id, status: "PENDING" },
+    });
+    if (activePending) {
+      return reply.code(400).send({
+        error: "A pending deletion request already exists for this contact. Please wait for partner review.",
+      });
+    }
+
+    let partnerId = req.authUser.partnerId;
+    if (!partnerId) {
+      const partnerUser = await prisma.user.findFirst({
+        where: { tenantId: req.authUser.tenantId, orgRole: { in: ["PARTNER", "SENIOR_PARTNER"] }, active: true, id: { not: req.authUser.id } },
+      });
+      partnerId = partnerUser?.id || null;
+    }
+
+    const deletionRequest = await prisma.contactDeletionRequest.create({
+      data: {
+        tenantId: req.authUser.tenantId,
+        contactId: id,
+        contactName: `${existing.firstName} ${existing.lastName}`,
+        requestedById: req.authUser.id,
+        approverId: partnerId,
+        reason: body.reason,
+        status: "PENDING",
+      },
+      include: {
+        contact: { select: { id: true, firstName: true, lastName: true } },
+        requestedBy: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    const partnersToNotify = await prisma.user.findMany({
+      where: { tenantId: req.authUser.tenantId, orgRole: { in: ["PARTNER", "SENIOR_PARTNER"] }, active: true, id: { not: req.authUser.id } },
+      select: { id: true },
+    });
+    for (const p of partnersToNotify) {
+      await notify({
+        tenantId: req.authUser.tenantId,
+        userId: p.id,
+        message: `Contact Deletion Requested: "${existing.firstName} ${existing.lastName}" requested by ${req.authUser.firstName} ${req.authUser.lastName}. Reason: ${body.reason}`,
+        link: `/approvals`,
+      });
+    }
+
+    return deletionRequest;
+  });
+
+  // GET pending/historical Contact Deletion Requests
+  app.get("/api/v1/contacts/deletion-requests", { preHandler: app.authenticate }, async (req) => {
+    const q = req.query as { status?: string };
+    const statusFilter = q.status && q.status !== "all" ? (q.status as any) : "PENDING";
+    const isManager = req.authUser.orgRole === "MANAGER";
+
+    const where: any = {
+      tenantId: req.authUser.tenantId,
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(isManager
+        ? { requestedById: req.authUser.id }
+        : {
+            OR: [
+              { approverId: req.authUser.id },
+              { approverId: null },
+              ...(req.authUser.orgRole === "SENIOR_PARTNER" ? [{ tenantId: req.authUser.tenantId }] : []),
+            ],
+          }),
+    };
+
+    const requests = await prisma.contactDeletionRequest.findMany({
+      where,
+      include: {
+        contact: { select: { id: true, firstName: true, lastName: true, email: true, jobTitle: true, account: { select: { id: true, name: true } } } },
+        requestedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+        reviewedBy: { select: { id: true, firstName: true, lastName: true } },
+        approver: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return { data: requests };
+  });
+
+  // Approve Contact Deletion Request
+  app.post("/api/v1/contacts/deletion-requests/:requestId/approve", { preHandler: app.authenticate }, async (req, reply) => {
+    if (req.authUser.orgRole === "MANAGER") {
+      return reply.code(403).send({ error: "Only Partners and Senior Partners can approve contact deletion requests." });
+    }
+    const { requestId } = req.params as { requestId: string };
+    const delReq = await prisma.contactDeletionRequest.findFirst({
+      where: { id: requestId, tenantId: req.authUser.tenantId, status: "PENDING" },
+      include: { contact: true, requestedBy: true },
+    });
+    if (!delReq) return reply.code(404).send({ error: "Pending deletion request not found" });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.contactDeletionRequest.update({
+        where: { id: requestId },
+        data: {
+          status: "APPROVED",
+          reviewedById: req.authUser.id,
+          reviewedAt: new Date(),
+        },
+      });
+      if (delReq.contactId) {
+        const contactId = delReq.contactId;
+        await tx.contactEmail.deleteMany({ where: { contactId } });
+        await tx.contactPhone.deleteMany({ where: { contactId } });
+        await tx.opportunityContact.deleteMany({ where: { contactId } });
+        await tx.opportunity.updateMany({ where: { contactId }, data: { contactId: null } });
+        await tx.activity.deleteMany({ where: { contactId } });
+        await tx.note.deleteMany({ where: { contactId } });
+        await tx.contact.delete({ where: { id: contactId } });
+      }
+    });
+
+    await logAudit({
+      tenantId: req.authUser.tenantId,
+      userId: req.authUser.id,
+      objectType: "CONTACT",
+      recordId: delReq.contactId || requestId,
+      action: "DELETED",
+      oldValues: { contactName: delReq.contactName, reason: delReq.reason, approvedBy: req.authUser.email },
+    });
+
+    if (delReq.requestedById) {
+      await notify({
+        tenantId: req.authUser.tenantId,
+        userId: delReq.requestedById,
+        message: `Your deletion request for contact "${delReq.contactName}" was approved.`,
+        link: `/contacts`,
+      });
+    }
+
+    return { success: true, message: `Contact "${delReq.contactName}" deleted successfully.` };
+  });
+
+  // Disapprove Contact Deletion Request
+  app.post("/api/v1/contacts/deletion-requests/:requestId/disapprove", { preHandler: app.authenticate }, async (req, reply) => {
+    if (req.authUser.orgRole === "MANAGER") {
+      return reply.code(403).send({ error: "Only Partners and Senior Partners can reject contact deletion requests." });
+    }
+    const { requestId } = req.params as { requestId: string };
+    const body = z.object({ reviewComment: z.string().optional() }).parse(req.body);
+
+    const delReq = await prisma.contactDeletionRequest.findFirst({
+      where: { id: requestId, tenantId: req.authUser.tenantId, status: "PENDING" },
+    });
+    if (!delReq) return reply.code(404).send({ error: "Pending deletion request not found" });
+
+    const updated = await prisma.contactDeletionRequest.update({
+      where: { id: requestId },
+      data: {
+        status: "DISAPPROVED",
+        reviewedById: req.authUser.id,
+        reviewedAt: new Date(),
+        reviewComment: body.reviewComment || null,
+      },
+    });
+
+    if (delReq.requestedById) {
+      await notify({
+        tenantId: req.authUser.tenantId,
+        userId: delReq.requestedById,
+        message: `Your deletion request for contact "${delReq.contactName}" was rejected${body.reviewComment ? `: ${body.reviewComment}` : "."}`,
+        link: `/contacts`,
+      });
+    }
+
+    return updated;
+  });
+
+  // Revoke Contact Deletion Request (by Manager requester)
+  app.post("/api/v1/contacts/deletion-requests/:requestId/revoke", { preHandler: app.authenticate }, async (req, reply) => {
+    const { requestId } = req.params as { requestId: string };
+    const delReq = await prisma.contactDeletionRequest.findFirst({
+      where: { id: requestId, tenantId: req.authUser.tenantId, status: "PENDING" },
+    });
+    if (!delReq) return reply.code(404).send({ error: "Pending deletion request not found" });
+    if (delReq.requestedById !== req.authUser.id && req.authUser.orgRole === "MANAGER") {
+      return reply.code(403).send({ error: "You can only revoke your own deletion requests." });
+    }
+
+    const updated = await prisma.contactDeletionRequest.update({
+      where: { id: requestId },
+      data: { status: "CANCELLED", reviewedAt: new Date() },
+    });
+    return updated;
+  });
+
   app.delete("/api/v1/contacts/:id", { preHandler: app.authenticate }, async (req, reply) => {
+    if (req.authUser.orgRole === "MANAGER") {
+      return reply.code(403).send({
+        error: "Managers cannot directly delete contacts. Please submit a deletion request for Partner approval.",
+      });
+    }
     const { id } = req.params as { id: string };
     const existing = await prisma.contact.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!existing) return reply.code(404).send({ error: "Contact not found" });
     await requireCanAccess(req.authUser, existing, "write");
-    await prisma.contact.delete({ where: { id } });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.contactEmail.deleteMany({ where: { contactId: id } });
+      await tx.contactPhone.deleteMany({ where: { contactId: id } });
+      await tx.opportunityContact.deleteMany({ where: { contactId: id } });
+      await tx.opportunity.updateMany({ where: { contactId: id }, data: { contactId: null } });
+      await tx.activity.deleteMany({ where: { contactId: id } });
+      await tx.note.deleteMany({ where: { contactId: id } });
+      await tx.contactDeletionRequest.deleteMany({ where: { contactId: id } });
+      await tx.contact.delete({ where: { id } });
+    });
+
     await logAudit({
       tenantId: req.authUser.tenantId,
       userId: req.authUser.id,
@@ -422,15 +708,5 @@ export default async function contactRoutes(app: FastifyInstance) {
       oldValues: existing,
     });
     return reply.code(204).send();
-  });
-
-  app.post("/api/v1/contacts/:id/archive", { preHandler: app.authenticate }, async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const existing = await prisma.contact.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
-    if (!existing) return reply.code(404).send({ error: "Contact not found" });
-    await requireCanAccess(req.authUser, existing, "write");
-    const contact = await prisma.contact.update({ where: { id }, data: { archived: true } });
-    await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "CONTACT", recordId: id, action: "ARCHIVED" });
-    return contact;
   });
 }

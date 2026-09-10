@@ -7,7 +7,8 @@ import { NotesOnlyPanel } from "../components/NotesOnlyPanel";
 import { ClosedWonModal } from "../components/ClosedWonModal";
 import { ClosedLostModal } from "../components/ClosedLostModal";
 import { NewContactModal, NewQuoteModal, AddLineItemModal } from "../components/CreateModals";
-import { EditOpportunityModal, ArchiveConfirmModal } from "../components/EditModals";
+import { EditOpportunityModal } from "../components/EditModals";
+import { ConfirmStageChangeModal } from "../components/ConfirmStageChangeModal";
 import { HistoryPanel } from "../components/HistoryPanel";
 import { formatCurrency, formatDate } from "../lib/format";
 import { computeOpportunityFinancials } from "../lib/financial";
@@ -15,6 +16,7 @@ import type { Opportunity } from "../lib/types";
 import { useAuth } from "../hooks/useAuth";
 import { ApprovalRequestModal } from "../components/ApprovalRequestModal";
 import { ApprovalReviewModal } from "../components/ApprovalReviewModal";
+import { OpportunityDeletionModal } from "../components/OpportunityDeletionModal";
 import {
   ArrowRight, Building2, User, Pencil, UserPlus,
   FileText, Plus, Trash2, Download, Clock, ShieldAlert, RotateCcw,
@@ -28,19 +30,13 @@ export default function OpportunityDetailPage() {
   const { user } = useAuth();
   const isPartner = user?.orgRole === "PARTNER" || user?.orgRole === "SENIOR_PARTNER";
 
-  const [modal, setModal] = useState<"edit" | "contact" | "archive" | "lineItem" | "quote" | null>(null);
+  const [modal, setModal] = useState<"edit" | "contact" | "lineItem" | "quote" | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [requestModalStage, setRequestModalStage] = useState<{ id: string; name: string } | null>(null);
   const [reviewModalApproval, setReviewModalApproval] = useState<any | null>(null);
   const [closedWonModalStageId, setClosedWonModalStageId] = useState<string | null>(null);
   const [closedLostModalStageId, setClosedLostModalStageId] = useState<string | null>(null);
-
-  const archiveMutation = useMutation({
-    mutationFn: () => api.post(`/opportunities/${id}/archive`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["opportunities"] });
-      navigate("/opportunities");
-    },
-  });
+  const [confirmStageTarget, setConfirmStageTarget] = useState<any | null>(null);
 
   const deleteLineItemMutation = useMutation({
     mutationFn: (lineItemId: string) => api.delete(`/opportunities/${id}/line-items/${lineItemId}`),
@@ -64,6 +60,7 @@ export default function OpportunityDetailPage() {
   });
 
   const pendingApproval = opp?.stageApprovals?.find((a) => a.status === "PENDING");
+  const pendingDeletion = opp?.deletionRequests?.find((d) => d.status === "PENDING");
 
   const approveMutation = useMutation({
     mutationFn: ({ approvalId, comments }: { approvalId: string; comments?: string }) =>
@@ -87,7 +84,70 @@ export default function OpportunityDetailPage() {
     },
   });
 
-  if (isLoading || !opp) return <div className="p-8 text-sm text-[var(--ink-400)]">Loading opportunity…</div>;
+  const approveDeletionMutation = useMutation({
+    mutationFn: (requestId: string) => api.post(`/opportunities/deletion-requests/${requestId}/approve`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["opportunities"] });
+      qc.invalidateQueries({ queryKey: ["opportunity-deletion-requests"] });
+      navigate("/opportunities");
+    },
+    onError: (err: any) => alert(err?.response?.data?.error || "Failed to approve deletion"),
+  });
+
+  const rejectDeletionMutation = useMutation({
+    mutationFn: ({ requestId, comment }: { requestId: string; comment?: string }) =>
+      api.post(`/opportunities/deletion-requests/${requestId}/disapprove`, { reviewComment: comment }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["opportunity", id] });
+      qc.invalidateQueries({ queryKey: ["opportunities"] });
+      qc.invalidateQueries({ queryKey: ["opportunity-deletion-requests"] });
+    },
+    onError: (err: any) => alert(err?.response?.data?.error || "Failed to reject deletion request"),
+  });
+
+  const revokeDeletionMutation = useMutation({
+    mutationFn: (requestId: string) => api.post(`/opportunities/deletion-requests/${requestId}/revoke`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["opportunity", id] });
+      qc.invalidateQueries({ queryKey: ["opportunities"] });
+      qc.invalidateQueries({ queryKey: ["opportunity-deletion-requests"] });
+    },
+    onError: (err: any) => alert(err?.response?.data?.error || "Failed to revoke deletion request"),
+  });
+
+
+
+  if (isLoading || !opp) {
+    return (
+      <div className="px-4 md:px-8 py-5 md:py-7 max-w-6xl mx-auto space-y-5 pb-24 md:pb-8">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-lg bg-gray-200 animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-6 w-48 bg-gray-200 rounded animate-pulse" />
+            <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <Card className="p-4 md:p-5 lg:col-span-2 space-y-3">
+            <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3">
+              {[...Array(6)].map((_, i) => <div key={i} className="h-4 w-full bg-gray-200 rounded animate-pulse" />)}
+            </div>
+          </Card>
+          <div className="space-y-4">
+            <Card className="p-4 space-y-2">
+              <div className="h-3 w-16 bg-gray-200 rounded animate-pulse" />
+              <div className="h-8 w-20 bg-gray-200 rounded animate-pulse" />
+            </Card>
+            <Card className="p-4 space-y-2">
+              <div className="h-3 w-24 bg-gray-200 rounded animate-pulse" />
+              <div className="h-8 w-20 bg-gray-200 rounded animate-pulse" />
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const financials = computeOpportunityFinancials(opp);
   const contactPerson = opp.contact || (opp.contacts && opp.contacts[0]?.contact) || null;
@@ -111,7 +171,7 @@ export default function OpportunityDetailPage() {
     } else if (isLost) {
       setClosedLostModalStageId(targetStage.id);
     } else {
-      stageMutation.mutate({ stageId: targetStage.id });
+      setConfirmStageTarget(targetStage);
     }
   };
 
@@ -128,7 +188,7 @@ export default function OpportunityDetailPage() {
 
           <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs">
             <div>
-              <span className="text-[var(--ink-400)] font-medium mr-1.5">Proposal Sent Value:</span>
+              <span className="text-[var(--ink-400)] font-medium mr-1.5">Proposal Value:</span>
               <span className="font-mono-num font-bold text-slate-900">
                 {financials.actualOpportunityValue !== null ? formatCurrency(financials.actualOpportunityValue) : formatCurrency(opp.amount)}
               </span>
@@ -159,7 +219,7 @@ export default function OpportunityDetailPage() {
       </div>
 
       <div className="px-4 md:px-8 py-5 max-w-6xl mx-auto space-y-5">
-        {/* Pending Approval Alert Banner */}
+        {/* Pending Stage Change Alert Banner */}
         {pendingApproval && (
           <div className="p-4 rounded-xl bg-[var(--gold-50)] border border-[var(--gold-300)] flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-xs">
             <div className="flex items-center gap-3">
@@ -193,6 +253,77 @@ export default function OpportunityDetailPage() {
             ) : (
               <Badge tone="amber">Awaiting Partner Approval</Badge>
             )}
+          </div>
+        )}
+
+        {/* Pending Deletion Request Alert Banner */}
+        {pendingDeletion && (
+          <div className="p-4 rounded-xl bg-rose-50 border border-rose-300 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
+                <Trash2 size={20} className="text-rose-700" />
+              </div>
+              <div>
+                <div className="font-bold text-sm text-rose-950">
+                  Opportunity Deletion Pending Partner Approval
+                </div>
+                <div className="text-xs text-rose-800">
+                  <span className="font-medium">
+                    {pendingDeletion.requestedBy ? `${pendingDeletion.requestedBy.firstName} ${pendingDeletion.requestedBy.lastName}` : "Manager"}
+                  </span>{" "}
+                  requested deletion: <span className="italic font-medium">"{pendingDeletion.reason}"</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {isPartner ? (
+                <>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm(`Approve deletion of "${opp.name}"? This will permanently delete the opportunity.`)) {
+                        approveDeletionMutation.mutate(pendingDeletion.id);
+                      }
+                    }}
+                    disabled={approveDeletionMutation.isPending}
+                  >
+                    {approveDeletionMutation.isPending ? "Deleting…" : "Approve Deletion"}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      const reason = prompt("Enter reason for rejection (optional):");
+                      if (reason !== null) {
+                        rejectDeletionMutation.mutate({ requestId: pendingDeletion.id, comment: reason || undefined });
+                      }
+                    }}
+                    disabled={rejectDeletionMutation.isPending}
+                  >
+                    Reject
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Badge tone="rose">Awaiting Partner Approval</Badge>
+                  {pendingDeletion.requestedById === user?.id && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        if (confirm("Revoke your deletion request?")) {
+                          revokeDeletionMutation.mutate(pendingDeletion.id);
+                        }
+                      }}
+                      disabled={revokeDeletionMutation.isPending}
+                    >
+                      Revoke
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
 
@@ -238,6 +369,14 @@ export default function OpportunityDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" onClick={() => setModal("edit")}><Pencil size={14} /> Edit</Button>
             <Button variant="secondary" onClick={() => setModal("contact")}><UserPlus size={14} /> Add Contact</Button>
+            <Button
+              variant="danger"
+              onClick={() => setShowDeleteModal(true)}
+              disabled={!!pendingDeletion}
+            >
+              <Trash2 size={14} />
+              {pendingDeletion ? "Deletion Pending" : user?.orgRole === "MANAGER" ? "Request Deletion" : "Delete"}
+            </Button>
           </div>
         </div>
 
@@ -278,7 +417,7 @@ export default function OpportunityDetailPage() {
                 </div>
 
                 <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-[var(--ink-400)]">Expected Opportunity Value</dt>
+                  <dt className="text-xs font-medium uppercase tracking-wider text-[var(--ink-400)]">Proposal Value</dt>
                   <dd className="mt-1 font-mono-num font-bold text-base text-[var(--ledger-700)]">
                     {financials.expectedOpportunityValue !== null ? formatCurrency(financials.expectedOpportunityValue) : formatCurrency(opp.amount)}
                   </dd>
@@ -302,19 +441,23 @@ export default function OpportunityDetailPage() {
                   </dd>
                 </div>
 
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-[var(--ink-400)]">Forecast Category</dt>
-                  <dd className="mt-1">
-                    <Badge tone={opp.forecastCategory === "CLOSED_WON" ? "green" : opp.forecastCategory === "CLOSED_LOST" ? "rose" : "neutral"}>
-                      {opp.forecastCategory || "PIPELINE"}
-                    </Badge>
-                  </dd>
-                </div>
+                {opp.forecastCategory && opp.forecastCategory !== "PIPELINE" && (
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wider text-[var(--ink-400)]">Forecast Category</dt>
+                    <dd className="mt-1">
+                      <Badge tone={opp.forecastCategory === "CLOSED_WON" ? "green" : opp.forecastCategory === "CLOSED_LOST" ? "rose" : "neutral"}>
+                        {opp.forecastCategory.replace("_", " ")}
+                      </Badge>
+                    </dd>
+                  </div>
+                )}
 
                 <div>
                   <dt className="text-xs font-medium uppercase tracking-wider text-[var(--ink-400)]">Opportunity Type</dt>
                   <dd className="mt-1 font-medium text-[var(--ink-800)]">
-                    {opp.opportunityTypeLegacy || opp.opportunityType || "NEW_BUSINESS"}
+                    {opp.opportunityType === "RENEWAL" || opp.opportunityTypeLegacy === "Renewable Business"
+                      ? "Renewable Business"
+                      : "New Business"}
                   </dd>
                 </div>
 
@@ -335,7 +478,7 @@ export default function OpportunityDetailPage() {
 
                 {opp.loeValue && (
                   <div>
-                    <dt className="text-xs font-medium uppercase tracking-wider text-[var(--ink-400)]">LOE (Level of Effort)</dt>
+                    <dt className="text-xs font-medium uppercase tracking-wider text-[var(--ink-400)]">LOE (Letter of Engagement)</dt>
                     <dd className="mt-1 font-medium text-[var(--ink-800)]">{opp.loeValue} {opp.loeUnit || "Hours"}</dd>
                   </div>
                 )}
@@ -368,7 +511,7 @@ export default function OpportunityDetailPage() {
                   </div>
                 )}
 
-                {opp.lostReason && (
+                {opp.stage?.name === "Closed Lost" && opp.lostReason && (
                   <div className="sm:col-span-2 p-3 rounded-lg bg-rose-50 border border-rose-200">
                     <dt className="text-xs font-bold uppercase tracking-wider text-rose-800">Closed Lost Reason</dt>
                     <dd className="mt-1 text-sm text-rose-950 font-medium">{opp.lostReason}</dd>
@@ -455,8 +598,8 @@ export default function OpportunityDetailPage() {
                 <div className="p-3 rounded-xl bg-[var(--ink-50)] border border-[var(--ink-100)] flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-1 text-xs font-semibold text-[var(--ink-700)]">
-                      <span>Proposal Sent Value</span>
-                      <span title="Proposal Sent Value is the actual commercial proposal revenue." className="cursor-help text-[var(--ink-400)]"><Info size={12} /></span>
+                      <span>Proposal Value</span>
+                      <span title="Proposal Value is the actual commercial proposal revenue." className="cursor-help text-[var(--ink-400)]"><Info size={12} /></span>
                     </div>
                     <div className="text-[11px] text-[var(--ink-400)]">Commercial revenue value</div>
                   </div>
@@ -759,14 +902,6 @@ export default function OpportunityDetailPage() {
           onSuccess={() => qc.invalidateQueries({ queryKey: ["opportunity", id] })}
         />
       )}
-      {modal === "archive" && (
-        <ArchiveConfirmModal
-          title={`Opportunity "${opp.name}"`}
-          onConfirm={() => archiveMutation.mutate()}
-          onClose={() => setModal(null)}
-          isPending={archiveMutation.isPending}
-        />
-      )}
 
       {/* Closed Won Transition Modal */}
       {closedWonModalStageId && (
@@ -824,6 +959,36 @@ export default function OpportunityDetailPage() {
           }}
           onClose={() => setReviewModalApproval(null)}
           isSubmitting={approveMutation.isPending || rejectMutation.isPending}
+        />
+      )}
+
+      {confirmStageTarget && (
+        <ConfirmStageChangeModal
+          opportunityName={opp.name}
+          fromStageName={opp.stage?.name || "—"}
+          toStageName={confirmStageTarget.name}
+          amount={financials.actualOpportunityValue !== null ? financials.actualOpportunityValue : opp.amount}
+          onConfirm={() => {
+            stageMutation.mutate({ stageId: confirmStageTarget.id });
+            setConfirmStageTarget(null);
+          }}
+          onClose={() => setConfirmStageTarget(null)}
+          isPending={stageMutation.isPending}
+        />
+      )}
+
+      {showDeleteModal && (
+        <OpportunityDeletionModal
+          opportunity={opp}
+          onClose={() => setShowDeleteModal(false)}
+          onSuccess={() => {
+            qc.invalidateQueries({ queryKey: ["opportunity", id] });
+            qc.invalidateQueries({ queryKey: ["opportunities"] });
+            qc.invalidateQueries({ queryKey: ["opportunity-deletion-requests"] });
+            if (user?.orgRole !== "MANAGER") {
+              navigate("/opportunities");
+            }
+          }}
         />
       )}
     </div>

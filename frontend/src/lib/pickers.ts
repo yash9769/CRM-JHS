@@ -1,5 +1,6 @@
 import { api } from "./api";
 import type { RelationshipOption } from "../components/RelationshipSelector";
+import { roleLabel } from "../hooks/useAuth";
 
 export async function fetchAccountOptions(search: string): Promise<RelationshipOption[]> {
   const { data } = await api.get("/accounts", { params: { search, pageSize: 8, sortBy: "name", sortDir: "asc" } });
@@ -32,7 +33,10 @@ let userCache: RelationshipOption[] | null = null;
 export async function fetchOwnerOptions(search: string): Promise<RelationshipOption[]> {
   if (!userCache) {
     const { data } = await api.get("/users");
-    userCache = data.data.map((u: any) => ({ id: u.id, label: `${u.firstName} ${u.lastName}`, sublabel: u.email }));
+    // Show the org role (Manager / Partner / Senior Partner) rather than
+    // email -- so when filtering "by owner" it's clear what each person is,
+    // not just their name.
+    userCache = data.data.map((u: any) => ({ id: u.id, label: `${u.firstName} ${u.lastName}`, sublabel: roleLabel(u.orgRole) }));
   }
   const q = search.trim().toLowerCase();
   const list = userCache || [];

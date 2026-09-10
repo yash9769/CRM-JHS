@@ -14,10 +14,10 @@ describe("Dashboard Layout & Live Data E2E", () => {
     cy.contains("Margin Value").should("be.visible");
     cy.contains("Cost Incurred").should("be.visible");
 
-    // Verify live dashboard action sections order
-    cy.contains("Recent Activity").should("be.visible");
+    // Verify live dashboard action sections
     cy.contains("Opportunities at Risk").should("be.visible");
-    cy.contains("Recent Leads").should("be.visible");
+    cy.contains("Pending Stage Approvals").should("be.visible");
+    cy.contains("Revenue by Month").should("be.visible");
   });
 
   it("renders Sticky Notes widget on Dashboard", () => {

@@ -4,655 +4,325 @@ import argon2 from "argon2";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("Seeding CRM database with 3 full years of rich, realistic data (2023–2026)...");
+  console.log("=== Wiping existing CRM database records & starting clean re-seed ===");
+
+  // 0. Purge existing data in reverse dependency order
+  await prisma.opportunityAttachment.deleteMany({});
+  await prisma.opportunityStageHistory.deleteMany({});
+  await prisma.opportunityContact.deleteMany({});
+  await prisma.stageApproval.deleteMany({});
+  await prisma.accountDeletionRequest.deleteMany({});
+  await prisma.auditLog.deleteMany({});
+  await prisma.activity.deleteMany({});
+  await prisma.note.deleteMany({});
+  await prisma.lineItem.deleteMany({});
+  await prisma.quote.deleteMany({});
+  await prisma.opportunity.deleteMany({});
+  await prisma.contactEmail.deleteMany({});
+  await prisma.contactPhone.deleteMany({});
+  await prisma.contact.deleteMany({});
+  await prisma.accountEmail.deleteMany({});
+  await prisma.accountPhone.deleteMany({});
+  await prisma.account.deleteMany({});
+  await prisma.sequenceEnrollment.deleteMany({});
+  await prisma.sequenceStep.deleteMany({});
+  await prisma.sequence.deleteMany({});
+  await prisma.lead.deleteMany({});
+  await prisma.product.deleteMany({});
+  await prisma.service.deleteMany({});
+  await prisma.pipelineStage.deleteMany({});
+  await prisma.pipeline.deleteMany({});
+  await prisma.savedView.deleteMany({});
+  await prisma.stickyNote.deleteMany({});
+  await prisma.notification.deleteMany({});
+  await prisma.forecastTarget.deleteMany({});
+  await prisma.association.deleteMany({});
+  await prisma.propertyDefinition.deleteMany({});
+  await prisma.user.deleteMany({});
+  await prisma.tenant.deleteMany({});
+
+  console.log("Database wiped successfully.");
 
   const defaultPasswordHash = await argon2.hash("Password123!");
   const seniorPasswordHash = await argon2.hash("370HSSV0773H@");
 
-  // 1. Create or Find Tenant
-  let tenant = await prisma.tenant.findFirst({
-    where: { name: "Envista Cyber Defence" },
+  // 1. Create Tenant
+  const tenant = await prisma.tenant.create({
+    data: { name: "Envista Cyber Defence" },
   });
 
-  if (!tenant) {
-    tenant = await prisma.tenant.create({
-      data: { name: "Envista Cyber Defence" },
+  console.log("Created Tenant:", tenant.name);
+
+  // 2. Create Senior Partners
+  const huzeifa = await prisma.user.create({
+    data: {
+      tenantId: tenant.id,
+      email: "huzeifa.unwala@envistacyberdefence.com",
+      passwordHash: seniorPasswordHash,
+      firstName: "Huzeifa",
+      lastName: "Unwala",
+      orgRole: "SENIOR_PARTNER",
+      active: true,
+    },
+  });
+
+  const yashodhan = await prisma.user.create({
+    data: {
+      tenantId: tenant.id,
+      email: "yashodhan.rajapkar@envistacyberdefence.com",
+      passwordHash: seniorPasswordHash,
+      firstName: "Yashodhan",
+      lastName: "Rajapkar",
+      orgRole: "SENIOR_PARTNER",
+      active: true,
+    },
+  });
+
+  console.log("Created 2 Senior Partners: Huzeifa Unwala & Yashodhan");
+
+  // 3. Create 6 Partners (4 under Huzeifa, 2 under Yashodhan)
+  const partnersData = [
+    // Under Huzeifa (4 Partners)
+    { firstName: "Rajesh", lastName: "Varma", email: "partner.h1@crm.com", createdById: huzeifa.id, partnerId: huzeifa.id },
+    { firstName: "Anita", lastName: "Desai", email: "partner.h2@crm.com", createdById: huzeifa.id, partnerId: huzeifa.id },
+    { firstName: "Vikram", lastName: "Malhotra", email: "partner.h3@crm.com", createdById: huzeifa.id, partnerId: huzeifa.id },
+    { firstName: "Sneha", lastName: "Gupta", email: "partner.h4@crm.com", createdById: huzeifa.id, partnerId: huzeifa.id },
+    // Under Yashodhan (2 Partners)
+    { firstName: "Amit", lastName: "Kulkarni", email: "partner.y1@crm.com", createdById: yashodhan.id, partnerId: yashodhan.id },
+    { firstName: "Ritu", lastName: "Sharma", email: "partner.y2@crm.com", createdById: yashodhan.id, partnerId: yashodhan.id },
+  ];
+
+  const partners: any[] = [];
+  for (const p of partnersData) {
+    const created = await prisma.user.create({
+      data: {
+        tenantId: tenant.id,
+        email: p.email,
+        passwordHash: defaultPasswordHash,
+        firstName: p.firstName,
+        lastName: p.lastName,
+        orgRole: "PARTNER",
+        createdById: p.createdById,
+        partnerId: p.partnerId,
+        active: true,
+      },
     });
+    partners.push(created);
   }
 
-  // 2. Create Users (Senior Partners, Partners, Managers)
-  const usersData = [
-    { email: "yashodhan.rajapkar@envistacyberdefence.com", passwordHash: seniorPasswordHash, firstName: "Yashodhan", lastName: "Rajapkar", orgRole: "SENIOR_PARTNER" as const, partnerId: null },
-    { email: "senior.partner@crm.com", passwordHash: defaultPasswordHash, firstName: "Vikram", lastName: "Mehta", orgRole: "SENIOR_PARTNER" as const, partnerId: null },
-    { email: "partner@crm.com", passwordHash: defaultPasswordHash, firstName: "Rajesh", lastName: "Varma", orgRole: "PARTNER" as const, partnerId: null },
-    { email: "anita.desai@crm.com", passwordHash: defaultPasswordHash, firstName: "Anita", lastName: "Desai", orgRole: "PARTNER" as const, partnerId: null },
+  console.log(`Created ${partners.length} Partners (4 under Huzeifa, 2 under Yashodhan).`);
+
+  // 4. Create 12 Managers (2 for each Partner)
+  const managerConfigs = [
+    { pIndex: 0, firstName: "Priya", lastName: "Sharma", email: "manager.h1a@crm.com" },
+    { pIndex: 0, firstName: "Rahul", lastName: "Kapoor", email: "manager.h1b@crm.com" },
+    { pIndex: 1, firstName: "Amit", lastName: "Patel", email: "manager.h2a@crm.com" },
+    { pIndex: 1, firstName: "Neha", lastName: "Singh", email: "manager.h2b@crm.com" },
+    { pIndex: 2, firstName: "Sanjay", lastName: "Rao", email: "manager.h3a@crm.com" },
+    { pIndex: 2, firstName: "Kavita", lastName: "Joshi", email: "manager.h3b@crm.com" },
+    { pIndex: 3, firstName: "Rohan", lastName: "Mehta", email: "manager.h4a@crm.com" },
+    { pIndex: 3, firstName: "Pooja", lastName: "Verma", email: "manager.h4b@crm.com" },
+    { pIndex: 4, firstName: "Karan", lastName: "Shah", email: "manager.y1a@crm.com" },
+    { pIndex: 4, firstName: "Divya", lastName: "Nair", email: "manager.y1b@crm.com" },
+    { pIndex: 5, firstName: "Alok", lastName: "Saxena", email: "manager.y2a@crm.com" },
+    { pIndex: 5, firstName: "Swati", lastName: "Agarwal", email: "manager.y2b@crm.com" },
   ];
 
-  const usersMap: Record<string, any> = {};
-
-  for (const u of usersData) {
-    let user = await prisma.user.findFirst({ where: { email: u.email } });
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          tenantId: tenant.id,
-          email: u.email,
-          passwordHash: u.passwordHash,
-          firstName: u.firstName,
-          lastName: u.lastName,
-          orgRole: u.orgRole,
-          active: true,
-        },
-      });
-    }
-    usersMap[u.email] = user;
+  const managers: any[] = [];
+  for (const m of managerConfigs) {
+    const p = partners[m.pIndex];
+    const created = await prisma.user.create({
+      data: {
+        tenantId: tenant.id,
+        email: m.email,
+        passwordHash: defaultPasswordHash,
+        firstName: m.firstName,
+        lastName: m.lastName,
+        orgRole: "MANAGER",
+        partnerId: p.id,
+        createdById: p.id,
+        active: true,
+      },
+    });
+    managers.push(created);
   }
 
-  const rajeshPartner = usersMap["partner@crm.com"];
-  const anitaPartner = usersMap["anita.desai@crm.com"];
+  console.log(`Created ${managers.length} Managers (2 per Partner).`);
 
-  const managersData = [
-    { email: "manager@crm.com", passwordHash: defaultPasswordHash, firstName: "Priya", lastName: "Sharma", orgRole: "MANAGER" as const, partnerId: rajeshPartner.id },
-    { email: "amit.patel@crm.com", passwordHash: defaultPasswordHash, firstName: "Amit", lastName: "Patel", orgRole: "MANAGER" as const, partnerId: anitaPartner.id },
-    { email: "rahul.kapoor@crm.com", passwordHash: defaultPasswordHash, firstName: "Rahul", lastName: "Kapoor", orgRole: "MANAGER" as const, partnerId: rajeshPartner.id },
-  ];
-
-  for (const m of managersData) {
-    let manager = await prisma.user.findFirst({ where: { email: m.email } });
-    if (!manager) {
-      manager = await prisma.user.create({
-        data: {
-          tenantId: tenant.id,
-          email: m.email,
-          passwordHash: m.passwordHash,
-          firstName: m.firstName,
-          lastName: m.lastName,
-          orgRole: m.orgRole,
-          partnerId: m.partnerId,
-          active: true,
-        },
-      });
-    }
-    usersMap[m.email] = manager;
-  }
-
-  const allUsers = Object.values(usersMap);
-
-  // 3. Create Default Opportunity Pipeline
-  let oppPipeline = await prisma.pipeline.findFirst({
-    where: { tenantId: tenant.id, type: "OPPORTUNITY" },
+  // 5. Create Opportunity Pipeline
+  const oppPipeline = await prisma.pipeline.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Standard Opportunity Pipeline",
+      type: "OPPORTUNITY",
+      isDefault: true,
+      stages: {
+        create: [
+          { name: "Prospect", order: 1, probability: 10, isClosed: false, isWon: false },
+          { name: "Lead", order: 2, probability: 20, isClosed: false, isWon: false },
+          { name: "Scope Discussion", order: 3, probability: 40, isClosed: false, isWon: false },
+          { name: "Proposal Sent", order: 4, probability: 60, isClosed: false, isWon: false },
+          { name: "Negotiation", order: 5, probability: 80, isClosed: false, isWon: false },
+          { name: "Closed Won", order: 6, probability: 100, isClosed: true, isWon: true },
+          { name: "Closed Lost", order: 7, probability: 0, isClosed: true, isWon: false },
+          { name: "Opportunity Dead", order: 8, probability: 0, isClosed: true, isWon: false },
+        ],
+      },
+    },
     include: { stages: true },
   });
 
-  if (!oppPipeline) {
-    oppPipeline = await prisma.pipeline.create({
-      data: {
-        tenantId: tenant.id,
-        name: "Standard Opportunity Pipeline",
-        type: "OPPORTUNITY",
-        isDefault: true,
-        stages: {
-          create: [
-            { name: "Prospect", order: 1, probability: 10, isClosed: false, isWon: false },
-            { name: "Lead", order: 2, probability: 20, isClosed: false, isWon: false },
-            { name: "Marketing Qualified Lead", order: 3, probability: 30, isClosed: false, isWon: false },
-            { name: "Scope Discussion", order: 4, probability: 50, isClosed: false, isWon: false },
-            { name: "Proposal Sent", order: 5, probability: 65, isClosed: false, isWon: false },
-            { name: "Negotiation", order: 6, probability: 80, isClosed: false, isWon: false },
-            { name: "Closed Won", order: 7, probability: 100, isClosed: true, isWon: true },
-            { name: "Closed Lost", order: 8, probability: 0, isClosed: true, isWon: false },
-            { name: "Opportunity Dead", order: 9, probability: 0, isClosed: true, isWon: false },
-          ],
-        },
-      },
-      include: { stages: true },
-    });
-  }
+  const stageList = oppPipeline.stages;
 
-  const oppStages = oppPipeline.stages.reduce((acc: any, s) => {
-    acc[s.name] = s.id;
-    return acc;
-  }, {});
-
-  // 4. Services (6 Service Offerings)
-  const servicesData = [
-    { name: "Cyber Security Consulting", description: "Vulnerability assessments, penetration testing, architectural reviews" },
-    { name: "Cloud Infrastructure & Migration", description: "AWS, Azure, and GCP secure cloud deployment and SOC migration" },
-    { name: "Software Licenses & Subscriptions", description: "Enterprise EDR, SIEM, Firewalls, and Threat Intelligence" },
-    { name: "Managed Security Operations (SOC)", description: "24/7 Managed Detection, Threat Hunting, and Response (MDR)" },
-    { name: "Incident Response & Forensics", description: "Ransomware containment, digital forensics, emergency response" },
-    { name: "Security Compliance & Governance", description: "ISO 27001, SOC 2, HIPAA, RBI Cybersecurity guidelines audit" },
+  // 6. Services & Products
+  const serviceNames = [
+    "Cyber Security Consulting",
+    "Cloud Infrastructure Audit",
+    "Software Licenses & Subscriptions",
+    "Managed Security Operations (SOC)",
+    "Compliance & Governance",
   ];
 
-  const servicesMap: Record<string, any> = {};
-  for (const s of servicesData) {
-    let service = await prisma.service.findFirst({
-      where: { tenantId: tenant.id, name: s.name },
+  const createdServices: any[] = [];
+  for (const sName of serviceNames) {
+    const s = await prisma.service.create({
+      data: { tenantId: tenant.id, name: sName, description: `${sName} enterprise offerings` },
     });
-    if (!service) {
-      service = await prisma.service.create({
+    createdServices.push(s);
+  }
+
+  // 7. Company Prefix List & Domain Extensions
+  const companyPrefixes = [
+    "Apex", "Nexa", "Zenith", "Quantum", "Cyber", "Stellar", "Vanguard", "Horizon", "Orion", "Alpha",
+    "Matrix", "Infinitum", "Pinnacle", "Titan", "Vertex", "Solstice", "Helios", "Aegis", "Velocity", "Synergy",
+    "Crest", "Beacon", "Strata", "Paramount", "Equinox", "Cobalt", "Nova", "Trident", "Summit", "Lumina"
+  ];
+  const companySuffixes = ["Technologies", "Solutions", "Global", "Systems", "Networks", "Capital", "Infotech", "Industries", "Group", "Labs"];
+  const industries = ["Financial Services", "Cybersecurity", "Healthcare", "E-Commerce", "Manufacturing", "Logistics", "IT Consulting", "Cloud Infrastructure"];
+
+  const oppTemplates = [
+    "Internal Audit",
+    "Tax Audit",
+    "DPDP Compliance Audit",
+    "vAPT Security Assessment",
+    "ISO 27001 Certification Audit",
+    "SOC 2 Type II Assessment",
+    "Cloud Infrastructure Review",
+    "Managed SOC Retainer",
+    "Red Team Penetration Testing",
+    "PCI-DSS Compliance Review",
+    "Incident Response Readiness",
+    "Threat Intelligence Deployment"
+  ];
+
+  let accountCount = 0;
+  let opportunityCount = 0;
+
+  // Create 10 Accounts for each of the 12 Managers = 120 Accounts
+  // Create 3 Opportunities for each Account = 360 Opportunities
+  for (let mIdx = 0; mIdx < managers.length; mIdx++) {
+    const manager = managers[mIdx];
+
+    for (let aIdx = 1; aIdx <= 10; aIdx++) {
+      accountCount++;
+      const pPrefix = companyPrefixes[(accountCount - 1) % companyPrefixes.length];
+      const sSuffix = companySuffixes[(accountCount - 1) % companySuffixes.length];
+      const accName = `${pPrefix} ${sSuffix} ${accountCount}`;
+      const domain = `${pPrefix.toLowerCase()}${sSuffix.toLowerCase()}${accountCount}.com`;
+      const industry = industries[(accountCount - 1) % industries.length];
+
+      const account = await prisma.account.create({
         data: {
           tenantId: tenant.id,
-          name: s.name,
-          description: s.description,
+          name: accName,
+          domain: domain,
+          industry: industry,
+          accountType: aIdx % 4 === 0 ? "CUSTOMER" : "PROSPECT",
+          annualRevenue: 5000000 + (accountCount * 250000),
+          employeeCount: 50 + (accountCount * 15),
+          ownerId: manager.id,
+          createdById: manager.id,
+          phone: `+91 98200 ${String(10000 + accountCount).padStart(5, '0')}`,
+          website: `https://www.${domain}`,
+          description: `Enterprise account in ${industry} managed by ${manager.firstName} ${manager.lastName}.`,
+          emails: {
+            create: [
+              { tenantId: tenant.id, email: `info@${domain}`, isPrimary: true, label: "Work" },
+            ]
+          },
+          phones: {
+            create: [
+              { tenantId: tenant.id, countryCode: "+91", number: `98200${String(10000 + accountCount).padStart(5, '0')}`, isPrimary: true, label: "Main" }
+            ]
+          }
         },
       });
-    }
-    servicesMap[s.name] = service;
-  }
 
-  // 5. Products (12 Products linked to Services)
-  const productsData = [
-    { name: "24/7 Managed SOC Annual Retainer", sku: "SOC-RET-001", category: "Services", serviceName: "Managed Security Operations (SOC)", unitPrice: 1800000 },
-    { name: "Cloud Infrastructure Audit & Hardening", sku: "SEC-AUD-002", category: "Consulting", serviceName: "Cloud Infrastructure & Migration", unitPrice: 350000 },
-    { name: "Web & Mobile App Pen Testing (VAPT)", sku: "VAPT-ENT-003", category: "Services", serviceName: "Cyber Security Consulting", unitPrice: 250000 },
-    { name: "Enterprise EDR License (Per 500 Endpoints)", sku: "EDR-LIC-004", category: "Software", serviceName: "Software Licenses & Subscriptions", unitPrice: 1200000 },
-    { name: "ISO 27001 Certification & Audit Support", sku: "ISO-CMP-005", category: "Consulting", serviceName: "Security Compliance & Governance", unitPrice: 450000 },
-    { name: "Red Team Cyber Attack Simulation", sku: "RED-SIM-006", category: "Services", serviceName: "Cyber Security Consulting", unitPrice: 600000 },
-    { name: "Incident Response Retainer (100 Hours)", sku: "IR-RET-007", category: "Services", serviceName: "Incident Response & Forensics", unitPrice: 800000 },
-    { name: "Next-Gen Firewall Enterprise License", sku: "FW-LIC-008", category: "Software", serviceName: "Software Licenses & Subscriptions", unitPrice: 1500000 },
-    { name: "Cloud SIEM Log Monitoring Add-on", sku: "SIEM-ADD-009", category: "Software", serviceName: "Managed Security Operations (SOC)", unitPrice: 900000 },
-    { name: "SOC 2 Type II Readiness Assessment", sku: "SOC2-CMP-010", category: "Consulting", serviceName: "Security Compliance & Governance", unitPrice: 500000 },
-    { name: "Kubernetes & Container Security Review", sku: "K8S-SEC-011", category: "Consulting", serviceName: "Cloud Infrastructure & Migration", unitPrice: 400000 },
-    { name: "Executive Ransomware Defense Workshop", sku: "WRK-RNS-012", category: "Services", serviceName: "Incident Response & Forensics", unitPrice: 200000 },
-  ];
-
-  const productsMap: Record<string, any> = {};
-  const productsList: any[] = [];
-  for (const prod of productsData) {
-    let p = await prisma.product.findFirst({
-      where: { tenantId: tenant.id, sku: prod.sku },
-    });
-    if (!p) {
-      p = await prisma.product.create({
-        data: {
-          tenantId: tenant.id,
-          serviceId: servicesMap[prod.serviceName].id,
-          name: prod.name,
-          sku: prod.sku,
-          category: prod.category,
-          unitPrice: prod.unitPrice,
-          currency: "INR",
-          active: true,
-          ownerId: allUsers[Math.floor(Math.random() * allUsers.length)].id,
-        },
-      });
-    }
-    productsMap[prod.sku] = p;
-    productsList.push(p);
-  }
-
-  // 6. Accounts (25 Corporate & Enterprise Accounts)
-  const accountsData = [
-    { name: "Tata Consultancy Services", domain: "tcs.com", industry: "Technology", employeeCount: 500000, annualRevenue: 1900000000, accountType: "CUSTOMER" as const },
-    { name: "Infosys Technologies", domain: "infosys.com", industry: "Technology", employeeCount: 300000, annualRevenue: 1500000000, accountType: "CUSTOMER" as const },
-    { name: "Wipro Digital", domain: "wipro.com", industry: "Technology", employeeCount: 220000, annualRevenue: 1100000000, accountType: "CUSTOMER" as const },
-    { name: "Reliance Industries", domain: "ril.com", industry: "Energy & Telecom", employeeCount: 350000, annualRevenue: 9000000000, accountType: "CUSTOMER" as const },
-    { name: "HDFC Bank", domain: "hdfcbank.com", industry: "Banking & Finance", employeeCount: 150000, annualRevenue: 2500000000, accountType: "CUSTOMER" as const },
-    { name: "ICICI Bank", domain: "icicibank.com", industry: "Banking & Finance", employeeCount: 120000, annualRevenue: 2100000000, accountType: "CUSTOMER" as const },
-    { name: "State Bank of India", domain: "sbi.co.in", industry: "Banking & Finance", employeeCount: 240000, annualRevenue: 3500000000, accountType: "CUSTOMER" as const },
-    { name: "Bharti Airtel", domain: "airtel.in", industry: "Telecom", employeeCount: 20000, annualRevenue: 1400000000, accountType: "CUSTOMER" as const },
-    { name: "Larsen & Toubro", domain: "larsentoubro.com", industry: "Engineering & Construction", employeeCount: 50000, annualRevenue: 2200000000, accountType: "CUSTOMER" as const },
-    { name: "Tech Mahindra", domain: "techmahindra.com", industry: "Technology", employeeCount: 140000, annualRevenue: 600000000, accountType: "CUSTOMER" as const },
-    { name: "Acme Corp", domain: "acme.com", industry: "Manufacturing", employeeCount: 250, annualRevenue: 15000000, accountType: "PROSPECT" as const },
-    { name: "Axis Bank", domain: "axisbank.com", industry: "Banking & Finance", employeeCount: 85000, annualRevenue: 1100000000, accountType: "PROSPECT" as const },
-    { name: "Sun Pharma", domain: "sunpharma.com", industry: "Healthcare & Pharma", employeeCount: 38000, annualRevenue: 500000000, accountType: "CUSTOMER" as const },
-    { name: "Bajaj Auto", domain: "bajajauto.com", industry: "Automotive", employeeCount: 10000, annualRevenue: 400000000, accountType: "PROSPECT" as const },
-    { name: "Maruti Suzuki", domain: "marutisuzuki.com", industry: "Automotive", employeeCount: 17000, annualRevenue: 1200000000, accountType: "CUSTOMER" as const },
-    { name: "Zomato Media", domain: "zomato.com", industry: "Internet & Ecommerce", employeeCount: 5000, annualRevenue: 120000000, accountType: "CUSTOMER" as const },
-    { name: "Swiggy Technologies", domain: "swiggy.in", industry: "Internet & Ecommerce", employeeCount: 6000, annualRevenue: 100000000, accountType: "PROSPECT" as const },
-    { name: "Zerodha Broking", domain: "zerodha.com", industry: "Fintech", employeeCount: 1200, annualRevenue: 300000000, accountType: "CUSTOMER" as const },
-    { name: "Razorpay Software", domain: "razorpay.com", industry: "Fintech", employeeCount: 2500, annualRevenue: 180000000, accountType: "CUSTOMER" as const },
-    { name: "Freshworks Inc", domain: "freshworks.com", industry: "SaaS", employeeCount: 4500, annualRevenue: 500000000, accountType: "CUSTOMER" as const },
-  ];
-
-  const accountsList: any[] = [];
-  for (let i = 0; i < accountsData.length; i++) {
-    const acc = accountsData[i];
-    const assignedUser = allUsers[i % allUsers.length];
-    let a = await prisma.account.findFirst({
-      where: { tenantId: tenant.id, name: acc.name },
-    });
-    if (!a) {
-      a = await prisma.account.create({
-        data: {
-          tenantId: tenant.id,
-          name: acc.name,
-          domain: acc.domain,
-          industry: acc.industry,
-          employeeCount: acc.employeeCount,
-          annualRevenue: acc.annualRevenue,
-          accountType: acc.accountType,
-          ownerId: assignedUser.id,
-          createdById: assignedUser.id,
-        },
-      });
-    }
-    accountsList.push(a);
-  }
-
-  // 7. Contacts (35 Contacts across Accounts)
-  const contactsData = [
-    { firstName: "Rohan", lastName: "Sharma", email: "rohan.sharma@tcs.com", phone: "+91-98765-43210", jobTitle: "VP Information Security", accIdx: 0 },
-    { firstName: "Ananya", lastName: "Deshmukh", email: "ananya.d@infosys.com", phone: "+91-99887-76655", jobTitle: "Chief Information Security Officer", accIdx: 1 },
-    { firstName: "Siddharth", lastName: "Nair", email: "sid.nair@wipro.com", phone: "+91-98111-22334", jobTitle: "Director of IT Operations", accIdx: 2 },
-    { firstName: "Kavita", lastName: "Patel", email: "kavita.p@ril.com", phone: "+91-97222-33445", jobTitle: "Group IT Auditor", accIdx: 3 },
-    { firstName: "Vikram", lastName: "Seth", email: "vikram.seth@hdfcbank.com", phone: "+91-91234-56789", jobTitle: "Head of Infrastructure", accIdx: 4 },
-    { firstName: "Manish", lastName: "Tiwari", email: "manish.t@icicibank.com", phone: "+91-98333-44556", jobTitle: "CISO", accIdx: 5 },
-    { firstName: "Pooja", lastName: "Agarwal", email: "pooja.a@sbi.co.in", phone: "+91-98444-55667", jobTitle: "Chief Risk Officer", accIdx: 6 },
-    { firstName: "Deepak", lastName: "Verma", email: "deepak.v@airtel.in", phone: "+91-98555-66778", jobTitle: "VP Cloud & Security", accIdx: 7 },
-    { firstName: "Suresh", lastName: "Rao", email: "suresh.r@larsentoubro.com", phone: "+91-98666-77889", jobTitle: "Director Cyber Architecture", accIdx: 8 },
-    { firstName: "Nikhil", lastName: "Joshi", email: "nikhil.j@techmahindra.com", phone: "+91-98777-88990", jobTitle: "Global Head Security", accIdx: 9 },
-    { firstName: "John", lastName: "Doe", email: "john@acme.com", phone: "+1-555-0199", jobTitle: "Purchasing Manager", accIdx: 10 },
-    { firstName: "Alok", lastName: "Gupta", email: "alok.g@axisbank.com", phone: "+91-98888-99001", jobTitle: "VP IT Infrastructure", accIdx: 11 },
-    { firstName: "Dr. Ritu", lastName: "Chawla", email: "ritu.c@sunpharma.com", phone: "+91-98999-00112", jobTitle: "Head of Compliance", accIdx: 12 },
-    { firstName: "Sameer", lastName: "Kulkarni", email: "sameer.k@bajajauto.com", phone: "+91-99000-11223", jobTitle: "IT Operations Lead", accIdx: 13 },
-    { firstName: "Arun", lastName: "Singhania", email: "arun.s@marutisuzuki.com", phone: "+91-99111-22334", jobTitle: "Chief Technology Officer", accIdx: 14 },
-    { firstName: "Karan", lastName: "Mehra", email: "karan.m@zomato.com", phone: "+91-99222-33445", jobTitle: "Head of Security & Trust", accIdx: 15 },
-    { firstName: "Tanvi", lastName: "Bhasin", email: "tanvi.b@swiggy.in", phone: "+91-99333-44556", jobTitle: "Lead Security Engineer", accIdx: 16 },
-    { firstName: "Nitin", lastName: "Kamath", email: "nitin@zerodha.com", phone: "+91-99444-55667", jobTitle: "Chief Technology Officer", accIdx: 17 },
-    { firstName: "Harshil", lastName: "Mathur", email: "harshil@razorpay.com", phone: "+91-99555-66778", jobTitle: "VP Infrastructure & Security", accIdx: 18 },
-    { firstName: "Girish", lastName: "Mathrubootham", email: "girish@freshworks.com", phone: "+1-408-555-0123", jobTitle: "Director of Enterprise Sales", accIdx: 19 },
-  ];
-
-  const contactsList: any[] = [];
-  for (const con of contactsData) {
-    const account = accountsList[con.accIdx];
-    let c = await prisma.contact.findFirst({
-      where: { tenantId: tenant.id, email: con.email },
-    });
-    if (!c && account) {
-      c = await prisma.contact.create({
+      // Create 1 Primary Contact per Account
+      const contact = await prisma.contact.create({
         data: {
           tenantId: tenant.id,
           accountId: account.id,
-          firstName: con.firstName,
-          lastName: con.lastName,
-          email: con.email,
-          phone: con.phone,
-          jobTitle: con.jobTitle,
-          lifecycleStage: "CUSTOMER",
-          ownerId: account.ownerId,
-          createdById: account.ownerId,
+          ownerId: manager.id,
+          createdById: manager.id,
+          firstName: `Contact-${accountCount}`,
+          lastName: `Executive`,
+          email: `contact${accountCount}@${domain}`,
+          phone: `+91 98190 ${String(10000 + accountCount).padStart(5, '0')}`,
+          jobTitle: aIdx % 2 === 0 ? "Chief Security Officer" : "VP Information Technology",
         },
       });
-    }
-    contactsList.push(c);
-  }
 
-  // 8. Leads (25 Leads)
-  const leadsData = [
-    { firstName: "Aakash", lastName: "Roy", companyName: "HyperGro Digital", email: "aakash@hypergro.io", status: "NEW" },
-    { firstName: "Bhavna", lastName: "Shah", companyName: "FinServe Capital", email: "bhavna@finserve.com", status: "CONTACTED" },
-    { firstName: "Chetan", lastName: "Solanki", companyName: "Nexus Logistics", email: "chetan@nexuslog.com", status: "QUALIFIED" },
-    { firstName: "Divya", lastName: "Ranganathan", companyName: "OmniHealth Tech", email: "divya@omnihealth.in", status: "NURTURING" },
-    { firstName: "Eshaan", lastName: "Malhotra", companyName: "CloudScale Systems", email: "eshaan@cloudscale.io", status: "NEW" },
-    { firstName: "Farhan", lastName: "Akhtar", companyName: "MediaPulse Communications", email: "farhan@mediapulse.com", status: "CONTACTED" },
-    { firstName: "Gauri", lastName: "Desai", companyName: "EduSmart Learning", email: "gauri@edusmart.org", status: "QUALIFIED" },
-    { firstName: "Hemant", lastName: "Saxena", companyName: "BioGen Diagnostics", email: "hemant@biogen.in", status: "UNQUALIFIED" },
-  ];
+      // Create 3 Opportunities per Account = 360 Opportunities total
+      for (let oIdx = 1; oIdx <= 3; oIdx++) {
+        opportunityCount++;
+        const oppTitle = oppTemplates[(opportunityCount - 1) % oppTemplates.length];
+        const fullOppName = `${oppTitle} - ${accName}`;
 
-  for (let i = 0; i < leadsData.length; i++) {
-    const l = leadsData[i];
-    const assignedUser = allUsers[i % allUsers.length];
-    const exists = await prisma.lead.findFirst({ where: { tenantId: tenant.id, email: l.email } });
-    if (!exists) {
-      await prisma.lead.create({
-        data: {
-          tenantId: tenant.id,
-          firstName: l.firstName,
-          lastName: l.lastName,
-          companyName: l.companyName,
-          email: l.email,
-          status: l.status as any,
-          ownerId: assignedUser.id,
-          createdById: assignedUser.id,
-          createdAt: new Date(Date.now() - Math.floor(Math.random() * 180 * 24 * 60 * 60 * 1000)),
-        },
-      });
-    }
-  }
+        // Stage distribution: balance across stages
+        const stageIndex = (opportunityCount - 1) % stageList.length;
+        const stage = stageList[stageIndex];
 
-  // 9. Generate 3 Full Years of Opportunities (Jan 2023 to Aug 2026 - 36+ Months)
-  console.log("Generating 3 full years of monthly sales opportunities (2023–2026)...");
+        const amount = 150000 + (opportunityCount * 25000);
+        const expectedVal = Math.round(amount * (stage.probability / 100));
 
-  const opportunitiesCreated: any[] = [];
-  const currentDate = new Date(2026, 7, 27); // August 2026
+        const isClosedWon = stage.isWon;
+        const isClosedLost = stage.name === "Closed Lost" || stage.name === "Opportunity Dead";
 
-  // Loop through 36 past months
-  for (let monthIndex = 35; monthIndex >= 0; monthIndex--) {
-    const targetMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - monthIndex, 15);
-    const year = targetMonth.getFullYear();
-    const monthName = targetMonth.toLocaleString("en-US", { month: "short" });
-
-    // Generate 2-3 Closed Won deals every single month to give a beautiful, continuous 3-year revenue graph!
-    const numWonDeals = 2 + Math.floor(Math.random() * 2);
-    for (let w = 0; w < numWonDeals; w++) {
-      const acc = accountsList[(monthIndex * 3 + w) % accountsList.length];
-      const prod = productsList[(monthIndex * 2 + w) % productsList.length];
-      const owner = allUsers[(monthIndex + w) % allUsers.length];
-      const oppAmount = Number(prod.unitPrice) * (1 + Math.floor(Math.random() * 3));
-      const oppName = `${acc.name} - ${prod.name} ${year}`;
-
-      const createdDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 5 + w * 5);
-      const wonDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 20 + w * 2);
-      const exists = await prisma.opportunity.findFirst({
-        where: { tenantId: tenant.id, name: oppName },
-      });
-
-      if (!exists) {
-        const costRatio = 0.48 + (((monthIndex * 2 + w) % 7) * 0.04);
-        const oppCost = Math.round(oppAmount * costRatio);
-        const opp = await prisma.opportunity.create({
-          data: {
-            tenantId: tenant.id,
-            name: oppName,
-            accountId: acc.id,
-            contactId: contactsList[(monthIndex + w) % contactsList.length]?.id || null,
-            amount: oppAmount,
-            expectedOpportunityValue: oppAmount,
-            actualOpportunityValue: oppAmount,
-            bottomLineCost: oppCost,
-            pipelineId: oppPipeline.id,
-            stageId: oppStages["Closed Won"] || oppStages["Proposal Won"],
-            probability: 100,
-            ownerId: owner.id,
-            createdById: owner.id,
-            opportunityType: w === 0 ? "NEW_BUSINESS" : "EXPANSION",
-            forecastCategory: "CLOSED_WON",
-            createdAt: createdDate,
-            expectedCloseDate: wonDate,
-            actualCloseDate: wonDate,
-            wonDate: wonDate,
-            description: `Successfully closed 3-year recurring contract for ${prod.name}.`,
-            lineItems: {
-              create: [
-                {
-                  productId: prod.id,
-                  quantity: 1,
-                  unitPrice: prod.unitPrice,
-                  discountPct: 5,
-                  taxPct: 18,
-                  total: oppAmount,
-                },
-              ],
-            },
-          },
-        });
-        opportunitiesCreated.push(opp);
-      }
-    }
-
-    // Generate 1 Closed Lost deal every 2-3 months
-    if (monthIndex % 2 === 0) {
-      const acc = accountsList[(monthIndex * 4) % accountsList.length];
-      const prod = productsList[(monthIndex * 3) % productsList.length];
-      const owner = allUsers[monthIndex % allUsers.length];
-      const oppName = `${acc.name} - ${prod.name} RFP ${monthName} ${year}`;
-      const createdDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 2);
-      const lostDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 25);
-
-      const lostReasons = [
-        "Competitor undercut pricing by 25%",
-        "Client postponed cybersecurity budget to next fiscal year",
-        "Client decided to build in-house SOC capability",
-        "Scope mismatch on SLA requirements",
-      ];
-
-      const exists = await prisma.opportunity.findFirst({
-        where: { tenantId: tenant.id, name: oppName },
-      });
-
-      if (!exists) {
-        const lostAmt = Number(prod.unitPrice);
-        const isEarly = monthIndex % 4 === 0;
-        const actVal = isEarly ? null : lostAmt;
-        const costRatio = 0.50 + ((monthIndex % 5) * 0.04);
-        const cost = actVal !== null ? Math.round(actVal * costRatio) : null;
         await prisma.opportunity.create({
           data: {
             tenantId: tenant.id,
-            name: oppName,
-            accountId: acc.id,
-            amount: lostAmt,
-            expectedOpportunityValue: lostAmt,
-            actualOpportunityValue: actVal,
-            bottomLineCost: cost,
+            accountId: account.id,
+            contactId: contact.id,
+            ownerId: manager.id,
+            createdById: manager.id,
             pipelineId: oppPipeline.id,
-            stageId: oppStages["Closed Lost"] || oppStages["Proposal Lost"],
-            probability: 0,
-            ownerId: owner.id,
-            createdById: owner.id,
-            opportunityType: "NEW_BUSINESS",
-            forecastCategory: "CLOSED_LOST",
-            createdAt: createdDate,
-            expectedCloseDate: lostDate,
-            actualCloseDate: lostDate,
-            lostReason: lostReasons[monthIndex % lostReasons.length],
-            description: `RFP proposal lost during evaluation.`,
+            stageId: stage.id,
+            name: fullOppName,
+            amount: amount,
+            expectedOpportunityValue: expectedVal,
+            actualOpportunityValue: isClosedWon ? amount : null,
+            bottomLineCost: Math.round(amount * 0.65),
+            probability: stage.probability,
+            forecastCategory: isClosedWon ? "CLOSED_WON" : isClosedLost ? "CLOSED_LOST" : "PIPELINE",
+            expectedCloseDate: new Date(Date.now() + (oIdx * 30 * 24 * 60 * 60 * 1000)),
+            wonDate: isClosedWon ? new Date() : null,
+            lostReason: isClosedLost ? "Budget constraint / Vendor selection" : null,
+            description: `${oppTitle} contract for ${accName}. Requirements discussion in progress.`,
           },
         });
       }
     }
   }
 
-  // Active Open Opportunities in Current Pipeline across all 9 stages
-  const openOppsData = [
-    // 1. Prospect
-    { name: "Tata Consultancy Services - AI Red Teaming & LLM Security Assessment", accIdx: 0, prodIdx: 5, expected: 1850000, actual: null, costRatio: null, stage: "Prospect", prob: 10, fc: "PIPELINE" as const, daysOut: 90, type: "NEW_BUSINESS" as const, owner: usersMap["yashodhan.rajapkar@envistacyberdefence.com"] },
-    { name: "Infosys Technologies - OT & IoT Infrastructure Security Audit", accIdx: 1, prodIdx: 1, expected: 1200000, actual: null, costRatio: null, stage: "Prospect", prob: 10, fc: "PIPELINE" as const, daysOut: 100, type: "NEW_BUSINESS" as const, owner: usersMap["senior.partner@crm.com"] },
-    { name: "Wipro Digital - Zero Trust Architecture Readiness Assessment", accIdx: 2, prodIdx: 9, expected: 2400000, actual: null, costRatio: null, stage: "Prospect", prob: 10, fc: "PIPELINE" as const, daysOut: 110, type: "EXPANSION" as const, owner: usersMap["partner@crm.com"] },
-    { name: "Reliance Industries - Supply Chain Cyber Risk Rating Review", accIdx: 3, prodIdx: 4, expected: 3200000, actual: null, costRatio: null, stage: "Prospect", prob: 10, fc: "PIPELINE" as const, daysOut: 120, type: "NEW_BUSINESS" as const, owner: usersMap["anita.desai@crm.com"] },
-    { name: "HDFC Bank - SWIFT Payment Gateway Vulnerability Inspection", accIdx: 4, prodIdx: 2, expected: 1500000, actual: null, costRatio: null, stage: "Prospect", prob: 10, fc: "PIPELINE" as const, daysOut: 80, type: "RENEWAL" as const, owner: usersMap["manager@crm.com"] },
-
-    // 2. Lead
-    { name: "ICICI Bank - Cloud Workload Protection (CWPP) Platform Implementation", accIdx: 5, prodIdx: 1, expected: 2800000, actual: null, costRatio: null, stage: "Lead", prob: 20, fc: "PIPELINE" as const, daysOut: 75, type: "NEW_BUSINESS" as const, owner: usersMap["amit.patel@crm.com"] },
-    { name: "State Bank of India - Perimeter DDoS & API Gateway Hardening", accIdx: 6, prodIdx: 7, expected: 3600000, actual: null, costRatio: null, stage: "Lead", prob: 20, fc: "PIPELINE" as const, daysOut: 85, type: "EXPANSION" as const, owner: usersMap["rahul.kapoor@crm.com"] },
-    { name: "Bharti Airtel - Telecom Core 5G Slice Security Assessment", accIdx: 7, prodIdx: 2, expected: 4200000, actual: null, costRatio: null, stage: "Lead", prob: 20, fc: "PIPELINE" as const, daysOut: 70, type: "NEW_BUSINESS" as const, owner: usersMap["yashodhan.rajapkar@envistacyberdefence.com"] },
-    { name: "Larsen & Toubro - Industrial SCADA & DCS Penetration Testing", accIdx: 8, prodIdx: 2, expected: 1750000, actual: null, costRatio: null, stage: "Lead", prob: 20, fc: "PIPELINE" as const, daysOut: 90, type: "NEW_BUSINESS" as const, owner: usersMap["senior.partner@crm.com"] },
-    { name: "Tech Mahindra - Identity Threat Detection & Response (ITDR)", accIdx: 9, prodIdx: 3, expected: 2100000, actual: null, costRatio: null, stage: "Lead", prob: 20, fc: "PIPELINE" as const, daysOut: 65, type: "RENEWAL" as const, owner: usersMap["partner@crm.com"] },
-
-    // 3. Marketing Qualified Lead
-    { name: "Acme Corp - Next-Gen SIEM Migration & Threat Hunting Onboarding", accIdx: 10, prodIdx: 8, expected: 2600000, actual: null, costRatio: null, stage: "Marketing Qualified Lead", prob: 30, fc: "PIPELINE" as const, daysOut: 60, type: "NEW_BUSINESS" as const, owner: usersMap["anita.desai@crm.com"] },
-    { name: "Axis Bank - Enterprise Secrets Management & Vault Deployment", accIdx: 11, prodIdx: 1, expected: 3100000, actual: null, costRatio: null, stage: "Marketing Qualified Lead", prob: 30, fc: "PIPELINE" as const, daysOut: 55, type: "EXPANSION" as const, owner: usersMap["manager@crm.com"] },
-    { name: "Sun Pharma - GxP Compliance & FDA Part 11 Electronic Records Audit", accIdx: 12, prodIdx: 4, expected: 1900000, actual: null, costRatio: null, stage: "Marketing Qualified Lead", prob: 30, fc: "PIPELINE" as const, daysOut: 65, type: "NEW_BUSINESS" as const, owner: usersMap["amit.patel@crm.com"] },
-    { name: "Bajaj Auto - Connected Vehicle Telematics Cloud Vulnerability Assessment", accIdx: 13, prodIdx: 2, expected: 2250000, actual: null, costRatio: null, stage: "Marketing Qualified Lead", prob: 30, fc: "PIPELINE" as const, daysOut: 70, type: "NEW_BUSINESS" as const, owner: usersMap["rahul.kapoor@crm.com"] },
-    { name: "Maruti Suzuki - Ransomware Resilience & Offline Backup Architecture", accIdx: 14, prodIdx: 11, expected: 1400000, actual: null, costRatio: null, stage: "Marketing Qualified Lead", prob: 30, fc: "PIPELINE" as const, daysOut: 50, type: "EXPANSION" as const, owner: usersMap["yashodhan.rajapkar@envistacyberdefence.com"] },
-
-    // 4. Scope Discussion
-    { name: "Zomato Media - Merchant Portal Microservices Pen Test", accIdx: 15, prodIdx: 2, expected: 1600000, actual: null, costRatio: 0.54, stage: "Scope Discussion", prob: 50, fc: "PIPELINE" as const, daysOut: 40, type: "NEW_BUSINESS" as const, owner: usersMap["senior.partner@crm.com"] },
-    { name: "Swiggy Technologies - Real-Time Fraud & Promo Abuse Engine Audit", accIdx: 16, prodIdx: 10, expected: 2400000, actual: null, costRatio: 0.62, stage: "Scope Discussion", prob: 50, fc: "PIPELINE" as const, daysOut: 45, type: "EXPANSION" as const, owner: usersMap["partner@crm.com"] },
-    { name: "Zerodha Broking - High-Frequency Trading Protocol Encryption Scoping", accIdx: 17, prodIdx: 1, expected: 3800000, actual: null, costRatio: 0.50, stage: "Scope Discussion", prob: 50, fc: "PIPELINE" as const, daysOut: 35, type: "EXPANSION" as const, owner: usersMap["anita.desai@crm.com"] },
-    { name: "Razorpay Software - ISO 27701 Privacy Information Management System", accIdx: 18, prodIdx: 4, expected: 1800000, actual: null, costRatio: 0.58, stage: "Scope Discussion", prob: 50, fc: "PIPELINE" as const, daysOut: 50, type: "NEW_BUSINESS" as const, owner: usersMap["manager@crm.com"] },
-    { name: "Freshworks Inc - SaaS Multi-Tenant Database Encryption Scoping", accIdx: 19, prodIdx: 1, expected: 2900000, actual: null, costRatio: 0.65, stage: "Scope Discussion", prob: 50, fc: "PIPELINE" as const, daysOut: 30, type: "RENEWAL" as const, owner: usersMap["amit.patel@crm.com"] },
-
-    // 5. Proposal Sent
-    { name: "Tata Consultancy Services - 24/7 Managed SOC Enterprise Expansion", accIdx: 0, prodIdx: 0, expected: 5400000, actual: 5200000, costRatio: 0.56, stage: "Proposal Sent", prob: 65, fc: "BEST_CASE" as const, daysOut: 25, type: "EXPANSION" as const, owner: usersMap["rahul.kapoor@crm.com"] },
-    { name: "Infosys Technologies - Enterprise EDR 5,000 Endpoint License Bundle", accIdx: 1, prodIdx: 3, expected: 4800000, actual: 4500000, costRatio: 0.68, stage: "Proposal Sent", prob: 65, fc: "BEST_CASE" as const, daysOut: 20, type: "NEW_BUSINESS" as const, owner: usersMap["yashodhan.rajapkar@envistacyberdefence.com"] },
-    { name: "Wipro Digital - Cloud Infrastructure SOC 2 & FedRAMP Alignment", accIdx: 2, prodIdx: 9, expected: 3500000, actual: 3500000, costRatio: 0.50, stage: "Proposal Sent", prob: 65, fc: "BEST_CASE" as const, daysOut: 30, type: "NEW_BUSINESS" as const, owner: usersMap["senior.partner@crm.com"] },
-    { name: "Reliance Industries - Red Team Threat Simulation for Refinery DCS", accIdx: 3, prodIdx: 5, expected: 2400000, actual: 2300000, costRatio: 0.61, stage: "Proposal Sent", prob: 65, fc: "BEST_CASE" as const, daysOut: 18, type: "RENEWAL" as const, owner: usersMap["partner@crm.com"] },
-    { name: "HDFC Bank - Incident Response Retainer 200-Hour Block", accIdx: 4, prodIdx: 6, expected: 1600000, actual: 1600000, costRatio: 0.52, stage: "Proposal Sent", prob: 65, fc: "BEST_CASE" as const, daysOut: 22, type: "RENEWAL" as const, owner: usersMap["anita.desai@crm.com"] },
-
-    // 6. Negotiation
-    { name: "ICICI Bank - Next-Gen Firewall & Microsegmentation Licensing", accIdx: 5, prodIdx: 7, expected: 4500000, actual: 4250000, costRatio: 0.65, stage: "Negotiation", prob: 80, fc: "COMMIT" as const, daysOut: 10, type: "NEW_BUSINESS" as const, owner: usersMap["manager@crm.com"] },
-    { name: "State Bank of India - Core Banking Mobile App VAPT & Reverse Engineering", accIdx: 6, prodIdx: 2, expected: 2000000, actual: 1950000, costRatio: 0.49, stage: "Negotiation", prob: 80, fc: "COMMIT" as const, daysOut: 7, type: "RENEWAL" as const, owner: usersMap["amit.patel@crm.com"] },
-    { name: "Bharti Airtel - Cloud SIEM Log Ingestion Enterprise License", accIdx: 7, prodIdx: 8, expected: 3800000, actual: 3600000, costRatio: 0.58, stage: "Negotiation", prob: 80, fc: "COMMIT" as const, daysOut: 12, type: "EXPANSION" as const, owner: usersMap["rahul.kapoor@crm.com"] },
-    { name: "Larsen & Toubro - ISO 27001 Multi-Site Audit Support 2026", accIdx: 8, prodIdx: 4, expected: 1800000, actual: 1750000, costRatio: 0.53, stage: "Negotiation", prob: 80, fc: "COMMIT" as const, daysOut: 14, type: "NEW_BUSINESS" as const, owner: usersMap["yashodhan.rajapkar@envistacyberdefence.com"] },
-    { name: "Tech Mahindra - Kubernetes Security & Cluster Admission Control", accIdx: 9, prodIdx: 10, expected: 2500000, actual: 2400000, costRatio: 0.63, stage: "Negotiation", prob: 80, fc: "COMMIT" as const, daysOut: 8, type: "EXPANSION" as const, owner: usersMap["senior.partner@crm.com"] },
-
-    // 7. Opportunity Dead
-    { name: "Acme Corp - Mobile App Source Code Security Review", accIdx: 10, prodIdx: 2, expected: 1100000, actual: null, costRatio: null, stage: "Opportunity Dead", prob: 0, fc: "CLOSED_LOST" as const, daysOut: -80, type: "NEW_BUSINESS" as const, owner: usersMap["partner@crm.com"], lostReason: "Client mobile rewrite shelved indefinitely due to budget cuts" },
-    { name: "Tata Consultancy Services - Legacy Mainframe Security Scoping", accIdx: 0, prodIdx: 1, expected: 2100000, actual: null, costRatio: null, stage: "Opportunity Dead", prob: 0, fc: "CLOSED_LOST" as const, daysOut: -95, type: "NEW_BUSINESS" as const, owner: usersMap["anita.desai@crm.com"], lostReason: "Mainframe decommissioning accelerated; security audit canceled" },
-    { name: "Wipro Digital - Biometric Authentication Firmware Audit", accIdx: 2, prodIdx: 2, expected: 1650000, actual: null, costRatio: null, stage: "Opportunity Dead", prob: 0, fc: "CLOSED_LOST" as const, daysOut: -105, type: "EXPANSION" as const, owner: usersMap["manager@crm.com"], lostReason: "Unresponsive to follow-ups after initial requirements workshop" },
-    { name: "Reliance Industries - Satellite Communication Link Encryption Scoping", accIdx: 3, prodIdx: 7, expected: 4500000, actual: null, costRatio: null, stage: "Opportunity Dead", prob: 0, fc: "CLOSED_LOST" as const, daysOut: -120, type: "NEW_BUSINESS" as const, owner: usersMap["amit.patel@crm.com"], lostReason: "Regulatory approval delayed indefinitely; project canceled" },
-    { name: "HDFC Bank - Branch ATM Endpoint Hardening Initiative", accIdx: 4, prodIdx: 3, expected: 3800000, actual: null, costRatio: null, stage: "Opportunity Dead", prob: 0, fc: "CLOSED_LOST" as const, daysOut: -90, type: "RENEWAL" as const, owner: usersMap["rahul.kapoor@crm.com"], lostReason: "ATM fleet management consolidated with external facilities vendor" },
-  ];
-
-  for (let idx = 0; idx < openOppsData.length; idx++) {
-    const oData = openOppsData[idx];
-    const acc = accountsList[oData.accIdx];
-    const prod = productsList[oData.prodIdx];
-    const isClosed = oData.daysOut < 0;
-    const baseDate = new Date();
-    const closeDate = new Date(baseDate.getTime() + oData.daysOut * 24 * 60 * 60 * 1000);
-    const stageAgeOffset = oData.stage === "Prospect" ? 8 : oData.stage === "Lead" ? 14 : oData.stage === "Marketing Qualified Lead" ? 21 : oData.stage === "Scope Discussion" ? 27 : oData.stage === "Proposal Sent" ? 35 : 44;
-    const createdDate = isClosed
-      ? new Date(closeDate.getTime() - 30 * 24 * 60 * 60 * 1000)
-      : new Date(baseDate.getTime() - (stageAgeOffset + (idx % 5) * 2) * 24 * 60 * 60 * 1000);
-
-    const exists = await prisma.opportunity.findFirst({
-      where: { tenantId: tenant.id, name: oData.name },
-    });
-
-    const expVal = oData.expected;
-    const actVal = oData.actual;
-    const bottomCost = oData.costRatio !== null && (actVal !== null || expVal !== null)
-      ? Math.round((actVal ?? expVal) * oData.costRatio)
-      : null;
-
-    if (!exists && acc && prod) {
-      const opp = await prisma.opportunity.create({
-        data: {
-          tenantId: tenant.id,
-          name: oData.name,
-          accountId: acc.id,
-          amount: expVal,
-          expectedOpportunityValue: expVal,
-          actualOpportunityValue: actVal,
-          bottomLineCost: bottomCost,
-          pipelineId: oppPipeline.id,
-          stageId: oppStages[oData.stage] || oppStages["Scope Discussion"],
-          probability: oData.prob,
-          ownerId: oData.owner.id,
-          createdById: oData.owner.id,
-          opportunityType: oData.type,
-          forecastCategory: oData.fc,
-          createdAt: createdDate,
-          expectedCloseDate: closeDate,
-          actualCloseDate: isClosed ? closeDate : null,
-          wonDate: oData.stage === "Closed Won" ? closeDate : null,
-          lostReason: (oData as any).lostReason || null,
-          description: `Pipeline opportunity managed by ${oData.owner.firstName} ${oData.owner.lastName}.`,
-          lineItems: {
-            create: [
-              {
-                productId: prod.id,
-                quantity: 1,
-                unitPrice: prod.unitPrice,
-                discountPct: 0,
-                taxPct: 18,
-                total: actVal ?? expVal,
-              },
-            ],
-          },
-        },
-      });
-      opportunitiesCreated.push(opp);
-    }
-  }
-
-  // 10. Quotes (30+ Quotes generated across active & won opportunities)
-  console.log("Generating quotes for opportunities...");
-  let quoteCounter = 1;
-  for (const opp of opportunitiesCreated.slice(0, 30)) {
-    const qNumber = `Q-${String(quoteCounter).padStart(5, "0")}`;
-    const exists = await prisma.quote.findFirst({
-      where: { tenantId: tenant.id, quoteNumber: qNumber },
-    });
-
-    if (!exists) {
-      await prisma.quote.create({
-        data: {
-          tenantId: tenant.id,
-          quoteNumber: qNumber,
-          opportunityId: opp.id,
-          accountId: opp.accountId,
-          amount: opp.amount,
-          status: opp.wonDate ? "ACCEPTED" : quoteCounter % 2 === 0 ? "SENT" : "DRAFT",
-          ownerId: opp.ownerId,
-          createdById: opp.ownerId,
-          currency: "INR",
-          createdAt: opp.createdAt,
-        },
-      });
-    }
-    quoteCounter++;
-  }
-
-  // 11. Activities & Notes (100+ Activities across 3 Years)
-  console.log("Generating 3 years of logged activities and timeline notes...");
-  const activityTypes = ["CALL", "MEETING", "DEMO", "TASK", "EMAIL", "FOLLOW_UP"] as const;
-  const subjects = [
-    "Quarterly Cybersecurity Executive Briefing",
-    "SOC Telemetry Log Integration Discussion",
-    "ISO 27001 Audit Scope Review",
-    "Cloud Architecture Vulnerability Review",
-    "SLA Negotiation & Contract Terms",
-    "Ransomware Containment Emergency Exercise",
-    "EDR Endpoint Deployment Check-in",
-    "Penetration Test Remediation Verification",
-  ];
-
-  for (let i = 0; i < 60; i++) {
-    const acc = accountsList[i % accountsList.length];
-    const owner = allUsers[i % allUsers.length];
-    const actType = activityTypes[i % activityTypes.length];
-    const actSubject = `${subjects[i % subjects.length]} - ${acc.name}`;
-    const daysAgo = Math.floor(Math.random() * 1000); // Spread across 3 years
-
-    const exists = await prisma.activity.findFirst({
-      where: { tenantId: tenant.id, subject: actSubject },
-    });
-
-    if (!exists && acc) {
-      await prisma.activity.create({
-        data: {
-          tenantId: tenant.id,
-          type: actType,
-          subject: actSubject,
-          body: `Detailed meeting notes and action items recorded for ${acc.name}.`,
-          status: daysAgo < 0 ? "PENDING" : "COMPLETED",
-          ownerId: owner.id,
-          createdById: owner.id,
-          objectType: "ACCOUNT",
-          accountId: acc.id,
-          createdAt: new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000),
-        },
-      });
-    }
-  }
-
-  // 12. Forecast Targets (2024, 2025, 2026 Monthly Targets per Sales Rep)
-  console.log("Generating monthly forecast quota targets for 2024–2026...");
-  const years = [2024, 2025, 2026];
-  for (const yr of years) {
-    for (let mo = 1; mo <= 12; mo++) {
-      const period = `${yr}-${String(mo).padStart(2, "0")}`;
-      for (const u of allUsers) {
-        const exists = await prisma.forecastTarget.findFirst({
-          where: { tenantId: tenant.id, ownerId: u.id, period },
-        });
-        if (!exists) {
-          const quotaAmount = u.orgRole === "SENIOR_PARTNER" ? 15000000 : u.orgRole === "PARTNER" ? 10000000 : 5000000;
-          await prisma.forecastTarget.create({
-            data: {
-              tenantId: tenant.id,
-              ownerId: u.id,
-              period,
-              targetAmount: quotaAmount,
-            },
-          });
-        }
-      }
-    }
-  }
-
-  console.log("Seeding complete! Successfully populated CRM database with 3 full years of rich workspace data.");
+  console.log(`Successfully created ${accountCount} Accounts (10 per Manager).`);
+  console.log(`Successfully created ${opportunityCount} Opportunities (3 per Account).`);
+  console.log("=== Seed Completed Successfully ===");
 }
 
 main()
   .catch((e) => {
-    console.error("Error during seed:", e);
+    console.error("Seed script failed:", e);
     process.exit(1);
   })
   .finally(async () => {

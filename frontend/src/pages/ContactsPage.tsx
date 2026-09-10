@@ -11,7 +11,7 @@ import { fetchOwnerOptions } from "../lib/pickers";
 import { initials, formatDate } from "../lib/format";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
 import type { Contact, Paginated } from "../lib/types";
-import { Plus, Search, Download, UploadCloud } from "lucide-react";
+import { Plus, Search, Download, UploadCloud, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 import { useAuth } from "../hooks/useAuth";
 
@@ -25,6 +25,19 @@ const CONTACT_COLUMNS: ColumnDef[] = [
   { key: "createdAt", label: "Created Date" },
 ];
 
+const SORT_OPTIONS = [
+  { label: "Name (A → Z)", value: "name_asc" },
+  { label: "Name (Z → A)", value: "name_desc" },
+  { label: "Account Name (A → Z)", value: "account_asc" },
+  { label: "Account Name (Z → A)", value: "account_desc" },
+  { label: "Designation (A → Z)", value: "designation_asc" },
+  { label: "Designation (Z → A)", value: "designation_desc" },
+  { label: "Created By (A → Z)", value: "created_by_asc" },
+  { label: "Created By (Z → A)", value: "created_by_desc" },
+  { label: "Newest First", value: "created_desc" },
+  { label: "Oldest First", value: "created_asc" },
+];
+
 export default function ContactsPage() {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
@@ -32,6 +45,7 @@ export default function ContactsPage() {
   const [showImport, setShowImport] = useState(false);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [ownerLabel, setOwnerLabel] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState("name_asc");
 
   const { visibleKeys, toggle, showAll, reset, isVisible, orderedColumns, reorder } = useColumnVisibility(
     "contacts-table",
@@ -47,6 +61,34 @@ export default function ContactsPage() {
         })
       ).data,
   });
+
+  const contactsList = data?.data || [];
+  const sortedContacts = [...contactsList].sort((a, b) => {
+    if (sortBy === "name_asc") return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+    if (sortBy === "name_desc") return `${b.firstName} ${b.lastName}`.localeCompare(`${a.firstName} ${a.lastName}`);
+    if (sortBy === "account_asc") return (a.account?.name || "").localeCompare(b.account?.name || "");
+    if (sortBy === "account_desc") return (b.account?.name || "").localeCompare(a.account?.name || "");
+    if (sortBy === "designation_asc") return (a.jobTitle || "").localeCompare(b.jobTitle || "");
+    if (sortBy === "designation_desc") return (b.jobTitle || "").localeCompare(a.jobTitle || "");
+    if (sortBy === "created_asc") return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+    if (sortBy === "created_by_asc") return (a.owner ? `${a.owner.firstName} ${a.owner.lastName}`.toLowerCase() : "").localeCompare(b.owner ? `${b.owner.firstName} ${b.owner.lastName}`.toLowerCase() : "");
+    if (sortBy === "created_by_desc") return (b.owner ? `${b.owner.firstName} ${b.owner.lastName}`.toLowerCase() : "").localeCompare(a.owner ? `${a.owner.firstName} ${a.owner.lastName}`.toLowerCase() : "");
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+  });
+
+  function handleHeaderSort(key: string) {
+    if (key === "name") {
+      setSortBy((s) => (s === "name_asc" ? "name_desc" : "name_asc"));
+    } else if (key === "account") {
+      setSortBy((s) => (s === "account_asc" ? "account_desc" : "account_asc"));
+    } else if (key === "designation") {
+      setSortBy((s) => (s === "designation_asc" ? "designation_desc" : "designation_asc"));
+    } else if (key === "createdAt") {
+      setSortBy((s) => (s === "created_desc" ? "created_asc" : "created_desc"));
+    } else if (key === "owner") {
+      setSortBy((s) => (s === "created_by_asc" ? "created_by_desc" : "created_by_asc"));
+    }
+  }
 
   async function exportCsv() {
     await downloadCsvExport(
@@ -98,6 +140,18 @@ export default function ContactsPage() {
               style={inputStyle}
             />
           </div>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className={`${inputClass} font-medium`}
+            style={{ ...inputStyle, width: "auto" }}
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
           <div className="w-52">
             {user?.orgRole !== "MANAGER" && (
               <RelationshipSelector
@@ -117,7 +171,7 @@ export default function ContactsPage() {
         <Card>
           {isLoading ? (
             <div className="p-6 text-sm" style={{ color: "var(--ink-400)" }}>Loading…</div>
-          ) : !data?.data.length ? (
+          ) : !sortedContacts.length ? (
             <EmptyState
               title="No contacts yet"
               action={<Button onClick={() => setShowNew(true)}><Plus size={15} /> New Contact</Button>}
@@ -126,15 +180,41 @@ export default function ContactsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left border-b" style={{ borderColor: "var(--ink-100)" }}>
-                  {orderedColumns.filter((col) => isVisible(col.key)).map((col) => (
-                    <th key={col.key} className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>
-                      {col.label}
-                    </th>
-                  ))}
+                  {orderedColumns.filter((col) => isVisible(col.key)).map((col) => {
+                    const isSortable = ["name", "designation", "account", "createdAt", "owner"].includes(col.key);
+                    const isCurrent =
+                      (col.key === "name" && (sortBy === "name_asc" || sortBy === "name_desc")) ||
+                      (col.key === "account" && (sortBy === "account_asc" || sortBy === "account_desc")) ||
+                      (col.key === "designation" && (sortBy === "designation_asc" || sortBy === "designation_desc")) ||
+                      (col.key === "createdAt" && (sortBy === "created_desc" || sortBy === "created_asc")) ||
+                      (col.key === "owner" && (sortBy === "created_by_asc" || sortBy === "created_by_desc"));
+                    const isAsc = sortBy.endsWith("_asc");
+                    return (
+                      <th
+                        key={col.key}
+                        onClick={() => isSortable && handleHeaderSort(col.key)}
+                        className={`px-4 py-2.5 text-xs uppercase font-medium select-none ${isSortable ? "cursor-pointer hover:text-[var(--ledger-700)]" : ""}`}
+                        style={{ color: isCurrent ? "var(--ledger-700)" : "var(--ink-400)" }}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>{col.label}</span>
+                          {isSortable && (
+                            <span>
+                              {isCurrent ? (
+                                isAsc ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                              ) : (
+                                <ArrowUpDown size={11} className="opacity-40" />
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
-                {data.data.map((c) => {
+                {sortedContacts.map((c) => {
                   const cellRenderers: Record<string, () => ReactElement> = {
                     name: () => (
                       <td className="px-4 py-3">

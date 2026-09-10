@@ -173,13 +173,14 @@ export default async function leadRoutes(app: FastifyInstance) {
     const rows = leads.map((l) => ({
       firstName: l.firstName, lastName: l.lastName, email: l.email, phone: l.phone, companyName: l.companyName,
       jobTitle: l.jobTitle, source: l.source, status: l.status, score: l.score,
-      owner: l.owner ? `${l.owner.firstName} ${l.owner.lastName}` : "", createdAt: l.createdAt.toISOString(),
+      owner: l.owner ? `${l.owner.firstName} ${l.owner.lastName}` : "",
+      createdAt: l.createdAt ? l.createdAt.toISOString().slice(0, 10) : "",
     }));
     const csv = toCsv(rows, [
       { key: "firstName", label: "First Name" }, { key: "lastName", label: "Last Name" },
       { key: "email", label: "Email" }, { key: "phone", label: "Phone" }, { key: "companyName", label: "Company" },
       { key: "jobTitle", label: "Job Title" }, { key: "source", label: "Source" }, { key: "status", label: "Status" },
-      { key: "score", label: "Score" }, { key: "owner", label: "Owner" }, { key: "createdAt", label: "Created At" },
+      { key: "score", label: "Score" }, { key: "owner", label: "Account Owner" }, { key: "createdAt", label: "Created Date" },
     ]);
     reply.header("Content-Type", "text/csv");
     reply.header("Content-Disposition", 'attachment; filename="leads.csv"');
@@ -386,22 +387,11 @@ export default async function leadRoutes(app: FastifyInstance) {
     return lead;
   });
 
-  // ARCHIVE (soft delete)
-  app.post("/api/v1/leads/:id/archive", { preHandler: app.authenticate }, async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const existing = await prisma.lead.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
-    if (!existing) return reply.code(404).send({ error: "Lead not found" });
-    await requireCanAccess(req.authUser, existing);
-    const lead = await prisma.lead.update({ where: { id }, data: { archived: true } });
-    await logAudit({ tenantId: req.authUser.tenantId, userId: req.authUser.id, objectType: "LEAD", recordId: id, action: "ARCHIVED" });
-    return lead;
-  });
-
   // BULK ACTIONS
   app.post("/api/v1/leads/bulk", { preHandler: app.authenticate }, async (req, reply) => {
     const body = z.object({
       ids: z.array(z.string().uuid()).min(1),
-      action: z.enum(["assignOwner", "changeStatus", "archive"]),
+      action: z.enum(["assignOwner", "changeStatus"]),
       ownerId: z.string().uuid().optional(),
       status: z.enum(LEAD_STATUSES).optional(),
     }).parse(req.body);
@@ -434,8 +424,6 @@ export default async function leadRoutes(app: FastifyInstance) {
     } else if (body.action === "changeStatus") {
       if (!body.status) return reply.code(400).send({ error: "status is required" });
       data = { status: body.status };
-    } else if (body.action === "archive") {
-      data = { archived: true };
     }
 
     await prisma.lead.updateMany({ where: { id: { in: ids }, tenantId }, data });

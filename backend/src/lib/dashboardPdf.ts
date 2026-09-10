@@ -23,100 +23,167 @@ interface DashboardPdfInput {
 
 function money(n: number) {
   try {
-    return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
+    const formatted = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
+    return formatted.replace("₹", "Rs. ");
   } catch {
-    return `₹${n.toFixed(0)}`;
+    return `Rs. ${n.toFixed(0)}`;
   }
 }
 
-function drawTable(doc: PDFKit.PDFDocument, headers: string[], rows: string[][], colWidths: number[], startX = 50) {
-  let y = doc.y + 4;
-  doc.fontSize(9).fillColor("#9ca3af");
+function drawSectionHeader(doc: PDFKit.PDFDocument, title: string, startY: number) {
+  doc.fontSize(12).font("Helvetica-Bold").fillColor("#0f1a17").text(title, 40, startY);
+  doc.moveTo(40, startY + 16).lineTo(555, startY + 16).strokeColor("#0f6b4e").lineWidth(1.5).stroke();
+  doc.y = startY + 22;
+}
+
+function drawStyledTable(
+  doc: PDFKit.PDFDocument,
+  headers: string[],
+  rows: string[][],
+  colWidths: number[],
+  alignments: ("left" | "right" | "center")[],
+  startX = 40
+) {
+  let y = doc.y;
+
+  // Table Header Row Background
+  const tableWidth = colWidths.reduce((a, b) => a + b, 0);
+  doc.roundedRect(startX, y, tableWidth, 22, 3).fill("#1e293b");
+
+  // Header Labels
   let x = startX;
+  doc.fontSize(9).font("Helvetica-Bold").fillColor("#ffffff");
   headers.forEach((h, i) => {
-    doc.text(h, x, y, { width: colWidths[i] });
+    doc.text(h, x + 6, y + 6, { width: colWidths[i] - 12, align: alignments[i] });
     x += colWidths[i];
   });
-  y += 14;
-  doc.moveTo(startX, y).lineTo(startX + colWidths.reduce((a, b) => a + b, 0), y).strokeColor("#e5e7eb").stroke();
-  y += 8;
+  y += 24;
 
-  for (const row of rows) {
+  // Table Rows
+  rows.forEach((row, rowIndex) => {
+    const isAlt = rowIndex % 2 === 1;
+    if (isAlt) {
+      doc.rect(startX, y, tableWidth, 20).fill("#f8fafc");
+    }
+
+    doc.moveTo(startX, y + 20).lineTo(startX + tableWidth, y + 20).strokeColor("#f1f5f9").lineWidth(0.5).stroke();
+
     x = startX;
-    doc.fontSize(10).fillColor("#111827");
+    doc.fontSize(9).font("Helvetica").fillColor("#334155");
     row.forEach((cell, i) => {
-      doc.text(cell, x, y, { width: colWidths[i] });
+      doc.text(cell, x + 6, y + 5, { width: colWidths[i] - 12, align: alignments[i] });
       x += colWidths[i];
     });
-    y += 18;
-  }
-  doc.y = y + 6;
+    y += 20;
+  });
+
+  doc.y = y + 10;
 }
 
-// Generates a tabular PDF summary of dashboard KPIs and charts in memory, returned as a Buffer.
-// pdfkit has no native chart-rendering support, so charts are rendered as data tables rather than images.
 export function generateDashboardPdf(input: DashboardPdfInput): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    const doc = new PDFDocument({ size: "A4", margin: 40 });
     const chunks: Buffer[] = [];
     doc.on("data", (chunk) => chunks.push(chunk));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    // Header
-    doc.fontSize(20).fillColor("#0f1a17").text(input.tenantName);
-    doc.moveDown(0.2);
-    doc.fontSize(10).fillColor("#6b7280").text("Dashboard Report");
-    doc.moveDown(0.3);
-    doc.fontSize(9).fillColor("#9ca3af").text(`Generated for ${input.generatedFor} on ${input.generatedAt.toLocaleString()}`);
-    doc.moveDown(1.2);
+    // Header Banner Box
+    doc.roundedRect(40, 40, 515, 76, 6).fill("#14171a");
+    
+    // Brand Accent Line
+    doc.rect(40, 40, 6, 76).fill("#0f6b4e");
 
-    // KPI summary
-    doc.fontSize(13).fillColor("#0f1a17").text("Key Metrics");
-    doc.moveDown(0.5);
-    const kpiRows: [string, string][] = [
-      ["Total Pipeline", money(input.kpis.totalPipeline)],
-      ["Weighted Pipeline", money(input.kpis.weightedPipeline)],
-      ["Open Opportunities", String(input.kpis.openOpportunities)],
-      ["Closed Won Revenue", money(input.kpis.closedWonRevenue)],
-      ["Win Rate", `${Math.round(input.kpis.winRate * 100)}%`],
-      ["Avg Opportunity Size", money(input.kpis.avgOpportunitySize)],
-      ["Margin Value", money((input.kpis.totalGrossMargin || 0) + (input.kpis.totalExpectedMargin || 0))],
-      ["Cost Incurred to Company", money(input.kpis.totalBottomLineCost || 0)],
+    // Title & Subtitle inside Header Banner
+    doc.fontSize(16).font("Helvetica-Bold").fillColor("#ffffff").text("Envista Cyber Defence CRM", 58, 52);
+    doc.fontSize(10).font("Helvetica").fillColor("#94a3b8").text("Executive Dashboard & Financial Summary Report", 58, 72);
+
+    // Meta Metadata on right side of Banner
+    doc.fontSize(8).font("Helvetica").fillColor("#cbd5e1")
+      .text(`Tenant: ${input.tenantName}`, 340, 52, { width: 200, align: "right" })
+      .text(`Viewer: ${input.generatedFor}`, 340, 65, { width: 200, align: "right" })
+      .text(`Exported: ${input.generatedAt.toLocaleString()}`, 340, 78, { width: 200, align: "right" });
+
+    let currentY = 130;
+
+    // --- SECTION 1: KEY PERFORMANCE METRICS (2-column Cards Grid) ---
+    drawSectionHeader(doc, "Key Performance Indicators", currentY);
+    currentY = doc.y;
+
+    const marginVal = (input.kpis.totalGrossMargin || 0) + (input.kpis.totalExpectedMargin || 0);
+    const costVal = input.kpis.totalBottomLineCost || 0;
+
+    const kpiCards = [
+      { label: "Total Pipeline", val: money(input.kpis.totalPipeline) },
+      { label: "Weighted Pipeline", val: money(input.kpis.weightedPipeline) },
+      { label: "Open Opportunities", val: String(input.kpis.openOpportunities) },
+      { label: "Closed Won Revenue", val: money(input.kpis.closedWonRevenue) },
+      { label: "Win Rate", val: `${Math.round(input.kpis.winRate * 100)}%` },
+      { label: "Avg Opportunity Size", val: money(input.kpis.avgOpportunitySize) },
+      { label: "Margin Value", val: money(marginVal) },
+      { label: "Cost Incurred to Company", val: money(costVal) },
     ];
-    for (const [label, value] of kpiRows) {
-      const y = doc.y;
-      doc.fontSize(10).fillColor("#6b7280").text(label, 50, y, { width: 220 });
-      doc.fontSize(10).fillColor("#111827").text(value, 280, y, { width: 180, align: "right" });
-      doc.moveDown(0.6);
-    }
-    doc.moveDown(1);
 
-    // Pipeline by stage
-    doc.fontSize(13).fillColor("#0f1a17").text("Pipeline by Stage");
+    const cardW = 250;
+    const cardH = 40;
+    const gapX = 15;
+    const gapY = 10;
+
+    kpiCards.forEach((kpi, idx) => {
+      const col = idx % 2;
+      const row = Math.floor(idx / 2);
+      const cx = 40 + col * (cardW + gapX);
+      const cy = currentY + row * (cardH + gapY);
+
+      // Card Container
+      doc.roundedRect(cx, cy, cardW, cardH, 4).fillAndStroke("#f8fafc", "#e2e8f0");
+      
+      // Left Accent Pill
+      doc.roundedRect(cx + 6, cy + 8, 3, 24, 1.5).fill("#0f6b4e");
+
+      // Label & Value
+      doc.fontSize(8).font("Helvetica-Bold").fillColor("#64748b").text(kpi.label.toUpperCase(), cx + 16, cy + 8, { width: cardW - 24 });
+      doc.fontSize(11).font("Helvetica-Bold").fillColor("#0f1a17").text(kpi.val, cx + 16, cy + 20, { width: cardW - 24 });
+    });
+
+    currentY += 4 * (cardH + gapY) + 15;
+
+    // --- SECTION 2: PIPELINE BY STAGE ---
+    drawSectionHeader(doc, "Pipeline Stage Breakdown", currentY);
+
     if (input.charts.pipelineByStage.length === 0) {
-      doc.fontSize(10).fillColor("#6b7280").text("No open opportunities.");
+      doc.fontSize(9).font("Helvetica-Oblique").fillColor("#94a3b8").text("No open opportunities found in pipeline.", 40, doc.y);
     } else {
-      drawTable(
+      drawStyledTable(
         doc,
-        ["Stage", "Count", "Value"],
+        ["Stage Name", "Deal Count", "Pipeline Amount"],
         input.charts.pipelineByStage.map((s) => [s.stageName, String(s.count), money(s.amount)]),
-        [250, 100, 145]
+        [250, 100, 165],
+        ["left", "center", "right"]
       );
     }
-    doc.moveDown(1);
 
-    // Revenue by month
-    doc.fontSize(13).fillColor("#0f1a17").text("Revenue by Month (last 6 months)");
-    drawTable(
+    currentY = doc.y + 10;
+
+    // --- SECTION 3: REVENUE TREND (LAST 6 MONTHS) ---
+    drawSectionHeader(doc, "Monthly Revenue Trend", currentY);
+
+    drawStyledTable(
       doc,
-      ["Month", "Revenue"],
+      ["Month / Cycle", "Realized Closed Won Revenue"],
       input.charts.revenueByMonth.map((m) => [m.month, money(m.revenue)]),
-      [250, 245]
+      [250, 265],
+      ["left", "right"]
     );
 
-    doc.moveDown(2);
-    doc.fontSize(8).fillColor("#9ca3af").text("Generated by CRM. Figures reflect your role's data visibility scope at the time of export.", 50, 760, { width: 495, align: "center" });
+    // Document Footer
+    doc.moveTo(40, 770).lineTo(555, 770).strokeColor("#cbd5e1").lineWidth(0.5).stroke();
+    doc.fontSize(8).font("Helvetica").fillColor("#94a3b8").text(
+      "CONFIDENTIAL — Envista Cyber Defence CRM Executive Summary. Figures reflect role visibility permissions at time of generation.",
+      40,
+      778,
+      { width: 515, align: "center" }
+    );
 
     doc.end();
   });

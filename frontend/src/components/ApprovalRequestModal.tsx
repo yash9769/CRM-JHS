@@ -40,7 +40,7 @@ export function ApprovalRequestModal({
           <div>
             <div className="font-semibold text-sm">Partner Approval Needed</div>
             <p className="mt-0.5 text-[var(--ink-600)]">
-              Moving an opportunity into <strong>{toStage.name}</strong> requires Partner approval. The opportunity will remain in <strong>{fromStage.name}</strong> until approved.
+              Moving an opportunity into <strong>{toStage.name}</strong> requires Partner approval. The opportunity will be placed in <strong>Proposal Sent</strong> while awaiting approval (reverting to <strong>{fromStage.name}</strong> if rejected).
             </p>
           </div>
         </div>

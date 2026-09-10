@@ -4,33 +4,52 @@ import { getCreatedByFilter } from "../lib/rbac.js";
 import { computeOpportunityFinancials } from "../lib/financial.js";
 import { generateDashboardPdf } from "../lib/dashboardPdf.js";
 
-async function computeDashboardData(tenantId: string, rbacFilter: any) {
+async function computeDashboardData(tenantId: string, rbacFilter: any, period?: string) {
+    const targetDate = period && /^\d{4}-\d{2}$/.test(period)
+      ? new Date(`${period}-01T00:00:00Z`)
+      : new Date();
+    const cycleStart = new Date(Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth(), 1));
+    const cycleEnd = new Date(Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth() + 1, 1));
+
     const [openOpps, closedWonOpps, closedLostOpps] = await Promise.all([
       prisma.opportunity.findMany({ where: { tenantId, ...rbacFilter, stage: { isClosed: false } }, include: { stage: true, account: true, owner: true } }),
       prisma.opportunity.findMany({ where: { tenantId, ...rbacFilter, stage: { isClosed: true, isWon: true } }, include: { owner: { select: { id: true, firstName: true, lastName: true } } } }),
       prisma.opportunity.findMany({ where: { tenantId, ...rbacFilter, stage: { isClosed: true, isWon: false } }, select: { ownerId: true, owner: { select: { id: true, firstName: true, lastName: true } } } }),
     ]);
 
-    const openOppsFinancials = openOpps.map((o) => computeOpportunityFinancials(o));
-    const closedWonFinancials = closedWonOpps.map((o) => computeOpportunityFinancials(o));
+    // Filter Closed Won opportunities by selected cycle period.
+    // Do NOT fall back to all-time data: an empty cycle should show ₹0,
+    // not lifetime revenue, which would mislead the user.
+    const cycleClosedWonOpps = closedWonOpps.filter((opp) => {
+      const date = opp.wonDate || opp.actualCloseDate || opp.updatedAt;
+      return date && date >= cycleStart && date < cycleEnd;
+    });
+    const activeWonOpps = cycleClosedWonOpps;
 
-    const totalPipeline = openOppsFinancials.reduce((s, f) => s + (f.expectedOpportunityValue || 0), 0);
-    const weightedPipeline = openOpps.reduce((s, o, idx) => s + (openOppsFinancials[idx].expectedOpportunityValue || 0) * (o.probability / 100), 0);
+    const openOppsFinancials = openOpps.map((o) => computeOpportunityFinancials(o));
+    const closedWonFinancials = activeWonOpps.map((o) => computeOpportunityFinancials(o));
+
+    const totalPipeline = openOppsFinancials.reduce((s, f, idx) => s + (f.expectedOpportunityValue ?? Number(openOpps[idx].amount || 0)), 0);
+    const weightedPipeline = openOpps.reduce((s, o, idx) => {
+      const oppValue = openOppsFinancials[idx].expectedOpportunityValue ?? Number(o.amount || 0);
+      const prob = (o.probability !== undefined && o.probability !== null && o.probability > 0) ? o.probability : (o.stage?.probability ?? 0);
+      return s + oppValue * (prob / 100);
+    }, 0);
     const closedWonRevenue = closedWonFinancials.reduce((s, f) => s + (f.actualOpportunityValue !== null ? f.actualOpportunityValue : (f.expectedOpportunityValue || 0)), 0);
 
     const totalExpectedMargin = openOppsFinancials.reduce((s, f) => s + (f.expectedMargin || 0), 0);
     const totalGrossMargin = closedWonFinancials.reduce((s, f) => s + (f.grossMargin || 0), 0);
     const totalMarginLoss = closedWonFinancials.reduce((s, f) => s + (f.marginLoss || 0), 0);
-    const totalBottomLineCost = [...openOppsFinancials, ...closedWonFinancials].reduce((s, f) => s + (f.bottomLineCost || 0), 0);
+    const openCostIncurred = openOppsFinancials.reduce((s, f) => s + (f.bottomLineCost || 0), 0);
+    const closedWonCostIncurred = closedWonFinancials.reduce((s, f) => s + (f.bottomLineCost || 0), 0);
+    const totalBottomLineCost = openCostIncurred + closedWonCostIncurred;
 
     const winRate = closedWonOpps.length + closedLostOpps.length > 0
       ? closedWonOpps.length / (closedWonOpps.length + closedLostOpps.length)
       : 0;
-    const avgOpportunitySize = closedWonOpps.length > 0 ? closedWonRevenue / closedWonOpps.length : 0;
+    const avgOpportunitySize = activeWonOpps.length > 0 ? closedWonRevenue / activeWonOpps.length : 0;
 
-    // Per-team-member breakdown of every KPI above, for the drill-down modal Partners/
-    // Senior Partners get when they click a KPI tile. Built from the exact same
-    // financial computations as the aggregate figures, so the numbers always add up.
+    // Per-team-member breakdown of every KPI above
     type OwnerBreakdown = {
       ownerId: string; ownerName: string;
       totalPipeline: number; weightedPipeline: number; openOpportunities: number;
@@ -54,15 +73,17 @@ async function computeDashboardData(tenantId: string, rbacFilter: any) {
     for (let i = 0; i < openOpps.length; i++) {
       const o = openOpps[i];
       const f = openOppsFinancials[i];
+      const oppValue = f.expectedOpportunityValue ?? Number(o.amount || 0);
+      const prob = (o.probability !== undefined && o.probability !== null && o.probability > 0) ? o.probability : (o.stage?.probability ?? 0);
       const e = ownerEntry(o.ownerId, `${o.owner.firstName} ${o.owner.lastName}`);
       e.openOpportunities += 1;
-      e.totalPipeline += f.expectedOpportunityValue || 0;
-      e.weightedPipeline += (f.expectedOpportunityValue || 0) * (o.probability / 100);
+      e.totalPipeline += oppValue;
+      e.weightedPipeline += oppValue * (prob / 100);
       e.marginValue += f.expectedMargin || 0;
       e.costIncurred += f.bottomLineCost || 0;
     }
-    for (let i = 0; i < closedWonOpps.length; i++) {
-      const o = closedWonOpps[i];
+    for (let i = 0; i < activeWonOpps.length; i++) {
+      const o = activeWonOpps[i];
       const f = closedWonFinancials[i];
       const e = ownerEntry(o.ownerId, `${o.owner.firstName} ${o.owner.lastName}`);
       e.closedWonCount += 1;
@@ -83,11 +104,8 @@ async function computeDashboardData(tenantId: string, rbacFilter: any) {
       (a, b) => (b.totalPipeline + b.closedWonRevenue) - (a.totalPipeline + a.closedWonRevenue)
     );
 
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const oppsClosingThisMonth = openOpps.filter(
-      (o) => o.expectedCloseDate && o.expectedCloseDate >= monthStart && o.expectedCloseDate < monthEnd
+      (o) => o.expectedCloseDate && o.expectedCloseDate >= cycleStart && o.expectedCloseDate < cycleEnd
     ).length;
 
     // Pipeline by stage (open opportunities)
@@ -102,13 +120,13 @@ async function computeDashboardData(tenantId: string, rbacFilter: any) {
       byStageMap.set(key, cur);
     }
 
-    // Revenue by month (closed won, last 6 months)
+    // Revenue by month leading up to target cycle month (last 6 months)
     const revenueByMonth: { month: string; revenue: number }[] = [];
     for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const label = d.toLocaleString("en-US", { month: "short", year: "2-digit" });
-      const start = new Date(d.getFullYear(), d.getMonth(), 1);
-      const end = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      const d = new Date(Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth() - i, 1));
+      const label = d.toLocaleString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" });
+      const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+      const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
       const revenue = closedWonOpps
         .filter((opp) => {
           const date = opp.wonDate || opp.actualCloseDate || opp.updatedAt;
@@ -133,15 +151,13 @@ async function computeDashboardData(tenantId: string, rbacFilter: any) {
       byOwnerMap.set(key, cur);
     }
 
-    // New pipeline created per month (last 3 months), from open opportunities' createdAt.
-    // Distinct from `totalPipeline` (a live snapshot) — this tracks how much NEW pipeline
-    // value was added in each recent month, for a real (non-fabricated) MoM trend indicator.
+    // New pipeline created per month leading up to target cycle month (last 3 months)
     const pipelineVelocity: { month: string; amount: number }[] = [];
     for (let i = 2; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const label = d.toLocaleString("en-US", { month: "short", year: "2-digit" });
-      const start = new Date(d.getFullYear(), d.getMonth(), 1);
-      const end = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      const d = new Date(Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth() - i, 1));
+      const label = d.toLocaleString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" });
+      const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+      const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
       const amount = openOpps.reduce((s, o, idx) => {
         if (o.createdAt >= start && o.createdAt < end) return s + (openOppsFinancials[idx].expectedOpportunityValue || 0);
         return s;
@@ -160,13 +176,15 @@ async function computeDashboardData(tenantId: string, rbacFilter: any) {
         weightedPipeline,
         openOpportunities: openOpps.length,
         closedWonRevenue,
-        closedWonCount: closedWonOpps.length,
+        closedWonCount: activeWonOpps.length,
         winRate,
         avgOpportunitySize,
         oppsClosingThisMonth,
         totalExpectedMargin,
         totalGrossMargin,
         totalMarginLoss,
+        openCostIncurred,
+        closedWonCostIncurred,
         totalBottomLineCost,
         pipelineVelocityPct,
       },
@@ -182,16 +200,18 @@ async function computeDashboardData(tenantId: string, rbacFilter: any) {
 
 export default async function dashboardRoutes(app: FastifyInstance) {
   app.get("/api/v1/dashboard", { preHandler: app.authenticate }, async (req) => {
+    const q = req.query as { period?: string };
     const tenantId = req.authUser.tenantId;
     const rbacFilter = await getCreatedByFilter(req.authUser);
-    return computeDashboardData(tenantId, rbacFilter);
+    return computeDashboardData(tenantId, rbacFilter, q.period);
   });
 
   // Downloadable PDF summary of the dashboard KPIs and charts
   app.get("/api/v1/dashboard/pdf", { preHandler: app.authenticate }, async (req, reply) => {
+    const q = req.query as { period?: string };
     const tenantId = req.authUser.tenantId;
     const rbacFilter = await getCreatedByFilter(req.authUser);
-    const data = await computeDashboardData(tenantId, rbacFilter);
+    const data = await computeDashboardData(tenantId, rbacFilter, q.period);
 
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     const pdfBuffer = await generateDashboardPdf({
@@ -202,7 +222,7 @@ export default async function dashboardRoutes(app: FastifyInstance) {
     });
 
     reply.header("Content-Type", "application/pdf");
-    reply.header("Content-Disposition", `attachment; filename="dashboard-report-${new Date().toISOString().slice(0, 10)}.pdf"`);
+    reply.header("Content-Disposition", `attachment; filename="dashboard-report-${q.period || new Date().toISOString().slice(0, 10)}.pdf"`);
     return reply.send(pdfBuffer);
   });
 
@@ -249,13 +269,13 @@ export default async function dashboardRoutes(app: FastifyInstance) {
 
     const opportunitiesAtRisk = openOppsForRisk
       .map((o) => {
-        const lastActivity = o.activities[0]?.createdAt;
-        const noRecentActivity = !lastActivity || lastActivity < staleThreshold;
+        const lastActivityDate = o.activities[0]?.createdAt || o.updatedAt || o.createdAt;
+        const daysSince = Math.floor((now.getTime() - new Date(lastActivityDate).getTime()) / (1000 * 60 * 60 * 24));
+        const isInactive = daysSince > 7;
         const closeDatePassed = o.expectedCloseDate && o.expectedCloseDate < todayStart;
-        if (!noRecentActivity && !closeDatePassed) return null;
-        const daysSince = lastActivity
-          ? Math.floor((now.getTime() - new Date(lastActivity).getTime()) / (1000 * 60 * 60 * 24))
-          : Math.floor((now.getTime() - new Date(o.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+
+        if (!isInactive && !closeDatePassed) return null;
+
         return {
           id: o.id,
           name: o.name,

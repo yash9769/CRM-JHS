@@ -8,6 +8,34 @@ import type { StageApproval } from "../lib/types";
 import { ApprovalReviewModal } from "./ApprovalReviewModal";
 import { ShieldAlert, Search, Filter, ArrowRight, Eye, XCircle, Clock, CheckCircle2 } from "lucide-react";
 
+/**
+ * Read-only pending/approved summary for the Dashboard -- no Review/Revoke
+ * actions here, since that full workflow already lives behind the
+ * "Approvals" dropdown in the top header. Just shows counts + a short list
+ * of what's pending, so the widget isn't a duplicate of the header button.
+ */
+export function ApprovalSummary() {
+  const { data: counts } = useQuery<{ pending: number; approved: number }>({
+    queryKey: ["stage-approvals", "counts"],
+    queryFn: async () => (await api.get("/opportunities/approvals/counts")).data,
+  });
+
+  return (
+    <div className="flex flex-wrap gap-3">
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-[var(--ink-100)] shadow-xs">
+        <Clock size={14} className="text-[var(--amber-600)]" />
+        <span className="text-xs text-[var(--ink-500)]">Pending:</span>
+        <span className="font-mono-num font-bold text-sm">{counts?.pending ?? 0}</span>
+      </div>
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-[var(--ink-100)] shadow-xs">
+        <CheckCircle2 size={14} className="text-emerald-600" />
+        <span className="text-xs text-[var(--ink-500)]">Approved:</span>
+        <span className="font-mono-num font-bold text-sm">{counts?.approved ?? "—"}</span>
+      </div>
+    </div>
+  );
+}
+
 export function ApprovalQueueTable({ limit }: { limit?: number }) {
   const qc = useQueryClient();
   const { user } = useAuth();

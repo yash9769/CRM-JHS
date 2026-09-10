@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { Card, Button, Badge, Field, Modal, inputClass, inputStyle } from "../components/ui";
-import { formatCurrency, formatCurrencyCompact, relativeTime } from "../lib/format";
+import { formatCurrency, formatCurrencyCompact } from "../lib/format";
 import { downloadCsvExport } from "../lib/exportCsv";
 import { RoleBadge, BirdsEyeModal } from "./OrgChartPage";
 import {
@@ -12,11 +12,11 @@ import {
   RadialBarChart, RadialBar, PolarAngleAxis,
 } from "recharts";
 import {
-  TrendingUp, Target, Trophy, Percent, IndianRupee, BarChart3, Timer, CalendarClock, Flame,
-  ShieldAlert, AlertCircle, Download, Eye, FileDown, Gauge,
+  TrendingUp, Target, Trophy, Percent, IndianRupee, BarChart3, Timer, CalendarClock,
+  ShieldAlert, AlertCircle, Download, Eye, FileDown, Gauge, Flame,
 } from "lucide-react";
 import { useAuth, isManager as checkIsManager } from "../hooks/useAuth";
-import { ApprovalQueueTable } from "../components/ApprovalQueueTable";
+import { ApprovalSummary } from "../components/ApprovalQueueTable";
 
 interface ActionCenterData {
   todaysWork: { overdueTasks: number; tasksDueToday: number; newLeads: number; uncontactedLeads: number; oppsClosingThisWeek: number; quotesAwaiting: number };
@@ -24,12 +24,6 @@ interface ActionCenterData {
   upcomingTasks: { id: string; subject: string; dueDate: string | null; accountId?: string | null; contactId?: string | null; opportunityId?: string | null; leadId?: string | null }[];
   recentActivity: { id: string; type: string; subject: string; createdAt: string; owner?: { firstName: string; lastName: string } | null; account?: { id: string; name: string } | null; opportunity?: { id: string; name: string } | null; lead?: { id: string; firstName: string; lastName: string } | null }[];
   opportunitiesAtRisk: { id: string; name: string; amount: number; reason: string; account?: { id: string; name: string } | null }[];
-}
-
-function activityRelated(a: ActionCenterData["recentActivity"][number]) {
-  if (a.opportunity) return { label: a.opportunity.name, url: `/opportunities/${a.opportunity.id}` };
-  if (a.account) return { label: a.account.name, url: `/accounts/${a.account.id}` };
-  return null;
 }
 
 interface OwnerBreakdown {
@@ -46,6 +40,7 @@ interface DashboardData {
     totalPipeline: number; weightedPipeline: number; openOpportunities: number;
     closedWonRevenue: number; closedWonCount: number; winRate: number; avgOpportunitySize: number; oppsClosingThisMonth: number;
     totalExpectedMargin?: number; totalGrossMargin?: number; totalMarginLoss?: number; totalBottomLineCost?: number;
+    closedWonCostIncurred?: number; openCostIncurred?: number;
     pipelineVelocityPct: number | null;
   };
   charts: {
@@ -64,31 +59,45 @@ function Kpi({
   badge?: ReactNode; footerLeft?: ReactNode; footerRight?: ReactNode; bar?: ReactNode; sparkline?: ReactNode; belowValue?: ReactNode;
 }) {
   const content = (
-    <Card className="p-4 h-full hover:shadow-md transition-all cursor-pointer group flex flex-col">
-      <div className="flex items-start justify-between gap-x-2 gap-y-1.5 mb-2 flex-wrap">
-        <div className="flex items-center gap-2 min-w-0">
+    <Card className="p-3.5 min-h-[145px] h-full hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between">
+      {/* Top Header Row - Fixed single-line height across all cards */}
+      <div className="flex items-center justify-between gap-1.5 h-6 mb-1.5">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
           <div
-            className="w-7 h-7 rounded-md flex items-center justify-center transition-transform group-hover:scale-110 shrink-0"
+            className="w-6 h-6 rounded flex items-center justify-center transition-transform group-hover:scale-105 shrink-0"
             style={{ background: tone === "green" ? "var(--ledger-100)" : "var(--ink-50)" }}
           >
-            <Icon size={14} style={{ color: tone === "green" ? "var(--ledger-700)" : "var(--ink-500)" }} />
+            <Icon size={13} style={{ color: tone === "green" ? "var(--ledger-700)" : "var(--ink-500)" }} />
           </div>
-          <span className="text-xs font-medium text-[var(--ink-500)] group-hover:text-[var(--ledger-700)] transition-colors">{label}</span>
+          <span className="text-[11px] font-semibold text-[var(--ink-500)] group-hover:text-[var(--ledger-700)] transition-colors truncate" title={label}>
+            {label}
+          </span>
         </div>
-        {badge}
+        {badge && <div className="shrink-0 flex items-center">{badge}</div>}
       </div>
-      <div className="flex items-end justify-between gap-2">
-        <div className="font-mono-num text-xl md:text-2xl font-semibold text-[var(--ink-900)]">{value}</div>
-        {sparkline}
-      </div>
-      {belowValue && <div className="mt-1.5">{belowValue}</div>}
-      {bar}
-      {(footerLeft || footerRight) && (
-        <div className="mt-auto pt-2.5 flex items-center justify-between gap-2 text-[10px] text-[var(--ink-400)]">
-          <span className="truncate">{footerLeft}</span>
-          <span className="shrink-0 font-medium text-[var(--ink-600)]">{footerRight}</span>
+
+      {/* Main Value & Sparkline Area */}
+      <div className="flex items-center justify-between gap-2 my-auto min-h-[36px]">
+        <div className="font-mono-num text-base sm:text-lg md:text-xl font-bold tracking-tight text-[var(--ink-900)] truncate leading-none">
+          {value}
         </div>
-      )}
+        {sparkline && <div className="shrink-0">{sparkline}</div>}
+      </div>
+
+      {/* Bar / Sub-value Row - Fixed height container so cards align perfectly */}
+      <div className="h-3 flex items-center my-1">
+        {belowValue ? (
+          <div className="w-full">{belowValue}</div>
+        ) : bar ? (
+          <div className="w-full">{bar}</div>
+        ) : null}
+      </div>
+
+      {/* Footer Row */}
+      <div className="pt-1.5 border-t border-[var(--ink-50)] flex items-center justify-between gap-1.5 text-[10px] text-[var(--ink-400)] h-5">
+        <span className="truncate">{footerLeft || " "}</span>
+        <span className="shrink-0 font-medium text-[var(--ink-600)]">{footerRight || " "}</span>
+      </div>
     </Card>
   );
 
@@ -101,7 +110,7 @@ function Kpi({
   return content;
 }
 
-function KpiPill({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "green" | "amber" | "rose" }) {
+function KpiPill({ children, tone = "neutral", title }: { children: ReactNode; tone?: "neutral" | "green" | "amber" | "rose"; title?: string }) {
   const styles: Record<string, React.CSSProperties> = {
     neutral: { background: "var(--ink-50)", color: "var(--ink-500)" },
     green: { background: "var(--ledger-50)", color: "var(--ledger-700)" },
@@ -109,7 +118,7 @@ function KpiPill({ children, tone = "neutral" }: { children: ReactNode; tone?: "
     rose: { background: "var(--rose-100)", color: "var(--rose-600)" },
   };
   return (
-    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0" style={styles[tone]}>
+    <span title={title} className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap shrink-0" style={styles[tone]}>
       {children}
     </span>
   );
@@ -282,6 +291,7 @@ function ForecastSection({ period }: { period: string }) {
   const { data: users } = useQuery<any>({
     queryKey: ["users"],
     queryFn: async () => (await api.get("/users")).data,
+    enabled: showTarget,
   });
 
   const s = forecast?.summary;
@@ -316,7 +326,7 @@ function ForecastSection({ period }: { period: string }) {
             className="text-sm px-2.5 py-1 rounded-md border bg-white font-medium"
             style={{ borderColor: "var(--ink-200)" }}
           >
-            {[2026, 2025, 2024, 2023].map((y) => (
+            {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((y) => (
               <option key={y} value={y.toString()}>{y} (Full Year)</option>
             ))}
           </select>
@@ -449,7 +459,26 @@ function ForecastSection({ period }: { period: string }) {
 /* ---------- Pipeline Health section (merged from ReportsPage) ---------- */
 
 function PipelineHealthSection() {
-  const { data } = useQuery<any>({ queryKey: ["report-pipeline-health"], queryFn: async () => (await api.get("/reports/pipeline-health")).data });
+  const { data, isLoading, isError } = useQuery<any>({ queryKey: ["report-pipeline-health"], queryFn: async () => (await api.get("/reports/pipeline-health")).data });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <SectionHeader icon={Timer} title="Pipeline Health" />
+        <Card className="p-8 text-sm text-center text-[var(--ink-400)]">Loading…</Card>
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <div className="space-y-4">
+        <SectionHeader icon={Timer} title="Pipeline Health" />
+        <Card className="p-8 text-sm text-center text-[var(--rose-600)]">Failed to load pipeline health data.</Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <SectionHeader icon={Timer} title="Pipeline Health" />
@@ -498,19 +527,61 @@ function PipelineHealthSection() {
 
 /* ---------- Win / Loss section (merged from ReportsPage) ---------- */
 
+const WIN_LOSS_PERIODS = [
+  { months: 3, label: "Last 3 months" },
+  { months: 6, label: "Last 6 months" },
+  { months: 12, label: "Last 12 months" },
+];
+
 function WinLossSection() {
-  const { data } = useQuery<any>({ queryKey: ["report-win-loss"], queryFn: async () => (await api.get("/reports/win-loss", { params: { months: 6 } })).data });
-  if (!data) return null;
+  const [months, setMonths] = useState(6);
+  const { data, isLoading, isError } = useQuery<any>({ queryKey: ["report-win-loss", months], queryFn: async () => (await api.get("/reports/win-loss", { params: { months } })).data });
+
+  if (isLoading) {
+    const periodLabel = WIN_LOSS_PERIODS.find((p) => p.months === months)?.label || `Last ${months} months`;
+    return (
+      <div className="space-y-4">
+        <SectionHeader icon={Trophy} title={`Win / Loss (${periodLabel.toLowerCase()})`} />
+        <Card className="p-8 text-sm text-center text-[var(--ink-400)]">Loading…</Card>
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    const periodLabel = WIN_LOSS_PERIODS.find((p) => p.months === months)?.label || `Last ${months} months`;
+    return (
+      <div className="space-y-4">
+        <SectionHeader icon={Trophy} title={`Win / Loss (${periodLabel.toLowerCase()})`} />
+        <Card className="p-8 text-sm text-center text-[var(--rose-600)]">Failed to load win/loss data.</Card>
+      </div>
+    );
+  }
+
   const s = data.summary;
   const COLORS = ["var(--ledger-600)", "var(--rose-400)"];
   const pieData = [
     { name: "Won", value: s.totalWon },
     { name: "Lost", value: s.totalLost },
   ].filter((d) => d.value > 0);
+  const periodLabel = WIN_LOSS_PERIODS.find((p) => p.months === months)?.label || `Last ${months} months`;
 
   return (
     <div className="space-y-4">
-      <SectionHeader icon={Trophy} title="Win / Loss (last 6 months)" />
+      <SectionHeader
+        icon={Trophy}
+        title={`Win / Loss (${periodLabel.toLowerCase()})`}
+        action={
+          <select
+            value={months}
+            onChange={(e) => setMonths(Number(e.target.value))}
+            className="px-2.5 py-1.5 rounded-lg border text-xs outline-none border-[var(--ink-200)] bg-white font-medium"
+          >
+            {WIN_LOSS_PERIODS.map((p) => (
+              <option key={p.months} value={p.months}>{p.label}</option>
+            ))}
+          </select>
+        }
+      />
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "Opportunities Won", value: String(s.totalWon), sub: formatCurrency(s.wonRevenue) },
@@ -637,45 +708,47 @@ export default function DashboardPage() {
   const [breakdown, setBreakdown] = useState<{ title: string; key: OwnerMetricKey; format: (n: number) => string } | null>(null);
   const isManager = checkIsManager(user);
   const canDrillDown = !isManager;
+  const KPI_CARD_COUNT = 8;
 
-  const { data, isLoading } = useQuery<DashboardData>({
-    queryKey: ["dashboard"],
-    queryFn: async () => (await api.get("/dashboard")).data,
+  const { data, isLoading, isError, refetch } = useQuery<DashboardData>({
+    queryKey: ["dashboard", cyclePeriod],
+    queryFn: async () => (await api.get("/dashboard", { params: { period: cyclePeriod } })).data,
   });
-  const { data: action } = useQuery<ActionCenterData>({
+  const { data: action, isError: isActionError } = useQuery<ActionCenterData>({
     queryKey: ["dashboard", "action-center"],
     queryFn: async () => (await api.get("/dashboard/action-center")).data,
   });
   // Cycle-scoped forecast summary — powers the "Target Achieved" badge on Closed Won
   // Revenue for whichever month the Current Cycle picker is set to.
   const { data: cycleForecast } = useQuery<any>({
-    queryKey: ["forecast", cyclePeriod],
+    queryKey: ["forecast-cycle-summary", cyclePeriod],
     queryFn: async () => (await api.get("/forecast", { params: { period: cyclePeriod } })).data,
   });
   // Peer win-rate comparison — leadership-only endpoint (403s for Managers), so only
   // fetch it when the viewer is allowed to see it, matching OwnerPerformanceSection below.
   const { data: ownerPerf } = useQuery<any>({
-    queryKey: ["report-owner-perf"],
+    queryKey: ["report-owner-perf-dashboard"],
     queryFn: async () => (await api.get("/reports/owner-performance")).data,
     enabled: !isManager,
   });
 
   const greetingHour = new Date().getHours();
   const greeting = greetingHour < 12 ? "Good morning" : greetingHour < 18 ? "Good afternoon" : "Good evening";
-  const fyBadgeLabel = fiscalYearQuarterLabel(new Date());
+  const selectedCycleDate = cyclePeriod && /^\d{4}-\d{2}$/.test(cyclePeriod)
+    ? new Date(`${cyclePeriod}-01T00:00:00Z`)
+    : new Date();
+  const fyBadgeLabel = fiscalYearQuarterLabel(selectedCycleDate);
 
-  const recentLeads = action?.recentLeads || [];
-  const recentActivity = action?.recentActivity || [];
   const opportunitiesAtRisk = action?.opportunitiesAtRisk || [];
 
   async function downloadPdf() {
     setDownloadingPdf(true);
     try {
-      const res = await api.get("/dashboard/pdf", { responseType: "blob" });
+      const res = await api.get("/dashboard/pdf", { params: { period: cyclePeriod }, responseType: "blob" });
       const url = window.URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
       const a = document.createElement("a");
       a.href = url;
-      a.download = `dashboard-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.download = `dashboard-report-${cyclePeriod}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -713,26 +786,42 @@ export default function DashboardPage() {
 
       <div className="px-4 md:px-8 space-y-8">
         {/* TOP: MAIN KPI METRICS CARDS */}
-        {isLoading || !data ? (
+        {isError && !isLoading ? (
+          <Card className="p-8 text-center">
+            <div className="text-sm text-[var(--rose-600)] mb-2">Failed to load dashboard data.</div>
+            <Button size="sm" onClick={() => refetch()}>Retry</Button>
+          </Card>
+        ) : isLoading || !data ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 animate-pulse">
-            {[...Array(8)].map((_, i) => (
+            {[...Array(KPI_CARD_COUNT)].map((_, i) => (
               <Card key={i} className="p-4 h-24 bg-gray-100/50">
                 <div />
               </Card>
             ))}
           </div>
         ) : (() => {
-          const marginValue = (data.kpis.totalGrossMargin || 0) + (data.kpis.totalExpectedMargin || 0);
-          const costIncurred = data.kpis.totalBottomLineCost || 0;
+          const realizedMargin = data.kpis.totalGrossMargin || 0;
+          const openMargin = data.kpis.totalExpectedMargin || 0;
+          const totalCombinedMargin = realizedMargin + openMargin;
+
+          const realizedCost = data.kpis.closedWonCostIncurred || 0;
+          const openCost = data.kpis.openCostIncurred || 0;
+          const totalCombinedCost = realizedCost + openCost;
+
+          // If Closed Won deals exist, use Realized Margin & Realized Cost as primary financial figures;
+          // otherwise fall back to Open Pipeline Expected figures.
+          const marginValue = data.kpis.closedWonCount > 0 ? realizedMargin : totalCombinedMargin;
+          const costIncurred = data.kpis.closedWonCount > 0 ? realizedCost : totalCombinedCost;
+
           const winRatePct = Math.round((data.kpis.winRate ?? 0) * 100);
           const weightedRatioPct = data.kpis.totalPipeline > 0
             ? Math.round((data.kpis.weightedPipeline / data.kpis.totalPipeline) * 100)
             : 0;
-          const realizedBase = marginValue + costIncurred;
-          const marginPct = realizedBase > 0 ? Math.round((marginValue / realizedBase) * 100) : 0;
-          const costPct = realizedBase > 0 ? 100 - marginPct : 0;
-          // Thresholds are ours (not a stored config) — a simple, transparent bucketing of
-          // the real margin % computed above, not a fabricated data point.
+
+          const revenueBase = data.kpis.closedWonCount > 0 ? data.kpis.closedWonRevenue : data.kpis.totalPipeline;
+          const marginPct = revenueBase > 0 ? Math.round((marginValue / revenueBase) * 100) : 0;
+          const costPct = revenueBase > 0 ? Math.round((costIncurred / revenueBase) * 100) : 0;
+
           const marginHealthLabel = marginPct >= 20 ? "Optimal" : marginPct >= 10 ? "Moderate" : "Low";
           const marginHealthTone = marginPct >= 20 ? "green" : marginPct >= 10 ? "amber" : "rose";
 
@@ -753,6 +842,9 @@ export default function DashboardPage() {
           const winRateDelta = peerAvgWinRatePct !== null ? winRatePct - peerAvgWinRatePct : null;
 
           const velocityPct = data.kpis.pipelineVelocityPct ?? null;
+          const formattedVelocity = velocityPct !== null && !isNaN(velocityPct)
+            ? `${velocityPct >= 0 ? "+" : ""}${velocityPct.toFixed(1)}%`
+            : null;
 
           return (
             <>
@@ -761,9 +853,12 @@ export default function DashboardPage() {
                 icon={BarChart3} label="Total Pipeline" value={formatCurrency(data.kpis.totalPipeline)}
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Total Pipeline", key: "totalPipeline", format: formatCurrency }) : undefined}
-                badge={velocityPct !== null && !isNaN(velocityPct) ? (
-                  <KpiPill tone={velocityPct >= 0 ? "green" : "rose"}>
-                    {velocityPct >= 0 ? "+" : ""}{velocityPct.toFixed(1)}% MoM
+                badge={formattedVelocity ? (
+                  <KpiPill
+                    tone={velocityPct && velocityPct >= 0 ? "green" : "rose"}
+                    title="New pipeline value created this month compared to last month."
+                  >
+                    {formattedVelocity} new pipeline
                   </KpiPill>
                 ) : undefined}
                 belowValue={data.charts.pipelineVelocity?.length > 0 ? <KpiSparkline data={data.charts.pipelineVelocity} full /> : undefined}
@@ -831,19 +926,19 @@ export default function DashboardPage() {
                 icon={Gauge} label="Margin Value" value={formatCurrency(marginValue)} tone="green"
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Margin Value", key: "marginValue", format: formatCurrency }) : undefined}
-                badge={realizedBase > 0 ? <KpiPill tone="green">{marginPct}% Net</KpiPill> : undefined}
-                bar={realizedBase > 0 ? <KpiBar pct={marginPct} /> : undefined}
-                footerLeft={realizedBase > 0 ? "Op Margin Health" : undefined}
-                footerRight={realizedBase > 0 ? <KpiPill tone={marginHealthTone as any}>{marginHealthLabel}</KpiPill> : undefined}
+                badge={revenueBase > 0 ? <KpiPill tone="green">{marginPct}% Net</KpiPill> : undefined}
+                bar={revenueBase > 0 ? <KpiBar pct={marginPct} /> : undefined}
+                footerLeft={data.kpis.closedWonCount > 0 ? "Realized Net Margin" : "Expected Pipeline Margin"}
+                footerRight={revenueBase > 0 ? <KpiPill tone={marginHealthTone as any}>{marginHealthLabel}</KpiPill> : undefined}
               />
 
               <Kpi
                 icon={CalendarClock} label="Cost Incurred to Company" value={formatCurrency(costIncurred)}
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Cost Incurred to Company", key: "costIncurred", format: formatCurrency }) : undefined}
-                badge={realizedBase > 0 ? <KpiPill>{costPct}% of value</KpiPill> : undefined}
-                bar={realizedBase > 0 ? <KpiBar pct={costPct} tone="ink" /> : undefined}
-                footerLeft={realizedBase > 0 ? "Share of realized value" : undefined}
+                badge={revenueBase > 0 ? <KpiPill>{costPct}% of value</KpiPill> : undefined}
+                bar={revenueBase > 0 ? <KpiBar pct={costPct} tone="ink" /> : undefined}
+                footerLeft={data.kpis.closedWonCount > 0 ? "Realized Cost (Won Deals)" : "Expected Pipeline Cost"}
               />
             </div>
 
@@ -861,39 +956,7 @@ export default function DashboardPage() {
           );
         })()}
 
-        {/* RECENT ACTIVITY */}
-        <div className="space-y-3">
-          <SectionHeader icon={Timer} title="Recent Activity" action={<span className="text-xs text-[var(--ink-400)]">Latest updates</span>} />
-          <Card className="p-4">
-            {!recentActivity.length ? (
-              <div className="py-6 text-center text-sm text-[var(--ink-400)]">No recent activity recorded</div>
-            ) : (
-              <div className="space-y-3">
-                {recentActivity.map((a) => {
-                  const related = activityRelated(a);
-                  return (
-                    <div key={a.id} className="flex items-start justify-between border-b border-[var(--ink-50)] pb-2.5 last:border-none last:pb-0">
-                      <div>
-                        <div className="text-sm font-medium text-[var(--ink-900)]">{a.subject}</div>
-                        <div className="text-xs text-[var(--ink-500)] mt-0.5">
-                          {a.owner ? `${a.owner.firstName} ${a.owner.lastName} · ` : ""}
-                          {related ? (
-                            <Link to={related.url} className="text-[var(--ledger-700)] hover:underline font-medium">
-                              {related.label}
-                            </Link>
-                          ) : (
-                            <span className="capitalize">{a.type?.toLowerCase()}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-xs text-[var(--ink-400)] shrink-0 ml-4">{relativeTime(a.createdAt)}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
-        </div>
+
 
         {/* OPPORTUNITIES AT RISK */}
         <div className="space-y-3">
@@ -904,7 +967,9 @@ export default function DashboardPage() {
             action={<Link to="/opportunities" className="text-xs text-[var(--rose-600)] hover:underline font-medium">Review All Opportunities</Link>}
           />
           <Card className="p-4 border-l-4 border-l-[var(--rose-500)]">
-            {!opportunitiesAtRisk.length ? (
+            {isActionError ? (
+              <div className="py-6 text-center text-sm text-[var(--rose-600)]">Unable to load at-risk opportunities.</div>
+            ) : !opportunitiesAtRisk.length ? (
               <div className="py-6 text-center text-sm text-[var(--ink-400)]">No opportunities currently flagged as at-risk</div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -926,35 +991,14 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* RECENT LEADS */}
-        <div className="space-y-3">
-          <SectionHeader icon={Target} title="Recent Leads" action={<Link to="/contacts" className="text-xs text-[var(--ledger-700)] hover:underline font-medium">View Contacts</Link>} />
-          <Card className="p-4">
-            {!recentLeads.length ? (
-              <div className="py-6 text-center text-sm text-[var(--ink-400)]">No new leads registered</div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                {recentLeads.map((l) => (
-                  <div key={l.id} className="p-3 rounded-lg border border-[var(--ink-100)] bg-white">
-                    <div className="font-medium text-sm text-[var(--ink-900)] truncate">{l.firstName} {l.lastName}</div>
-                    <div className="text-xs text-[var(--ink-500)] truncate mt-0.5">{l.companyName || "Independent"}</div>
-                    <div className="text-[10px] mt-2 inline-block px-2 py-0.5 rounded-full bg-[var(--ledger-50)] text-[var(--ledger-700)] font-medium">
-                      {l.status?.replace("_", " ") || "NEW"}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-        </div>
-
-        {/* STAGE APPROVAL QUEUE */}
+        {/* STAGE APPROVAL SUMMARY -- read-only pending/approved counts; full
+            Review/Revoke workflow lives in the "Approvals" header dropdown. */}
         <div className="space-y-3 pt-2 border-t border-[var(--ink-100)]">
           <h3 className="text-sm font-semibold flex items-center gap-2 text-[var(--ink-800)]">
             <ShieldAlert size={16} className="text-[var(--ledger-600)]" />
             {isManager ? "My Stage Approval Requests" : "Pending Stage Approvals"}
           </h3>
-          <ApprovalQueueTable limit={10} />
+          <ApprovalSummary />
         </div>
 
         {/* CHARTS: Revenue by Month, Pipeline by Stage */}

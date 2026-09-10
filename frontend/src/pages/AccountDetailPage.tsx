@@ -1,29 +1,28 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient as useQC2 } from "@tanstack/react-query";
+import { useQuery, useQueryClient as useQC2 } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { Card, Badge, StageBadge, EmptyState, Button, BackButton } from "../components/ui";
 import { Timeline } from "../components/Timeline";
 import { NewContactModal, NewOpportunityModal } from "../components/CreateModals";
-import { EditAccountModal, ArchiveConfirmModal } from "../components/EditModals";
+import { EditAccountModal } from "../components/EditModals";
+import { AccountDeletionModal } from "../components/AccountDeletionModal";
 import { HistoryPanel } from "../components/HistoryPanel";
 import { formatCurrency, formatDate, initials } from "../lib/format";
 import type { Account } from "../lib/types";
-import { Building2, Globe, Phone, MapPin, Users, Target, Plus, Pencil, Archive } from "lucide-react";
+import { Building2, Globe, Phone, Mail, MapPin, Users, Target, Plus, Pencil, Trash2 } from "lucide-react";
+
+import { useAuth } from "../hooks/useAuth";
 
 const tabs = ["Overview", "Contacts", "Opportunities", "Activity", "History"] as const;
 
 export default function AccountDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const qcArchive = useQC2();
+  const qc = useQC2();
+  const { user } = useAuth();
   const [tab, setTab] = useState<(typeof tabs)[number]>("Overview");
-  const [modal, setModal] = useState<"contact" | "opportunity" | "edit" | "archive" | null>(null);
-
-  const archiveMutation = useMutation({
-    mutationFn: () => api.post(`/accounts/${id}/archive`),
-    onSuccess: () => { qcArchive.invalidateQueries({ queryKey: ["accounts"] }); navigate("/accounts"); },
-  });
+  const [modal, setModal] = useState<"contact" | "opportunity" | "edit" | "delete" | null>(null);
 
   const { data: account, isLoading } = useQuery<Account>({
     queryKey: ["account", id],
@@ -31,7 +30,37 @@ export default function AccountDetailPage() {
     enabled: !!id,
   });
 
-  if (isLoading || !account) return <div className="p-8 text-sm text-[var(--ink-400)]">Loading…</div>;
+  if (isLoading || !account) {
+    return (
+      <div className="px-4 md:px-8 py-5 md:py-7 max-w-6xl mx-auto space-y-5 pb-24 md:pb-8">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-lg bg-gray-200 animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-6 w-48 bg-gray-200 rounded animate-pulse" />
+            <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <Card className="p-4 md:p-5 lg:col-span-2 space-y-3">
+            <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3">
+              {[...Array(6)].map((_, i) => <div key={i} className="h-4 w-full bg-gray-200 rounded animate-pulse" />)}
+            </div>
+          </Card>
+          <div className="space-y-4">
+            <Card className="p-4 space-y-2">
+              <div className="h-3 w-16 bg-gray-200 rounded animate-pulse" />
+              <div className="h-8 w-20 bg-gray-200 rounded animate-pulse" />
+            </Card>
+            <Card className="p-4 space-y-2">
+              <div className="h-3 w-24 bg-gray-200 rounded animate-pulse" />
+              <div className="h-8 w-20 bg-gray-200 rounded animate-pulse" />
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 md:px-8 py-5 md:py-7 max-w-6xl mx-auto space-y-5 pb-24 md:pb-8">
@@ -54,7 +83,7 @@ export default function AccountDetailPage() {
           <Button variant="secondary" onClick={() => setModal("edit")}><Pencil size={14} /> Edit</Button>
           <Button variant="secondary" onClick={() => setModal("opportunity")}><Target size={14} /> Create Opportunity</Button>
           <Button variant="secondary" onClick={() => setModal("contact")}><Users size={14} /> Create Contact</Button>
-          <Button variant="secondary" onClick={() => setModal("archive")}><Archive size={14} /> Archive</Button>
+          <Button variant="danger" onClick={() => setModal("delete")}><Trash2 size={14} /> {user?.orgRole === "MANAGER" ? "Request Delete" : "Delete Account"}</Button>
         </div>
       </div>
 
@@ -80,9 +109,43 @@ export default function AccountDetailPage() {
               <div><dt className="text-xs text-[var(--ink-400)]">Industry</dt><dd className="mt-0.5">{account.industry || "—"}</dd></div>
               <div><dt className="text-xs text-[var(--ink-400)]">Employees</dt><dd className="mt-0.5 font-mono-num">{account.employeeCount || "—"}</dd></div>
               <div><dt className="text-xs text-[var(--ink-400)]">Annual Revenue</dt><dd className="mt-0.5 font-mono-num">{account.annualRevenue ? formatCurrency(account.annualRevenue) : "—"}</dd></div>
-              <div><dt className="text-xs text-[var(--ink-400)]">Domain</dt><dd className="mt-0.5">{account.domain || "—"}</dd></div>
-              <div className="flex items-start gap-1.5"><Globe size={13} className="mt-0.5 text-[var(--ink-400)]" /><div><dt className="text-xs text-[var(--ink-400)]">Website</dt><dd className="mt-0.5">{account.website || "—"}</dd></div></div>
-              <div className="flex items-start gap-1.5"><Phone size={13} className="mt-0.5 text-[var(--ink-400)]" /><div><dt className="text-xs text-[var(--ink-400)]">Phone</dt><dd className="mt-0.5">{account.phone || "—"}</dd></div></div>
+              <div className="flex items-start gap-1.5"><Globe size={13} className="mt-0.5 text-[var(--ink-400)]" /><div><dt className="text-xs text-[var(--ink-400)]">Website / Domain</dt><dd className="mt-0.5">{account.website || account.domain || "—"}</dd></div></div>
+              <div className="flex items-start gap-1.5">
+                <Phone size={13} className="mt-0.5 text-[var(--ink-400)]" />
+                <div>
+                  <dt className="text-xs text-[var(--ink-400)]">Phone / Landline{(account.phones?.length ?? 0) > 1 ? " Numbers" : ""}</dt>
+                  {account.phones && account.phones.length > 0 ? (
+                    <dd className="mt-0.5 space-y-0.5">
+                      {account.phones.map((p) => (
+                        <div key={p.id}>
+                          {p.countryCode} {p.number}
+                          {p.label && <span className="text-[var(--ink-400)]"> · {p.label}</span>}
+                          {p.isPrimary && account.phones!.length > 1 && <span className="text-[10px] ml-1 text-[var(--ledger-700)]">PRIMARY</span>}
+                        </div>
+                      ))}
+                    </dd>
+                  ) : (
+                    <dd className="mt-0.5">{account.phone || "—"}</dd>
+                  )}
+                </div>
+              </div>
+              {account.emails && account.emails.length > 0 && (
+                <div className="flex items-start gap-1.5">
+                  <Mail size={13} className="mt-0.5 text-[var(--ink-400)]" />
+                  <div>
+                    <dt className="text-xs text-[var(--ink-400)]">Email{account.emails.length > 1 ? " Addresses" : ""}</dt>
+                    <dd className="mt-0.5 space-y-0.5">
+                      {account.emails.map((e) => (
+                        <div key={e.id}>
+                          {e.email}
+                          {e.label && <span className="text-[var(--ink-400)]"> · {e.label}</span>}
+                          {e.isPrimary && account.emails!.length > 1 && <span className="text-[10px] ml-1 text-[var(--ledger-700)]">PRIMARY</span>}
+                        </div>
+                      ))}
+                    </dd>
+                  </div>
+                </div>
+              )}
               <div className="sm:col-span-2 flex items-start gap-1.5"><MapPin size={13} className="mt-0.5 text-[var(--ink-400)]" /><div><dt className="text-xs text-[var(--ink-400)]">Billing Address</dt><dd className="mt-0.5">{account.billingAddress || "—"}</dd></div></div>
             </dl>
             {account.description && (
@@ -117,7 +180,7 @@ export default function AccountDetailPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="text-left border-b border-[var(--ink-100)]">
-                  {["Name", "Title", "Email", "Phone"].map((h) => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">{h}</th>)}
+                  {["Name", "Designation", "Email", "Phone"].map((h) => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">{h}</th>)}
                 </tr></thead>
                 <tbody>
                   {account.contacts.map((c) => (
@@ -152,21 +215,31 @@ export default function AccountDetailPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="text-left border-b border-[var(--ink-100)]">
-                  {["Opportunity", "Stage", "Expected Value", "Actual Value", "Margin", "Close Date"].map((h) => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">{h}</th>)}
+                  {["Opportunity", "Stage", "Proposal Value", "Cost Incurred", "Margin", "Margin %", "Assigned To", "Close Date", "Created At", "Created By"].map((h) => <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">{h}</th>)}
                 </tr></thead>
                 <tbody>
-                  {account.opportunities.map((o) => (
-                    <tr key={o.id} className="border-b last:border-0 hover:bg-[var(--ink-50)] border-[var(--ink-100)]">
-                      <td className="px-4 py-3"><Link to={`/opportunities/${o.id}`} className="font-medium hover:underline text-[var(--ledger-700)]">{o.name}</Link></td>
-                      <td className="px-4 py-3"><StageBadge stage={o.stage as any} /></td>
-                      <td className="px-4 py-3 font-mono-num font-semibold text-slate-800">{o.expectedOpportunityValue !== null && o.expectedOpportunityValue !== undefined ? formatCurrency(o.expectedOpportunityValue) : formatCurrency(o.amount)}</td>
-                      <td className="px-4 py-3 font-mono-num font-semibold text-slate-900">{o.actualOpportunityValue !== null && o.actualOpportunityValue !== undefined ? formatCurrency(o.actualOpportunityValue) : "—"}</td>
-                      <td className={`px-4 py-3 font-mono-num font-bold ${o.grossMargin !== null && o.grossMargin !== undefined && Number(o.grossMargin) < 0 ? "text-rose-600" : "text-emerald-700"}`}>
-                        {o.grossMargin !== null && o.grossMargin !== undefined ? formatCurrency(o.grossMargin) : (o.expectedMargin !== null && o.expectedMargin !== undefined ? formatCurrency(o.expectedMargin) : "—")}
-                      </td>
-                      <td className="px-4 py-3 text-[var(--ink-500)]">{formatDate(o.expectedCloseDate)}</td>
-                    </tr>
-                  ))}
+                  {account.opportunities.map((o) => {
+                    const proposalVal = o.expectedOpportunityValue !== null && o.expectedOpportunityValue !== undefined ? Number(o.expectedOpportunityValue) : Number(o.amount || 0);
+                    const costVal = o.bottomLineCost !== null && o.bottomLineCost !== undefined ? Number(o.bottomLineCost) : (o.actualOpportunityValue !== null && o.actualOpportunityValue !== undefined ? Number(o.actualOpportunityValue) : null);
+                    const marginVal = o.grossMargin !== null && o.grossMargin !== undefined ? Number(o.grossMargin) : (o.expectedMargin !== null && o.expectedMargin !== undefined ? Number(o.expectedMargin) : null);
+                    const marginPctStr = proposalVal > 0 && marginVal !== null ? ((marginVal / proposalVal) * 100).toFixed(1) + "%" : "—";
+                    return (
+                      <tr key={o.id} className="border-b last:border-0 hover:bg-[var(--ink-50)] border-[var(--ink-100)]">
+                        <td className="px-4 py-3"><Link to={`/opportunities/${o.id}`} className="font-medium hover:underline text-[var(--ledger-700)]">{o.name}</Link></td>
+                        <td className="px-4 py-3"><StageBadge stage={o.stage as any} /></td>
+                        <td className="px-4 py-3 font-mono-num font-semibold text-slate-800">{formatCurrency(proposalVal)}</td>
+                        <td className="px-4 py-3 font-mono-num font-semibold text-slate-900">{costVal !== null ? formatCurrency(costVal) : "—"}</td>
+                        <td className={`px-4 py-3 font-mono-num font-bold ${marginVal !== null && marginVal < 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                          {marginVal !== null ? formatCurrency(marginVal) : "—"}
+                        </td>
+                        <td className="px-4 py-3 font-mono-num font-medium text-slate-700">{marginPctStr}</td>
+                        <td className="px-4 py-3 font-medium text-xs text-[var(--ink-700)]">{o.owner ? `${o.owner.firstName} ${o.owner.lastName}` : "—"}</td>
+                        <td className="px-4 py-3 text-[var(--ink-500)]">{formatDate(o.expectedCloseDate)}</td>
+                        <td className="px-4 py-3 text-[var(--ink-500)]">{formatDate(o.createdAt)}</td>
+                        <td className="px-4 py-3 text-[var(--ink-500)]">{o.createdBy ? `${o.createdBy.firstName} ${o.createdBy.lastName}` : "—"}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -181,6 +254,7 @@ export default function AccountDetailPage() {
             notes={account.notes}
             assoc={{ objectType: "ACCOUNT", accountId: account.id }}
             queryKeysToInvalidate={[["account", id]]}
+            showTaskTab={false}
           />
         </Card>
       )}
@@ -193,17 +267,15 @@ export default function AccountDetailPage() {
       )}
 
       {modal === "edit" && <EditAccountModal account={account} onClose={() => setModal(null)} />}
-      {modal === "archive" && (
-        <ArchiveConfirmModal
-          title={account.name}
-          impactUrl={`/accounts/${account.id}/impact`}
-          isPending={archiveMutation.isPending}
-          onConfirm={() => archiveMutation.mutate()}
+      {modal === "delete" && (
+        <AccountDeletionModal
+          account={account}
           onClose={() => setModal(null)}
+          onSuccess={() => { qc.invalidateQueries({ queryKey: ["accounts"] }); navigate("/accounts"); }}
         />
       )}
       {modal === "contact" && <NewContactModal accountId={account.id} accountName={account.name} onClose={() => setModal(null)} />}
-      {modal === "opportunity" && <NewOpportunityModal accountId={account.id} accountName={account.name} onClose={() => setModal(null)} />}
+      {modal === "opportunity" && <NewOpportunityModal accountId={account.id} accountName={account.name} accountOwnerId={account.ownerId || undefined} accountOwnerLabel={account.owner ? `${account.owner.firstName} ${account.owner.lastName}` : undefined} onClose={() => setModal(null)} />}
     </div>
   );
 }

@@ -20,27 +20,30 @@ model Tenant {
   name      String
   createdAt DateTime @default(now())
 
-  users           User[]
-  accounts        Account[]
-  contacts        Contact[]
-  opportunities   Opportunity[]
-  quotes          Quote[]
-  services        Service[]
-  products        Product[]
-  activities      Activity[]
-  notes           Note[]
-  sequences       Sequence[]
-  pipelines       Pipeline[]
-  associations    Association[]
-  propertyDefs    PropertyDefinition[]
-  forecastTargets ForecastTarget[]
-  auditLogs       AuditLog[]
-  notifications   Notification[]
-  leads           Lead[]
-  savedViews      SavedView[]
-  stageApprovals  StageApproval[]
-  stickyNotes     StickyNote[]
+  users                  User[]
+  accounts               Account[]
+  contacts               Contact[]
+  opportunities          Opportunity[]
+  quotes                 Quote[]
+  services               Service[]
+  products               Product[]
+  activities             Activity[]
+  notes                  Note[]
+  sequences              Sequence[]
+  pipelines              Pipeline[]
+  associations           Association[]
+  propertyDefs           PropertyDefinition[]
+  forecastTargets        ForecastTarget[]
+  auditLogs              AuditLog[]
+  notifications          Notification[]
+  leads                  Lead[]
+  savedViews             SavedView[]
+  stageApprovals         StageApproval[]
+  stickyNotes            StickyNote[]
   opportunityAttachments OpportunityAttachment[]
+  accountDeletionRequests AccountDeletionRequest[]
+  contactDeletionRequests ContactDeletionRequest[]
+  opportunityDeletionRequests OpportunityDeletionRequest[]
 
   @@map("tenants")
 }
@@ -65,9 +68,9 @@ model User {
   updatedAt    DateTime @updatedAt
 
   // Hierarchy links
-  createdById String?
-  createdBy   User?   @relation("UserCreatedBy", fields: [createdById], references: [id])
-  createdUsers User[] @relation("UserCreatedBy")
+  createdById  String?
+  createdBy    User?   @relation("UserCreatedBy", fields: [createdById], references: [id])
+  createdUsers User[]  @relation("UserCreatedBy")
 
   partnerId String?
   partner   User?   @relation("ManagerPartner", fields: [partnerId], references: [id])
@@ -88,19 +91,28 @@ model User {
   savedViews         SavedView[]
 
   // RBAC: records created BY this user
-  createdAccounts      Account[]      @relation("AccountCreator")
-  createdContacts      Contact[]      @relation("ContactCreator")
-  createdOpportunities Opportunity[]  @relation("OpportunityCreator")
-  createdLeads         Lead[]         @relation("LeadCreator")
-  createdProducts      Product[]      @relation("ProductCreator")
-  createdQuotes        Quote[]        @relation("QuoteCreator")
-  createdSequences     Sequence[]     @relation("SequenceCreator")
-  createdActivities    Activity[]     @relation("ActivityCreator")
+  createdAccounts      Account[]     @relation("AccountCreator")
+  createdContacts      Contact[]     @relation("ContactCreator")
+  createdOpportunities Opportunity[] @relation("OpportunityCreator")
+  createdLeads         Lead[]        @relation("LeadCreator")
+  createdProducts      Product[]     @relation("ProductCreator")
+  createdQuotes        Quote[]       @relation("QuoteCreator")
+  createdSequences     Sequence[]    @relation("SequenceCreator")
+  createdActivities    Activity[]    @relation("ActivityCreator")
 
-  requestedApprovals StageApproval[] @relation("ApprovalRequestedBy")
-  receivedApprovals  StageApproval[] @relation("ApprovalApprover")
-  reviewedApprovals  StageApproval[] @relation("ApprovalReviewedBy")
-  stickyNotes        StickyNote[]    @relation("UserStickyNotes")
+  requestedApprovals             StageApproval[]         @relation("ApprovalRequestedBy")
+  receivedApprovals              StageApproval[]         @relation("ApprovalApprover")
+  reviewedApprovals              StageApproval[]         @relation("ApprovalReviewedBy")
+  requestedAccountDeletions      AccountDeletionRequest[] @relation("AccountDeletionRequestedBy")
+  reviewedAccountDeletions       AccountDeletionRequest[] @relation("AccountDeletionApprover")
+  reviewedAccountDeletionsHistory AccountDeletionRequest[] @relation("AccountDeletionReviewedBy")
+  requestedContactDeletions      ContactDeletionRequest[] @relation("ContactDeletionRequestedBy")
+  reviewedContactDeletions       ContactDeletionRequest[] @relation("ContactDeletionApprover")
+  reviewedContactDeletionsHistory ContactDeletionRequest[] @relation("ContactDeletionReviewedBy")
+  requestedOpportunityDeletions  OpportunityDeletionRequest[] @relation("OpportunityDeletionRequestedBy")
+  reviewedOpportunityDeletions   OpportunityDeletionRequest[] @relation("OpportunityDeletionApprover")
+  reviewedOpportunityDeletionsHistory OpportunityDeletionRequest[] @relation("OpportunityDeletionReviewedBy")
+  stickyNotes                    StickyNote[]            @relation("UserStickyNotes")
   uploadedOpportunityAttachments OpportunityAttachment[] @relation("AttachmentUploader")
 
   @@unique([tenantId, email])
@@ -141,17 +153,56 @@ model Account {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  contacts      Contact[]
-  opportunities Opportunity[]
-  quotes        Quote[]
-  activities    Activity[]
-  notes         Note[]
+  contacts         Contact[]
+  opportunities    Opportunity[]
+  quotes           Quote[]
+  activities       Activity[]
+  notes            Note[]
+  emails           AccountEmail[]
+  phones           AccountPhone[]
+  deletionRequests AccountDeletionRequest[]
 
   @@index([tenantId])
   @@index([tenantId, name])
   @@index([tenantId, domain])
   @@index([tenantId, createdById])
   @@map("accounts")
+}
+
+/// Additional email addresses beyond an account's single legacy field --
+/// e.g. billing@ and support@ alongside the main contact address.
+model AccountEmail {
+  id        String   @id @default(uuid())
+  tenantId  String
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  email     String
+  label     String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([accountId])
+  @@map("account_emails")
+}
+
+/// Additional phone numbers beyond `Account.phone`. Stored as a validated
+/// 10-digit local number plus a separate dial code so the UI can render a
+/// country dropdown without reparsing a free-text string.
+model AccountPhone {
+  id          String   @id @default(uuid())
+  tenantId    String
+  accountId   String
+  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  countryCode String
+  number      String
+  label       String?
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([accountId])
+  @@map("account_phones")
 }
 
 enum LifecycleStage {
@@ -193,12 +244,52 @@ model Contact {
   activities           Activity[]
   notes                Note[]
   sequenceEnrollments  SequenceEnrollment[]
+  emails               ContactEmail[]
+  phones               ContactPhone[]
+  deletionRequests     ContactDeletionRequest[]
 
   @@index([tenantId])
   @@index([tenantId, email])
   @@index([tenantId, accountId])
   @@index([tenantId, createdById])
   @@map("contacts")
+}
+
+/// Additional email addresses beyond `Contact.email` (kept as a mirror of
+/// whichever row here is primary, so existing search/export/dedupe code
+/// that reads `contact.email` keeps working unchanged).
+model ContactEmail {
+  id        String   @id @default(uuid())
+  tenantId  String
+  contactId String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  email     String
+  label     String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([contactId])
+  @@map("contact_emails")
+}
+
+/// Additional phone numbers beyond `Contact.phone`. Stored as a validated
+/// 10-digit local number plus a separate dial code so the UI can render a
+/// country dropdown without reparsing a free-text string.
+model ContactPhone {
+  id          String   @id @default(uuid())
+  tenantId    String
+  contactId   String
+  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  countryCode String
+  number      String
+  label       String?
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([contactId])
+  @@map("contact_phones")
 }
 
 // ---------------------------------------------------------------------------
@@ -336,47 +427,47 @@ enum ForecastCategory {
 }
 
 model Opportunity {
-  id                String           @id @default(uuid())
-  tenantId          String
-  tenant            Tenant           @relation(fields: [tenantId], references: [id])
-  name              String
-  accountId         String
-  account           Account          @relation(fields: [accountId], references: [id])
-  contactId         String?
-  contact           Contact?         @relation("OpportunityPrimaryContact", fields: [contactId], references: [id])
-  amount            Decimal          @db.Decimal(16, 2)
-  expectedOpportunityValue Decimal?  @db.Decimal(16, 2)
-  actualOpportunityValue   Decimal?  @db.Decimal(16, 2)
-  bottomLineCost    Decimal?         @db.Decimal(16, 2)
-  pipelineId        String
-  pipeline          Pipeline         @relation(fields: [pipelineId], references: [id])
-  stageId           String
-  stage             PipelineStage    @relation(fields: [stageId], references: [id])
-  probability       Int              @default(0)
-  expectedCloseDate DateTime?
-  ownerId           String
-  owner             User             @relation("OpportunityOwner", fields: [ownerId], references: [id])
-  createdById       String?
-  createdBy         User?            @relation("OpportunityCreator", fields: [createdById], references: [id])
-  opportunityType   OpportunityType  @default(NEW_BUSINESS)
+  id                       String           @id @default(uuid())
+  tenantId                 String
+  tenant                   Tenant           @relation(fields: [tenantId], references: [id])
+  name                     String
+  accountId                String
+  account                  Account          @relation(fields: [accountId], references: [id])
+  contactId                String?
+  contact                  Contact?         @relation("OpportunityPrimaryContact", fields: [contactId], references: [id])
+  amount                   Decimal          @db.Decimal(16, 2)
+  expectedOpportunityValue Decimal?         @db.Decimal(16, 2)
+  actualOpportunityValue   Decimal?         @db.Decimal(16, 2)
+  bottomLineCost           Decimal?         @db.Decimal(16, 2)
+  pipelineId               String
+  pipeline                 Pipeline         @relation(fields: [pipelineId], references: [id])
+  stageId                  String
+  stage                    PipelineStage    @relation(fields: [stageId], references: [id])
+  probability              Int              @default(0)
+  expectedCloseDate        DateTime?
+  ownerId                  String
+  owner                    User             @relation("OpportunityOwner", fields: [ownerId], references: [id])
+  createdById              String?
+  createdBy                User?            @relation("OpportunityCreator", fields: [createdById], references: [id])
+  opportunityType          OpportunityType  @default(NEW_BUSINESS)
   // Legacy free-text column carried over from the removed `Deal` model (see
   // migration 20260827120000_merge_deal_into_opportunity). Superseded by
   // `opportunityType`; NULL for every existing row. Candidate for removal.
-  opportunityTypeLegacy String?
-  forecastCategory  ForecastCategory @default(PIPELINE)
-  actualCloseDate   DateTime?
-  wonDate           DateTime?
-  lostReason        String?
-  leadSource        String?
-  description       String?
-  loeValue          String?
-  loeUnit           String?          @default("Hours")
-  poNumber          String?
-  poValue           Decimal?         @db.Decimal(16, 2)
-  properties        Json             @default("{}")
-  archived          Boolean          @default(false)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  opportunityTypeLegacy    String?
+  forecastCategory         ForecastCategory @default(PIPELINE)
+  actualCloseDate          DateTime?
+  wonDate                  DateTime?
+  lostReason               String?
+  leadSource               String?
+  description              String?
+  loeValue                 String?
+  loeUnit                  String?          @default("Hours")
+  poNumber                 String?
+  poValue                  Decimal?         @db.Decimal(16, 2)
+  properties               Json             @default("{}")
+  archived                 Boolean          @default(false)
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
 
   contacts       OpportunityContact[]
   stageHistory   OpportunityStageHistory[]
@@ -386,6 +477,7 @@ model Opportunity {
   quotes         Quote[]
   stageApprovals StageApproval[]
   attachments    OpportunityAttachment[]
+  deletionRequests OpportunityDeletionRequest[]
 
   @@index([tenantId])
   @@index([tenantId, accountId])
@@ -848,7 +940,7 @@ model StageApproval {
   updatedAt        DateTime       @updatedAt
   reviewedAt       DateTime?
 
-  attachments      OpportunityAttachment[]
+  attachments OpportunityAttachment[]
 
   @@index([tenantId, opportunityId])
   @@index([tenantId, requestedById])
@@ -907,5 +999,96 @@ model OpportunityAttachment {
   @@map("opportunity_attachments")
 }
 
+// ---------------------------------------------------------------------------
+// Account Deletion Requests
+// ---------------------------------------------------------------------------
 
+model AccountDeletionRequest {
+  id            String         @id @default(uuid())
+  tenantId      String
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  accountId     String?
+  account       Account?       @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  accountName   String
+  requestedById String
+  requestedBy   User           @relation("AccountDeletionRequestedBy", fields: [requestedById], references: [id])
+  approverId    String?
+  approver      User?          @relation("AccountDeletionApprover", fields: [approverId], references: [id])
+  reason        String
+  status        ApprovalStatus @default(PENDING)
+  reviewedById  String?
+  reviewedBy    User?          @relation("AccountDeletionReviewedBy", fields: [reviewedById], references: [id])
+  reviewComment String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  reviewedAt    DateTime?
+
+  @@index([tenantId, accountId])
+  @@index([tenantId, requestedById])
+  @@index([tenantId, approverId])
+  @@index([tenantId, status])
+  @@map("account_deletion_requests")
+}
+
+// ---------------------------------------------------------------------------
+// Contact Deletion Requests
+// ---------------------------------------------------------------------------
+
+model ContactDeletionRequest {
+  id            String         @id @default(uuid())
+  tenantId      String
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  contactId     String?
+  contact       Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contactName   String
+  requestedById String
+  requestedBy   User           @relation("ContactDeletionRequestedBy", fields: [requestedById], references: [id])
+  approverId    String?
+  approver      User?          @relation("ContactDeletionApprover", fields: [approverId], references: [id])
+  reason        String
+  status        ApprovalStatus @default(PENDING)
+  reviewedById  String?
+  reviewedBy    User?          @relation("ContactDeletionReviewedBy", fields: [reviewedById], references: [id])
+  reviewComment String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  reviewedAt    DateTime?
+
+  @@index([tenantId, contactId])
+  @@index([tenantId, requestedById])
+  @@index([tenantId, approverId])
+  @@index([tenantId, status])
+  @@map("contact_deletion_requests")
+}
+
+// ---------------------------------------------------------------------------
+// Opportunity Deletion Requests
+// ---------------------------------------------------------------------------
+
+model OpportunityDeletionRequest {
+  id              String         @id @default(uuid())
+  tenantId        String
+  tenant          Tenant         @relation(fields: [tenantId], references: [id])
+  opportunityId   String?
+  opportunity     Opportunity?   @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  opportunityName String
+  requestedById   String
+  requestedBy     User           @relation("OpportunityDeletionRequestedBy", fields: [requestedById], references: [id])
+  approverId      String?
+  approver        User?          @relation("OpportunityDeletionApprover", fields: [approverId], references: [id])
+  reason          String
+  status          ApprovalStatus @default(PENDING)
+  reviewedById    String?
+  reviewedBy      User?          @relation("OpportunityDeletionReviewedBy", fields: [reviewedById], references: [id])
+  reviewComment   String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  reviewedAt      DateTime?
+
+  @@index([tenantId, opportunityId])
+  @@index([tenantId, requestedById])
+  @@index([tenantId, approverId])
+  @@index([tenantId, status])
+  @@map("opportunity_deletion_requests")
+}
 

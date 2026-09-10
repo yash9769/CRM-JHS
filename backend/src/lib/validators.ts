@@ -30,3 +30,34 @@ export const nameSchema = z
 /** Monetary/numeric value that must never be negative. */
 export const nonNegativeAmountSchema = (label: string) =>
   z.number({ invalid_type_error: `${label} must be a number` }).nonnegative(`${label} must be non-negative`);
+
+/** RFC Email Schema for backend 3-layer validation. */
+export const emailSchema = z
+  .string()
+  .trim()
+  .email("Invalid email format (e.g. name@example.com)")
+  .optional()
+  .nullable()
+  .or(z.literal(""));
+
+/** Domain Schema for backend 3-layer validation with protocol auto-sanitization. */
+const DOMAIN_REGEX = /^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/;
+
+export const domainSchema = z
+  .string()
+  .trim()
+  .transform((v) => {
+    if (!v) return v;
+    let cleaned = v.replace(/^https?:\/\//i, "").replace(/^www\./i, "");
+    cleaned = cleaned.split("/")[0].split("?")[0];
+    return cleaned.toLowerCase();
+  })
+  .pipe(
+    z
+      .string()
+      .regex(DOMAIN_REGEX, "Invalid domain format (e.g. company.com)")
+      .optional()
+      .nullable()
+      .or(z.literal(""))
+  );
+

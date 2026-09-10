@@ -106,7 +106,7 @@ export default async function approvalRoutes(app: FastifyInstance) {
 
     const approval = await prisma.stageApproval.findFirst({
       where: { id, tenantId: req.authUser.tenantId },
-      include: { opportunity: true, toStage: true, requestedBy: true },
+      include: { opportunity: true, toStage: true, fromStage: true, requestedBy: true },
     });
 
     if (!approval) {
@@ -166,6 +166,7 @@ export default async function approvalRoutes(app: FastifyInstance) {
           forecastCategory: isClosingWon ? "CLOSED_WON" : isClosingLost ? "CLOSED_LOST" : undefined,
           wonDate: isClosingWon ? new Date() : undefined,
           actualCloseDate: isClosingWon ? new Date() : undefined,
+          lostReason: isClosingLost ? (approval.opportunity.lostReason ?? null) : null,
           ...(isClosingWon ? {
             loeValue: approval.loeValue ?? undefined,
             loeUnit: approval.loeUnit ?? "Hours",
@@ -216,7 +217,13 @@ export default async function approvalRoutes(app: FastifyInstance) {
       objectType: "OPPORTUNITY",
       recordId: approval.opportunityId,
       action: "STAGE_APPROVAL_APPROVED",
-      newValues: { approvalId: id, toStage: targetStage.name, reviewerId: req.authUser.id },
+      newValues: {
+        approvalId: id,
+        fromStageName: approval.fromStage?.name,
+        toStageName: targetStage.name,
+        toStage: targetStage.name,
+        reviewerId: req.authUser.id
+      },
     });
 
     await notify({
@@ -262,8 +269,7 @@ export default async function approvalRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "You cannot disapprove your own stage change request." });
     }
 
-    // STRICT RULE: Only the assigned approver (or an unassigned request, or a Senior
-    // Partner) may act on this request.
+    // STRICT RULE: Only the assigned approver (or an unassigned request, or a Senior Partner) may act on this request.
     if (
       req.authUser.orgRole !== "SENIOR_PARTNER" &&
       approval.approverId !== null &&
@@ -278,7 +284,7 @@ export default async function approvalRoutes(app: FastifyInstance) {
         throw new Error("This approval request has already been processed.");
       }
 
-      return tx.stageApproval.update({
+      const updatedAppr = await tx.stageApproval.update({
         where: { id },
         data: {
           status: "DISAPPROVED",
@@ -289,6 +295,31 @@ export default async function approvalRoutes(app: FastifyInstance) {
           comments: commentText,
         },
       });
+
+      // Revert opportunity stage back to source stage (approval.fromStageId)
+      const fromStage = await tx.pipelineStage.findUnique({ where: { id: approval.fromStageId } });
+      const currentOpp = await tx.opportunity.findUnique({ where: { id: approval.opportunityId } });
+
+      await tx.opportunity.update({
+        where: { id: approval.opportunityId },
+        data: {
+          stageId: approval.fromStageId,
+          probability: fromStage ? fromStage.probability : undefined,
+        },
+      });
+
+      if (currentOpp && currentOpp.stageId !== approval.fromStageId) {
+        await tx.opportunityStageHistory.create({
+          data: {
+            opportunityId: approval.opportunityId,
+            fromStageId: currentOpp.stageId,
+            toStageId: approval.fromStageId,
+            changedById: req.authUser.id,
+          },
+        });
+      }
+
+      return updatedAppr;
     }).catch((err) => {
       return reply.code(400).send({ error: err.message });
     });
@@ -301,7 +332,13 @@ export default async function approvalRoutes(app: FastifyInstance) {
       objectType: "OPPORTUNITY",
       recordId: approval.opportunityId,
       action: "STAGE_APPROVAL_DISAPPROVED",
-      newValues: { approvalId: id, approverComment: commentText, reviewerId: req.authUser.id },
+      newValues: {
+        approvalId: id,
+        fromStageName: approval.fromStage?.name,
+        toStageName: approval.toStage?.name,
+        approverComment: commentText,
+        reviewerId: req.authUser.id
+      },
     });
 
     await notify({
@@ -325,7 +362,7 @@ export default async function approvalRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const approval = await prisma.stageApproval.findFirst({
       where: { id, tenantId: req.authUser.tenantId },
-      include: { opportunity: true, toStage: true },
+      include: { opportunity: true, toStage: true, fromStage: true },
     });
 
     if (!approval) return reply.code(404).send({ error: "Stage approval request not found" });
@@ -339,16 +376,43 @@ export default async function approvalRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "This request was not routed to you for approval." });
     }
 
-    const updatedApproval = await prisma.stageApproval.update({
-      where: { id },
-      data: {
-        status: "DISAPPROVED",
-        approverId: req.authUser.id,
-        reviewedById: req.authUser.id,
-        reviewedAt: new Date(),
-        approverComment: commentText,
-        comments: commentText,
-      },
+    const updatedApproval = await prisma.$transaction(async (tx) => {
+      const updatedAppr = await tx.stageApproval.update({
+        where: { id },
+        data: {
+          status: "DISAPPROVED",
+          approverId: req.authUser.id,
+          reviewedById: req.authUser.id,
+          reviewedAt: new Date(),
+          approverComment: commentText,
+          comments: commentText,
+        },
+      });
+
+      // Revert opportunity stage back to source stage (approval.fromStageId)
+      const fromStage = await tx.pipelineStage.findUnique({ where: { id: approval.fromStageId } });
+      const currentOpp = await tx.opportunity.findUnique({ where: { id: approval.opportunityId } });
+
+      await tx.opportunity.update({
+        where: { id: approval.opportunityId },
+        data: {
+          stageId: approval.fromStageId,
+          probability: fromStage ? fromStage.probability : undefined,
+        },
+      });
+
+      if (currentOpp && currentOpp.stageId !== approval.fromStageId) {
+        await tx.opportunityStageHistory.create({
+          data: {
+            opportunityId: approval.opportunityId,
+            fromStageId: currentOpp.stageId,
+            toStageId: approval.fromStageId,
+            changedById: req.authUser.id,
+          },
+        });
+      }
+
+      return updatedAppr;
     });
 
     await logAudit({
@@ -357,7 +421,12 @@ export default async function approvalRoutes(app: FastifyInstance) {
       objectType: "OPPORTUNITY",
       recordId: approval.opportunityId,
       action: "STAGE_APPROVAL_DISAPPROVED",
-      newValues: { approvalId: id, approverComment: commentText },
+      newValues: {
+        approvalId: id,
+        fromStageName: approval.fromStage?.name,
+        toStageName: approval.toStage?.name,
+        approverComment: commentText
+      },
     });
 
     await notify({
@@ -375,6 +444,7 @@ export default async function approvalRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const approval = await prisma.stageApproval.findFirst({
       where: { id, tenantId: req.authUser.tenantId, status: "PENDING" },
+      include: { opportunity: true, fromStage: true, toStage: true },
     });
 
     if (!approval) {
@@ -385,11 +455,37 @@ export default async function approvalRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "Only the original requester can revoke this request." });
     }
 
-    const cancelled = await prisma.stageApproval.update({
-      where: { id },
-      data: {
-        status: "CANCELLED",
-      },
+    const cancelled = await prisma.$transaction(async (tx) => {
+      const updatedApproval = await tx.stageApproval.update({
+        where: { id },
+        data: {
+          status: "CANCELLED",
+        },
+      });
+
+      const fromStage = await tx.pipelineStage.findUnique({ where: { id: approval.fromStageId } });
+      const currentOpp = await tx.opportunity.findUnique({ where: { id: approval.opportunityId } });
+
+      await tx.opportunity.update({
+        where: { id: approval.opportunityId },
+        data: {
+          stageId: approval.fromStageId,
+          probability: fromStage ? fromStage.probability : undefined,
+        },
+      });
+
+      if (currentOpp && currentOpp.stageId !== approval.fromStageId) {
+        await tx.opportunityStageHistory.create({
+          data: {
+            opportunityId: approval.opportunityId,
+            fromStageId: currentOpp.stageId,
+            toStageId: approval.fromStageId,
+            changedById: req.authUser.id,
+          },
+        });
+      }
+
+      return updatedApproval;
     });
 
     await logAudit({
@@ -398,7 +494,11 @@ export default async function approvalRoutes(app: FastifyInstance) {
       objectType: "OPPORTUNITY",
       recordId: approval.opportunityId,
       action: "STAGE_APPROVAL_CANCELLED",
-      newValues: { approvalId: id },
+      newValues: {
+        approvalId: id,
+        fromStageName: approval.fromStage?.name,
+        toStageName: approval.toStage?.name,
+      },
     });
 
     return cancelled;

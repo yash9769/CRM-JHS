@@ -28,12 +28,12 @@ describe("Opportunity Flow & Financial Details E2E", () => {
 
       // Verify Pricing Details card breakdown
       cy.contains("Pricing Details").should("be.visible");
-      cy.contains("Proposal Sent Value").should("be.visible");
-      cy.contains("Cost Incurred to Company").should("be.visible");
+      cy.contains("Proposal Value").should("be.visible");
+      cy.contains("Cost Incurred").should("be.visible");
 
       // Scroll container to test sticky pricing bar stability
       cy.get("main").scrollTo("bottom", { ensureScrollable: false });
-      cy.contains("Proposal Sent Value").should("be.visible");
+      cy.contains("Proposal Value").should("be.visible");
     });
   });
 

@@ -1,7 +1,5 @@
-import { useState } from "react";
 import { Modal } from "./ui";
 import { relativeTime, formatCurrency } from "../lib/format";
-import { useAuth, isManager } from "../hooks/useAuth";
 import {
   History,
   User,
@@ -9,8 +7,6 @@ import {
   ArrowRight,
   FileText,
   XCircle,
-  ChevronDown,
-  ChevronUp,
   Tag,
   Mail,
   Info
@@ -27,6 +23,28 @@ export interface AuditEntry {
   user?: { id: string; firstName: string; lastName: string; email?: string; orgRole?: string } | null;
 }
 
+function getRecordName(entry: AuditEntry): string | null {
+  const newV = entry.newValues || {};
+  const oldV = entry.oldValues || {};
+
+  if (newV.name) return String(newV.name);
+  if (oldV.name) return String(oldV.name);
+
+  if (newV.firstName || newV.lastName) return `${newV.firstName || ""} ${newV.lastName || ""}`.trim();
+  if (oldV.firstName || oldV.lastName) return `${oldV.firstName || ""} ${oldV.lastName || ""}`.trim();
+
+  if (newV.subject) return String(newV.subject);
+  if (oldV.subject) return String(oldV.subject);
+
+  if (newV.title) return String(newV.title);
+  if (oldV.title) return String(oldV.title);
+
+  if (newV.companyName) return String(newV.companyName);
+  if (oldV.companyName) return String(oldV.companyName);
+
+  return null;
+}
+
 export function AuditLogDetailModal({
   entry,
   onClose,
@@ -34,9 +52,7 @@ export function AuditLogDetailModal({
   entry: AuditEntry;
   onClose: () => void;
 }) {
-  const [showRawJson, setShowRawJson] = useState(false);
-  const { user } = useAuth();
-  const canViewRawJson = !isManager(user);
+  const recordName = getRecordName(entry);
 
   const formattedDate = new Date(entry.createdAt).toLocaleString("en-US", {
     dateStyle: "medium",
@@ -66,7 +82,8 @@ export function AuditLogDetailModal({
 
     const excludedKeys = [
       "id", "tenantId", "updatedAt", "createdAt", "deletedAt", "archived",
-      "stageName", "fromStageName", "toStageName", "passwordHash"
+      "stageName", "fromStageName", "toStageName", "passwordHash",
+      "stageId", "ownerId", "createdById", "partnerId", "accountId", "contactId", "pipelineId"
     ];
 
     const diffs: { field: string; label: string; oldVal: any; newVal: any }[] = [];
@@ -78,6 +95,9 @@ export function AuditLogDetailModal({
       const newV = newVals[key];
 
       if (JSON.stringify(oldV) !== JSON.stringify(newV)) {
+        if (typeof oldV === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(oldV.trim())) continue;
+        if (typeof newV === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(newV.trim())) continue;
+
         const label = key
           .replace(/([A-Z])/g, " $1")
           .replace(/^./, (str) => str.toUpperCase());
@@ -96,8 +116,17 @@ export function AuditLogDetailModal({
 
   const diffs = computeFieldDiffs();
 
-  const fromStage = entry.newValues?.fromStageName || entry.oldValues?.stageName || entry.oldValues?.stageId;
-  const toStage = entry.newValues?.toStageName || entry.newValues?.stageName || entry.newValues?.toStage;
+  const isUUID = (str: any) => typeof str === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str.trim());
+  const sanitizeStage = (val: any) => {
+    if (!val || typeof val !== "string" || isUUID(val)) return null;
+    return val;
+  };
+
+  const rawFrom = sanitizeStage(entry.newValues?.fromStageName) || sanitizeStage(entry.oldValues?.stageName) || sanitizeStage(entry.oldValues?.stageId);
+  const rawTo = sanitizeStage(entry.newValues?.toStageName) || sanitizeStage(entry.newValues?.stageName) || sanitizeStage(entry.newValues?.toStage) || sanitizeStage(entry.newValues?.stageId);
+
+  const fromStage = rawFrom || (entry.action === "CREATED" ? null : (rawTo ? "Initial Stage" : null));
+  const toStage = rawTo;
   const remarks = entry.newValues?.remarks || entry.newValues?.requesterComment || entry.newValues?.description;
   const approverComment = entry.newValues?.approverComment;
   const poNumber = entry.newValues?.poNumber || entry.oldValues?.poNumber;
@@ -160,9 +189,9 @@ export function AuditLogDetailModal({
                 {entry.objectType || "RECORD"}
               </span>
             </div>
-            {entry.recordId && (
-              <div className="text-[11px] font-mono text-slate-500 truncate" title={entry.recordId}>
-                ID: {entry.recordId}
+            {recordName && (
+              <div className="text-[11px] font-semibold text-slate-800 truncate" title={recordName}>
+                {recordName}
               </div>
             )}
           </div>
@@ -281,43 +310,6 @@ export function AuditLogDetailModal({
             </div>
           )}
         </div>
-
-        {/* RAW JSON TOGGLE — hidden for Managers, technical/debug detail not relevant to their role */}
-        {canViewRawJson && (
-          <div className="pt-2 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={() => setShowRawJson(!showRawJson)}
-              className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800 transition-colors"
-            >
-              {showRawJson ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-              {showRawJson ? "Hide Raw Technical JSON" : "View Raw Technical JSON Payload"}
-            </button>
-
-            {showRawJson && (
-              <div className="mt-2 p-3 rounded-lg bg-slate-900 text-slate-200 font-mono text-[10px] space-y-2 overflow-x-auto max-h-60">
-                <div>
-                  <span className="text-slate-400 font-bold block mb-1">// Log Action Metadata</span>
-                  <div>ID: {entry.id}</div>
-                  <div>Action: {entry.action}</div>
-                  <div>Created At: {entry.createdAt}</div>
-                </div>
-                {entry.oldValues && (
-                  <div>
-                    <span className="text-rose-400 font-bold block mb-1">// Old Values</span>
-                    <pre>{JSON.stringify(entry.oldValues, null, 2)}</pre>
-                  </div>
-                )}
-                {entry.newValues && (
-                  <div>
-                    <span className="text-emerald-400 font-bold block mb-1">// New Values</span>
-                    <pre>{JSON.stringify(entry.newValues, null, 2)}</pre>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </Modal>
   );

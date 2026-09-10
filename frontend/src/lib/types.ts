@@ -5,6 +5,21 @@ export interface Owner {
   email?: string;
 }
 
+export interface AccountEmailEntry {
+  id: string;
+  email: string;
+  label?: string | null;
+  isPrimary: boolean;
+}
+
+export interface AccountPhoneEntry {
+  id: string;
+  countryCode: string;
+  number: string;
+  label?: string | null;
+  isPrimary: boolean;
+}
+
 export interface Account {
   id: string;
   name: string;
@@ -27,6 +42,8 @@ export interface Account {
   quotes?: any[];
   activities?: Activity[];
   notes?: Note[];
+  emails?: AccountEmailEntry[];
+  phones?: AccountPhoneEntry[];
 }
 
 export type LeadStatus = "NEW" | "CONTACTED" | "QUALIFIED" | "NURTURING" | "UNQUALIFIED" | "CONVERTED";
@@ -69,6 +86,21 @@ export interface DuplicateLeadCandidate {
   status: string;
 }
 
+export interface ContactEmailEntry {
+  id: string;
+  email: string;
+  label?: string | null;
+  isPrimary: boolean;
+}
+
+export interface ContactPhoneEntry {
+  id: string;
+  countryCode: string;
+  number: string;
+  label?: string | null;
+  isPrimary: boolean;
+}
+
 export interface Contact {
   id: string;
   firstName: string;
@@ -90,6 +122,8 @@ export interface Contact {
   primaryOpportunities?: Opportunity[];
   activities?: Activity[];
   notes?: Note[];
+  emails?: ContactEmailEntry[];
+  phones?: ContactPhoneEntry[];
 }
 
 export const CANONICAL_STAGES = [
@@ -183,8 +217,12 @@ export interface Opportunity {
   contact?: Contact | null;
   amount: string;
   expectedOpportunityValue?: string | number | null;
+  proposalValue?: string | number | null;
   actualOpportunityValue?: string | number | null;
+  costIncurredToCompany?: string | number | null;
   bottomLineCost?: string | number | null;
+  marginValue?: string | number | null;
+  marginPercentage?: string | number | null;
   expectedMargin?: string | number | null;
   grossMargin?: string | number | null;
   marginLoss?: string | number | null;
@@ -207,6 +245,8 @@ export interface Opportunity {
   forecastCategory?: string;
   ownerId: string;
   owner?: Owner;
+  createdById?: string | null;
+  createdBy?: Owner | null;
   opportunityType: "NEW_BUSINESS" | "EXPANSION" | "RENEWAL";
   leadSource?: string | null;
   description?: string | null;
@@ -218,6 +258,7 @@ export interface Opportunity {
   activities?: Activity[];
   notes?: Note[];
   stageApprovals?: StageApproval[];
+  deletionRequests?: OpportunityDeletionRequest[];
   attachments?: OpportunityAttachment[];
   stageHistory?: any[];
 }
@@ -228,19 +269,91 @@ export interface DashboardMetrics {
     weightedPipeline: number;
     openOpportunities: number;
     closedWonRevenue: number;
+    closedWonCount?: number;
     winRate: number;
     avgOpportunitySize: number;
     oppsClosingThisMonth: number;
     totalExpectedMargin?: number;
     totalGrossMargin?: number;
     totalMarginLoss?: number;
+    openCostIncurred?: number;
+    closedWonCostIncurred?: number;
     totalBottomLineCost?: number;
+    pipelineVelocityPct?: number | null;
   };
   charts: {
     pipelineByStage: { stageName: string; count: number; amount: number }[];
     revenueByMonth: { month: string; revenue: number }[];
     oppsByOwner: { owner: string; count: number; amount: number }[];
+    pipelineVelocity?: { month: string; amount: number }[];
   };
+}
+
+export interface AccountDeletionRequest {
+  id: string;
+  tenantId: string;
+  accountId?: string | null;
+  account?: { id: string; name: string; domain?: string | null; industry?: string | null; owner?: Owner | null } | null;
+  accountName: string;
+  requestedById: string;
+  requestedBy?: { id: string; firstName: string; lastName: string; email?: string } | null;
+  approverId?: string | null;
+  approver?: { id: string; firstName: string; lastName: string } | null;
+  reason: string;
+  status: "PENDING" | "APPROVED" | "DISAPPROVED" | "CANCELLED";
+  reviewedById?: string | null;
+  reviewedBy?: { id: string; firstName: string; lastName: string } | null;
+  reviewComment?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  reviewedAt?: string | null;
+}
+
+export interface ContactDeletionRequest {
+  id: string;
+  tenantId: string;
+  contactId?: string | null;
+  contact?: { id: string; firstName: string; lastName: string; email?: string | null; jobTitle?: string | null; account?: { id: string; name: string } | null } | null;
+  contactName: string;
+  requestedById: string;
+  requestedBy?: { id: string; firstName: string; lastName: string; email?: string } | null;
+  approverId?: string | null;
+  approver?: { id: string; firstName: string; lastName: string } | null;
+  reason: string;
+  status: "PENDING" | "APPROVED" | "DISAPPROVED" | "CANCELLED";
+  reviewedById?: string | null;
+  reviewedBy?: { id: string; firstName: string; lastName: string } | null;
+  reviewComment?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  reviewedAt?: string | null;
+}
+
+export interface OpportunityDeletionRequest {
+  id: string;
+  tenantId: string;
+  opportunityId?: string | null;
+  opportunity?: {
+    id: string;
+    name: string;
+    amount?: number | string;
+    stage?: { id: string; name: string };
+    account?: { id: string; name: string };
+    owner?: { id: string; firstName: string; lastName: string };
+  } | null;
+  opportunityName: string;
+  requestedById: string;
+  requestedBy?: { id: string; firstName: string; lastName: string; email?: string } | null;
+  approverId?: string | null;
+  approver?: { id: string; firstName: string; lastName: string } | null;
+  reason: string;
+  status: "PENDING" | "APPROVED" | "DISAPPROVED" | "CANCELLED";
+  reviewedById?: string | null;
+  reviewedBy?: { id: string; firstName: string; lastName: string } | null;
+  reviewComment?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  reviewedAt?: string | null;
 }
 
 export interface Service {

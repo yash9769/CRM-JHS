@@ -21,8 +21,10 @@ interface TimelineEvent {
   note?: Note;
 }
 
-export function Timeline({ activities = [], notes = [], assoc, queryKeysToInvalidate }: {
+export function Timeline({ activities = [], notes = [], assoc, queryKeysToInvalidate, showTaskTab = true }: {
   activities?: Activity[]; notes?: Note[]; assoc: Assoc; queryKeysToInvalidate: unknown[][];
+  /** Some pages (e.g. Account detail) don't want task-creation inline here. */
+  showTaskTab?: boolean;
 }) {
   const qc = useQueryClient();
   const [tab, setTab] = useState<"note" | "task">("note");
@@ -48,7 +50,7 @@ export function Timeline({ activities = [], notes = [], assoc, queryKeysToInvali
   return (
     <div>
       <div className="flex gap-1 mb-3 border-b" style={{ borderColor: "var(--ink-100)" }}>
-        {(["note", "task"] as const).map((t) => (
+        {(showTaskTab ? (["note", "task"] as const) : (["note"] as const)).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
