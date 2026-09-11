@@ -402,6 +402,12 @@ export default async function contactRoutes(app: FastifyInstance) {
       });
       if (!account) return reply.code(400).send({ error: "Account not found for this tenant" });
     }
+    if (dataToSave.ownerId) {
+      const owner = await prisma.user.findFirst({
+        where: { id: dataToSave.ownerId, tenantId: req.authUser.tenantId },
+      });
+      if (!owner) return reply.code(400).send({ error: "Owner not found for this tenant" });
+    }
     const force = (req.query as any)?.force === "true" || (req.body as any)?.force === true;
     if (!force && (dataToSave.email || dataToSave.phone)) {
       const duplicates = await findDuplicateContacts(req.authUser.tenantId, dataToSave);
@@ -459,6 +465,18 @@ export default async function contactRoutes(app: FastifyInstance) {
         : phoneNumber !== undefined ? { phone: phoneNumber } : {}),
       ...(designation !== undefined ? { jobTitle: designation } : {}),
     };
+    if (dataToUpdate.accountId) {
+      const account = await prisma.account.findFirst({
+        where: { id: dataToUpdate.accountId, tenantId: req.authUser.tenantId },
+      });
+      if (!account) return reply.code(400).send({ error: "Account not found for this tenant" });
+    }
+    if (dataToUpdate.ownerId) {
+      const owner = await prisma.user.findFirst({
+        where: { id: dataToUpdate.ownerId, tenantId: req.authUser.tenantId },
+      });
+      if (!owner) return reply.code(400).send({ error: "Owner not found for this tenant" });
+    }
     const contact = await prisma.$transaction(async (tx) => {
       const updated = await tx.contact.update({ where: { id }, data: dataToUpdate });
       await syncContactMultiFields(tx, req.authUser.tenantId, id, emails, phones);
