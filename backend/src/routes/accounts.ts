@@ -408,6 +408,12 @@ export default async function accountRoutes(app: FastifyInstance) {
     // emails[]/phones[] are the source of truth when present; `phone` stays
     // in sync with whichever entry is primary for existing search/CSV/dedupe code.
     if (phones !== undefined) rest.phone = primaryPhoneString(phones);
+    if (rest.ownerId) {
+      const owner = await prisma.user.findFirst({
+        where: { id: rest.ownerId, tenantId: req.authUser.tenantId },
+      });
+      if (!owner) return reply.code(400).send({ error: "Owner not found for this tenant" });
+    }
     const force = (req.query as any)?.force === "true" || (req.body as any)?.force === true;
     if (!force) {
       const duplicates = await findDuplicateAccounts(req.authUser.tenantId, rest);
@@ -485,6 +491,12 @@ export default async function accountRoutes(app: FastifyInstance) {
 
     const { emails, phones, ...rest } = body;
     if (phones !== undefined) rest.phone = primaryPhoneString(phones);
+    if (rest.ownerId) {
+      const owner = await prisma.user.findFirst({
+        where: { id: rest.ownerId, tenantId: req.authUser.tenantId },
+      });
+      if (!owner) return reply.code(400).send({ error: "Owner not found for this tenant" });
+    }
 
     const account = await prisma.$transaction(async (tx) => {
       const updated = await tx.account.update({ where: { id }, data: rest });
