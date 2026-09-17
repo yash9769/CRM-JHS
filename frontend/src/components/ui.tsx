@@ -2,6 +2,111 @@ import type { ReactNode } from "react";
 import { X, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+/**
+ * Vivid gradient accent palette introduced by the pipeline "beautify" work
+ * (see frontend/src/lib/stageThemes.ts). Reused here so every page can pick
+ * up the same KPI-strip look instead of each page inventing its own colors.
+ */
+export type AccentColor = "indigo" | "sky" | "amber" | "emerald" | "purple" | "rose" | "violet";
+
+const accentClasses: Record<AccentColor, { gradient: string; border: string; iconBg: string; iconText: string; label: string; value: string; caption: string }> = {
+  indigo: {
+    gradient: "from-indigo-50/80 via-white to-indigo-50/30",
+    border: "border-indigo-200/70",
+    iconBg: "bg-indigo-100/80",
+    iconText: "text-indigo-700",
+    label: "text-indigo-900",
+    value: "text-indigo-950",
+    caption: "text-indigo-700/80",
+  },
+  sky: {
+    gradient: "from-sky-50/80 via-white to-sky-50/30",
+    border: "border-sky-200/70",
+    iconBg: "bg-sky-100/80",
+    iconText: "text-sky-700",
+    label: "text-sky-900",
+    value: "text-sky-950",
+    caption: "text-sky-700/80",
+  },
+  amber: {
+    gradient: "from-amber-50/80 via-white to-amber-50/30",
+    border: "border-amber-200/70",
+    iconBg: "bg-amber-100/80",
+    iconText: "text-amber-700",
+    label: "text-amber-900",
+    value: "text-amber-950",
+    caption: "text-amber-700/80",
+  },
+  emerald: {
+    gradient: "from-emerald-50/80 via-white to-emerald-50/30",
+    border: "border-emerald-200/70",
+    iconBg: "bg-emerald-100/80",
+    iconText: "text-emerald-700",
+    label: "text-emerald-900",
+    value: "text-emerald-950",
+    caption: "text-emerald-700/80",
+  },
+  purple: {
+    gradient: "from-purple-50/80 via-white to-purple-50/30",
+    border: "border-purple-200/70",
+    iconBg: "bg-purple-100/80",
+    iconText: "text-purple-700",
+    label: "text-purple-900",
+    value: "text-purple-950",
+    caption: "text-purple-700/80",
+  },
+  rose: {
+    gradient: "from-rose-50/80 via-white to-rose-50/30",
+    border: "border-rose-200/70",
+    iconBg: "bg-rose-100/80",
+    iconText: "text-rose-700",
+    label: "text-rose-900",
+    value: "text-rose-950",
+    caption: "text-rose-700/80",
+  },
+  violet: {
+    gradient: "from-violet-50/80 via-white to-violet-50/30",
+    border: "border-violet-200/70",
+    iconBg: "bg-violet-100/80",
+    iconText: "text-violet-700",
+    label: "text-violet-900",
+    value: "text-violet-950",
+    caption: "text-violet-700/80",
+  },
+};
+
+/** Single gradient KPI tile, styled after the Pipeline page's metrics strip. */
+export function MetricCard({
+  label, value, caption, icon: Icon, color = "indigo", className = "",
+}: {
+  label: string; value: ReactNode; caption?: string; icon?: React.ElementType; color?: AccentColor; className?: string;
+}) {
+  const a = accentClasses[color];
+  return (
+    <div className={`p-3.5 rounded-xl bg-gradient-to-br ${a.gradient} border ${a.border} shadow-xs ${className}`}>
+      <div className="flex items-center justify-between gap-1 mb-1">
+        <span className={`text-[11px] font-bold uppercase tracking-wider ${a.label}`}>{label}</span>
+        {Icon && (
+          <div className={`w-5 h-5 rounded-md ${a.iconBg} flex items-center justify-center ${a.iconText}`}>
+            <Icon size={11} />
+          </div>
+        )}
+      </div>
+      <div className={`font-mono-num text-base md:text-lg font-bold ${a.value}`}>{value}</div>
+      {caption && <div className={`text-[10px] ${a.caption} mt-0.5 font-medium`}>{caption}</div>}
+    </div>
+  );
+}
+
+/** Responsive strip container for a row of MetricCards. */
+export function MetricStrip({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 ${className}`}>
+      {children}
+    </div>
+  );
+}
+
 export function BackButton({ className = "" }: { className?: string }) {
   const navigate = useNavigate();
   return (
@@ -37,7 +142,7 @@ export function PageHeader({
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <div
-      className={`rounded-xl border ${className}`}
+      className={`rounded-xl border shadow-xs transition-colors ${className}`}
       style={{ borderColor: "var(--ink-100)", background: "white" }}
     >
       {children}
