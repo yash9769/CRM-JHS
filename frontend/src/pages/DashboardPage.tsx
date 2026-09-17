@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { Card, Button, Badge, Field, Modal, inputClass, inputStyle, MetricCard, MetricStrip } from "../components/ui";
+import { Card, Button, Badge, Field, Modal, inputClass, inputStyle, MetricCard, MetricStrip, accentClasses, type AccentColor } from "../components/ui";
 import { formatCurrency, formatCurrencyCompact } from "../lib/format";
 import { downloadCsvExport } from "../lib/exportCsv";
 import { RoleBadge, BirdsEyeModal } from "./OrgChartPage";
@@ -53,23 +53,24 @@ interface DashboardData {
 }
 
 function Kpi({
-  icon: Icon, label, value, url, onClick, tone = "ink", badge, footerLeft, footerRight, bar, sparkline, belowValue,
+  icon: Icon, label, value, url, onClick, tone = "indigo", badge, footerLeft, footerRight, bar, sparkline, belowValue,
 }: {
-  icon: any; label: string; value: ReactNode; url?: string; onClick?: () => void; tone?: "ink" | "green";
+  icon: any; label: string; value: ReactNode; url?: string; onClick?: () => void; tone?: AccentColor;
   badge?: ReactNode; footerLeft?: ReactNode; footerRight?: ReactNode; bar?: ReactNode; sparkline?: ReactNode; belowValue?: ReactNode;
 }) {
+  const a = accentClasses[tone];
   const content = (
-    <Card className="p-3.5 min-h-[145px] h-full hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between">
+    <Card
+      className={`p-3.5 min-h-[145px] h-full hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between bg-gradient-to-br ${a.gradient} ${a.border}`}
+      style={{ borderColor: undefined, background: undefined }}
+    >
       {/* Top Header Row - Fixed single-line height across all cards */}
       <div className="flex items-center justify-between gap-1.5 h-6 mb-1.5">
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          <div
-            className="w-6 h-6 rounded flex items-center justify-center transition-transform group-hover:scale-105 shrink-0"
-            style={{ background: tone === "green" ? "var(--ledger-100)" : "var(--ink-50)" }}
-          >
-            <Icon size={13} style={{ color: tone === "green" ? "var(--ledger-700)" : "var(--ink-500)" }} />
+          <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-transform group-hover:scale-105 shrink-0 ${a.iconBg}`}>
+            <Icon size={13} className={a.iconText} />
           </div>
-          <span className="text-[11px] font-semibold text-[var(--ink-500)] group-hover:text-[var(--ledger-700)] transition-colors truncate" title={label}>
+          <span className={`text-[11px] font-bold uppercase tracking-wider truncate ${a.label}`} title={label}>
             {label}
           </span>
         </div>
@@ -78,7 +79,7 @@ function Kpi({
 
       {/* Main Value & Sparkline Area */}
       <div className="flex items-center justify-between gap-2 my-auto min-h-[36px]">
-        <div className="font-mono-num text-base sm:text-lg md:text-xl font-bold tracking-tight text-[var(--ink-900)] truncate leading-none">
+        <div className={`font-mono-num text-base sm:text-lg md:text-xl font-bold tracking-tight truncate leading-none ${a.value}`}>
           {value}
         </div>
         {sparkline && <div className="shrink-0">{sparkline}</div>}
@@ -94,9 +95,9 @@ function Kpi({
       </div>
 
       {/* Footer Row */}
-      <div className="pt-1.5 border-t border-[var(--ink-50)] flex items-center justify-between gap-1.5 text-[10px] text-[var(--ink-400)] h-5">
+      <div className={`pt-1.5 border-t flex items-center justify-between gap-1.5 text-[10px] h-5 ${a.caption}`} style={{ borderColor: "var(--ink-100)" }}>
         <span className="truncate">{footerLeft || " "}</span>
-        <span className="shrink-0 font-medium text-[var(--ink-600)]">{footerRight || " "}</span>
+        <span className={`shrink-0 font-medium ${a.label}`}>{footerRight || " "}</span>
       </div>
     </Card>
   );
@@ -830,7 +831,7 @@ export default function DashboardPage() {
             <>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               <Kpi
-                icon={BarChart3} label="Total Pipeline" value={formatCurrency(data.kpis.totalPipeline)}
+                icon={BarChart3} label="Total Pipeline" value={formatCurrency(data.kpis.totalPipeline)} tone="indigo"
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Total Pipeline", key: "totalPipeline", format: formatCurrency }) : undefined}
                 badge={formattedVelocity ? (
@@ -846,7 +847,7 @@ export default function DashboardPage() {
               />
 
               <Kpi
-                icon={TrendingUp} label="Weighted Pipeline" value={formatCurrency(data.kpis.weightedPipeline)}
+                icon={TrendingUp} label="Weighted Pipeline" value={formatCurrency(data.kpis.weightedPipeline)} tone="sky"
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Weighted Pipeline", key: "weightedPipeline", format: formatCurrency }) : undefined}
                 badge={<KpiPill tone="green">{weightedRatioPct}% ratio</KpiPill>}
@@ -855,7 +856,7 @@ export default function DashboardPage() {
               />
 
               <Kpi
-                icon={Target} label="Open Opportunities" value={String(data.kpis.openOpportunities)}
+                icon={Target} label="Open Opportunities" value={String(data.kpis.openOpportunities)} tone="amber"
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Open Opportunities", key: "openOpportunities", format: (n) => String(Math.round(n)) }) : undefined}
                 badge={closingThisWeek > 0 ? <KpiPill tone="amber">{closingThisWeek} closing this week</KpiPill> : undefined}
@@ -868,7 +869,7 @@ export default function DashboardPage() {
               />
 
               <Kpi
-                icon={Trophy} label="Closed Won Revenue" value={formatCurrency(data.kpis.closedWonRevenue)} tone="green"
+                icon={Trophy} label="Closed Won Revenue" value={formatCurrency(data.kpis.closedWonRevenue)} tone="emerald"
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Closed Won Revenue", key: "closedWonRevenue", format: formatCurrency }) : undefined}
                 badge={achievedPct !== null ? (
@@ -884,7 +885,7 @@ export default function DashboardPage() {
               />
 
               <Kpi
-                icon={Percent} label="Win Rate"
+                icon={Percent} label="Win Rate" tone="purple"
                 value={<span style={{ color: winRateDelta === null || winRateDelta >= 0 ? "var(--ledger-700)" : "var(--rose-600)" }}>{winRatePct}%</span>}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Win Rate", key: "winRate", format: (n) => `${Math.round(n * 100)}%` }) : undefined}
                 badge={winRateDelta !== null ? (
@@ -895,7 +896,7 @@ export default function DashboardPage() {
               />
 
               <Kpi
-                icon={IndianRupee} label="Avg Opportunity Size" value={formatCurrency(data.kpis.avgOpportunitySize)}
+                icon={IndianRupee} label="Avg Opportunity Size" value={formatCurrency(data.kpis.avgOpportunitySize)} tone="violet"
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Avg Opportunity Size", key: "avgOpportunitySize", format: formatCurrency }) : undefined}
                 footerLeft="Based on"
@@ -903,7 +904,7 @@ export default function DashboardPage() {
               />
 
               <Kpi
-                icon={Gauge} label="Margin Value" value={formatCurrency(marginValue)} tone="green"
+                icon={Gauge} label="Margin Value" value={formatCurrency(marginValue)} tone="emerald"
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Margin Value", key: "marginValue", format: formatCurrency }) : undefined}
                 badge={revenueBase > 0 ? <KpiPill tone="green">{marginPct}% Net</KpiPill> : undefined}
@@ -913,7 +914,7 @@ export default function DashboardPage() {
               />
 
               <Kpi
-                icon={CalendarClock} label="Cost Incurred to Company" value={formatCurrency(costIncurred)}
+                icon={CalendarClock} label="Cost Incurred to Company" value={formatCurrency(costIncurred)} tone="rose"
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Cost Incurred to Company", key: "costIncurred", format: formatCurrency }) : undefined}
                 badge={revenueBase > 0 ? <KpiPill>{costPct}% of value</KpiPill> : undefined}

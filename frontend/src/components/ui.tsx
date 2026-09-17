@@ -9,7 +9,9 @@ import { useNavigate } from "react-router-dom";
  */
 export type AccentColor = "indigo" | "sky" | "amber" | "emerald" | "purple" | "rose" | "violet";
 
-const accentClasses: Record<AccentColor, { gradient: string; border: string; iconBg: string; iconText: string; label: string; value: string; caption: string }> = {
+export type AccentTheme = { gradient: string; border: string; iconBg: string; iconText: string; label: string; value: string; caption: string };
+
+export const accentClasses: Record<AccentColor, AccentTheme> = {
   indigo: {
     gradient: "from-indigo-50/80 via-white to-indigo-50/30",
     border: "border-indigo-200/70",
@@ -139,11 +141,11 @@ export function PageHeader({
   );
 }
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function Card({ children, className = "", style }: { children: ReactNode; className?: string; style?: React.CSSProperties }) {
   return (
     <div
       className={`rounded-xl border shadow-xs transition-colors ${className}`}
-      style={{ borderColor: "var(--ink-100)", background: "white" }}
+      style={{ borderColor: "var(--ink-100)", background: "white", ...style }}
     >
       {children}
     </div>
