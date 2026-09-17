@@ -1,11 +1,11 @@
 import { useState, Fragment, type ReactElement } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { PageHeader, Card, Button, Badge, Modal, Field, inputClass, inputStyle, EmptyState } from "../components/ui";
+import { PageHeader, Card, Button, Badge, Modal, Field, inputClass, inputStyle, EmptyState, MetricCard, MetricStrip } from "../components/ui";
 import { formatCurrency, formatDate } from "../lib/format";
 import { downloadCsvExport } from "../lib/exportCsv";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
-import { Plus, FileText, Send, CheckCircle, XCircle, Download, Copy } from "lucide-react";
+import { Plus, FileText, Send, CheckCircle, XCircle, Download, Copy, FileStack, IndianRupee, Percent } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; tone: "neutral" | "green" | "amber" | "rose"; icon: any }> = {
   DRAFT:    { label: "Draft",    tone: "neutral", icon: FileText },
@@ -170,6 +170,12 @@ export default function QuotesPage() {
     URL.revokeObjectURL(url);
   }
 
+  const quotesList: any[] = data?.data || [];
+  const totalValue = quotesList.reduce((sum, q) => sum + Number(q.amount || 0), 0);
+  const acceptedCount = quotesList.filter((q) => q.status === "ACCEPTED").length;
+  const pendingCount = quotesList.filter((q) => q.status === "SENT" || q.status === "VIEWED").length;
+  const acceptanceRate = quotesList.length > 0 ? Math.round((acceptedCount / quotesList.length) * 100) : 0;
+
   return (
     <div className="pb-24 md:pb-8">
       <PageHeader
@@ -194,7 +200,14 @@ export default function QuotesPage() {
           </div>
         }
       />
-      <div className="px-4 md:px-8 pb-8">
+      <div className="px-4 md:px-8 pb-8 space-y-4">
+        <MetricStrip>
+          <MetricCard label="Quotes" value={quotesList.length} caption="In current view" icon={FileStack} color="indigo" />
+          <MetricCard label="Total Value" value={formatCurrency(totalValue)} caption="Sum of all quotes" icon={IndianRupee} color="sky" />
+          <MetricCard label="Accepted" value={acceptedCount} caption="Won by customer" icon={CheckCircle} color="emerald" />
+          <MetricCard label="Pending" value={pendingCount} caption="Sent, awaiting response" icon={Send} color="amber" />
+          <MetricCard label="Acceptance Rate" value={`${acceptanceRate}%`} caption="Accepted of total" icon={Percent} color="purple" />
+        </MetricStrip>
         <Card>
           {isLoading ? (
             <div className="p-6 text-sm text-[var(--ink-400)]">Loading…</div>

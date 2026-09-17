@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { PageHeader, Card, Button, Badge, EmptyState, inputClass, inputStyle } from "../components/ui";
+import { PageHeader, Card, Button, Badge, EmptyState, inputClass, inputStyle, MetricCard, MetricStrip } from "../components/ui";
 import { NewLeadModal } from "../components/CreateModals";
 import { CsvImportModal } from "../components/CsvImportModal";
 import { downloadCsvExport } from "../lib/exportCsv";
@@ -12,7 +12,7 @@ import { SavedViewsBar } from "../components/SavedViewsBar";
 import { fetchOwnerOptions } from "../lib/pickers";
 import { initials, relativeTime } from "../lib/format";
 import type { Lead, Paginated, LeadStatus } from "../lib/types";
-import { Plus, Search, UploadCloud, Download } from "lucide-react";
+import { Plus, Search, UploadCloud, Download, Users, Sparkles, CheckCircle2, Gauge } from "lucide-react";
 
 const STATUSES: (LeadStatus | "ALL")[] = ["ALL", "NEW", "CONTACTED", "QUALIFIED", "NURTURING", "UNQUALIFIED", "CONVERTED"];
 
@@ -64,6 +64,12 @@ export default function LeadsPage() {
     );
   }
 
+  const leadsList = data?.data || [];
+  const newLeadsCount = leadsList.filter((l) => l.status === "NEW").length;
+  const qualifiedCount = leadsList.filter((l) => l.status === "QUALIFIED").length;
+  const convertedCount = leadsList.filter((l) => l.status === "CONVERTED").length;
+  const avgScore = leadsList.length > 0 ? leadsList.reduce((sum, l) => sum + (l.score || 0), 0) / leadsList.length : 0;
+
   return (
     <div>
       <PageHeader
@@ -84,6 +90,14 @@ export default function LeadsPage() {
       />
       {showImport && <CsvImportModal entity="leads" onClose={() => setShowImport(false)} />}
       <div className="px-8 pb-8">
+        <MetricStrip className="mb-4">
+          <MetricCard label="Leads" value={leadsList.length} caption="In current view" icon={Users} color="indigo" />
+          <MetricCard label="New" value={newLeadsCount} caption="Awaiting first contact" icon={Sparkles} color="sky" />
+          <MetricCard label="Qualified" value={qualifiedCount} caption="Ready to progress" icon={CheckCircle2} color="amber" />
+          <MetricCard label="Converted" value={convertedCount} caption="Turned into opportunities" icon={CheckCircle2} color="emerald" />
+          <MetricCard label="Avg Score" value={avgScore.toFixed(1)} caption="Mean lead score" icon={Gauge} color="purple" />
+        </MetricStrip>
+
         <div className="flex items-center gap-3 mb-4">
           <div className="relative w-72">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--ink-400)" }} />

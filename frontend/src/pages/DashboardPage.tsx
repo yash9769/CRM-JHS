@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { Card, Button, Badge, Field, Modal, inputClass, inputStyle } from "../components/ui";
+import { Card, Button, Badge, Field, Modal, inputClass, inputStyle, MetricCard, MetricStrip } from "../components/ui";
 import { formatCurrency, formatCurrencyCompact } from "../lib/format";
 import { downloadCsvExport } from "../lib/exportCsv";
 import { RoleBadge, BirdsEyeModal } from "./OrgChartPage";
@@ -334,30 +334,18 @@ function ForecastSection({ period }: { period: string }) {
       </div>
 
       {s && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Card className="p-4">
-            <div className="flex items-center gap-2 mb-1.5"><Target size={14} style={{ color: "var(--ink-400)" }} /><span className="text-xs" style={{ color: "var(--ink-400)" }}>Total Target</span></div>
-            <div className="font-mono-num text-2xl font-semibold">{s.target > 0 ? formatCurrency(s.target) : "Not set"}</div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-2 mb-1.5"><Trophy size={14} style={{ color: "var(--ledger-500)" }} /><span className="text-xs" style={{ color: "var(--ink-400)" }}>Closed Won</span></div>
-            <div className="font-mono-num text-2xl font-semibold" style={{ color: "var(--ledger-700)" }}>{formatCurrency(s.closedWon)}</div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-2 mb-1.5"><TrendingUp size={14} style={{ color: "var(--ink-400)" }} /><span className="text-xs" style={{ color: "var(--ink-400)" }}>Weighted Pipeline</span></div>
-            <div className="font-mono-num text-2xl font-semibold">{formatCurrency(s.weighted)}</div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-2 mb-1.5">
-              <AlertCircle size={14} style={{ color: "var(--rose-500)" }} />
-              <span className="text-xs" style={{ color: "var(--ink-400)" }}>Lost Opportunity</span>
-            </div>
-            <div className="font-mono-num text-2xl font-semibold" style={{ color: "var(--rose-600)" }}>
-              {formatCurrency(s.lostOpportunity || 0)}
-            </div>
-            {s.gap > 0 && <div className="text-xs mt-0.5" style={{ color: "var(--ink-400)" }}>{formatCurrency(s.gap)} gap to target</div>}
-          </Card>
-        </div>
+        <MetricStrip>
+          <MetricCard label="Total Target" value={s.target > 0 ? formatCurrency(s.target) : "Not set"} caption="For this cycle" icon={Target} color="indigo" />
+          <MetricCard label="Closed Won" value={formatCurrency(s.closedWon)} caption="Realized revenue" icon={Trophy} color="sky" />
+          <MetricCard label="Weighted Pipeline" value={formatCurrency(s.weighted)} caption="Probability adjusted" icon={TrendingUp} color="amber" />
+          <MetricCard
+            label="Lost Opportunity"
+            value={formatCurrency(s.lostOpportunity || 0)}
+            caption={s.gap > 0 ? `${formatCurrency(s.gap)} gap to target` : "Closed lost this cycle"}
+            icon={AlertCircle}
+            color="purple"
+          />
+        </MetricStrip>
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
@@ -582,20 +570,12 @@ function WinLossSection() {
           </select>
         }
       />
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: "Opportunities Won", value: String(s.totalWon), sub: formatCurrency(s.wonRevenue) },
-          { label: "Opportunities Lost", value: String(s.totalLost), sub: formatCurrency(s.lostRevenue) },
-          { label: "Win Rate", value: `${Math.round(s.winRate * 100)}%`, sub: "by count" },
-          { label: "Won Revenue", value: formatCurrency(s.wonRevenue), sub: "last 6 months" },
-        ].map(({ label, value, sub }) => (
-          <Card key={label} className="p-4">
-            <div className="text-xs mb-1" style={{ color: "var(--ink-400)" }}>{label}</div>
-            <div className="font-mono-num text-xl font-semibold">{value}</div>
-            <div className="text-xs" style={{ color: "var(--ink-400)" }}>{sub}</div>
-          </Card>
-        ))}
-      </div>
+      <MetricStrip>
+        <MetricCard label="Opportunities Won" value={String(s.totalWon)} caption={formatCurrency(s.wonRevenue)} icon={Trophy} color="indigo" />
+        <MetricCard label="Opportunities Lost" value={String(s.totalLost)} caption={formatCurrency(s.lostRevenue)} icon={AlertCircle} color="sky" />
+        <MetricCard label="Win Rate" value={`${Math.round(s.winRate * 100)}%`} caption="by count" icon={Percent} color="amber" />
+        <MetricCard label="Won Revenue" value={formatCurrency(s.wonRevenue)} caption={periodLabel.toLowerCase()} icon={IndianRupee} color="emerald" />
+      </MetricStrip>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {pieData.length > 0 && (
           <Card className="p-5">

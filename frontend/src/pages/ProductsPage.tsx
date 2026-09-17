@@ -1,13 +1,13 @@
 import { useState, Fragment, type ReactElement } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { PageHeader, Card, Button, Badge, Modal, Field, inputClass, inputStyle, EmptyState } from "../components/ui";
+import { PageHeader, Card, Button, Badge, Modal, Field, inputClass, inputStyle, EmptyState, MetricCard, MetricStrip } from "../components/ui";
 import { formatCurrency } from "../lib/format";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
 import { useAuth } from "../hooks/useAuth";
 import { NewServiceModal } from "./ServicesPage";
 import type { Product, Service } from "../lib/types";
-import { Plus, Pencil, Layers, Info } from "lucide-react";
+import { Plus, Pencil, Layers, Info, Package, CheckCircle2, IndianRupee } from "lucide-react";
 
 const PRODUCT_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Product Name", permanent: true },
@@ -366,6 +366,13 @@ export default function ProductsPage() {
     queryFn: async () => (await api.get("/products")).data,
   });
 
+  const productsList = data?.data || [];
+  const activeCount = productsList.filter((p) => p.active).length;
+  const avgUnitPrice = productsList.length > 0
+    ? productsList.reduce((sum, p) => sum + Number(p.unitPrice || 0), 0) / productsList.length
+    : 0;
+  const distinctServices = new Set(productsList.filter((p) => p.serviceId).map((p) => p.serviceId)).size;
+
   return (
     <div className="pb-24 md:pb-8">
       <PageHeader
@@ -388,7 +395,13 @@ export default function ProductsPage() {
         }
       />
 
-      <div className="px-4 md:px-8 pb-8">
+      <div className="px-4 md:px-8 pb-8 space-y-4">
+        <MetricStrip>
+          <MetricCard label="Products" value={productsList.length} caption="In catalog" icon={Package} color="indigo" />
+          <MetricCard label="Active" value={activeCount} caption="Currently sellable" icon={CheckCircle2} color="sky" />
+          <MetricCard label="Avg Unit Price" value={formatCurrency(avgUnitPrice)} caption="Mean price per product" icon={IndianRupee} color="amber" />
+          <MetricCard label="Services Covered" value={distinctServices} caption="Distinct service categories" icon={Layers} color="emerald" />
+        </MetricStrip>
         <Card>
           {isLoading ? (
             <div className="p-6 text-sm text-[var(--ink-400)]">Loading products…</div>

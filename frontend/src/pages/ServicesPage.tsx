@@ -1,10 +1,10 @@
 import { useState, Fragment, type ReactElement } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { PageHeader, Card, Button, Badge, Modal, Field, inputClass, inputStyle, EmptyState } from "../components/ui";
+import { PageHeader, Card, Button, Badge, Modal, Field, inputClass, inputStyle, EmptyState, MetricCard, MetricStrip } from "../components/ui";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
 import type { Service } from "../lib/types";
-import { Plus, Pencil, Trash2, Layers } from "lucide-react";
+import { Plus, Pencil, Trash2, Layers, CheckCircle2, Package } from "lucide-react";
 
 const SERVICE_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Service Name", permanent: true },
@@ -184,6 +184,11 @@ export default function ServicesPage() {
     onError: (err: any) => alert(err?.response?.data?.error || "Could not delete service"),
   });
 
+  const servicesList = data?.data || [];
+  const activeCount = servicesList.filter((s) => s.active).length;
+  const totalProducts = servicesList.reduce((sum, s) => sum + (s._count?.products ?? 0), 0);
+  const avgProductsPerService = servicesList.length > 0 ? totalProducts / servicesList.length : 0;
+
   return (
     <div className="pb-24 md:pb-8">
       <PageHeader
@@ -206,7 +211,13 @@ export default function ServicesPage() {
         }
       />
 
-      <div className="px-4 md:px-8 pb-8">
+      <div className="px-4 md:px-8 pb-8 space-y-4">
+        <MetricStrip>
+          <MetricCard label="Services" value={servicesList.length} caption="Service categories" icon={Layers} color="indigo" />
+          <MetricCard label="Active" value={activeCount} caption="Currently offered" icon={CheckCircle2} color="sky" />
+          <MetricCard label="Linked Products" value={totalProducts} caption="Across all services" icon={Package} color="amber" />
+          <MetricCard label="Avg per Service" value={avgProductsPerService.toFixed(1)} caption="Products per service" icon={Package} color="emerald" />
+        </MetricStrip>
         <Card>
           {isLoading ? (
             <div className="p-6 text-sm text-[var(--ink-400)]">Loading services…</div>

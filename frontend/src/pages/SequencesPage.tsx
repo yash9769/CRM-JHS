@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { PageHeader, Card, Button, Badge, Modal, Field, inputClass, inputStyle, EmptyState } from "../components/ui";
-import { Plus, Mail, Phone, CheckSquare, Clock, Users, ChevronRight, Trash2 } from "lucide-react";
+import { PageHeader, Card, Button, Badge, Modal, Field, inputClass, inputStyle, EmptyState, MetricCard, MetricStrip } from "../components/ui";
+import { Plus, Mail, Phone, CheckSquare, Clock, Users, ChevronRight, Trash2, ListTree } from "lucide-react";
 
 const stepIcons: Record<string, any> = {
   EMAIL: Mail,
@@ -160,6 +160,11 @@ export default function SequencesPage() {
     queryFn: async () => (await api.get("/sequences")).data,
   });
 
+  const sequencesList: any[] = data?.data || [];
+  const totalSteps = sequencesList.reduce((sum, s) => sum + (s.steps?.length || 0), 0);
+  const totalEnrollments = sequencesList.reduce((sum, s) => sum + (s._count?.enrollments ?? 0), 0);
+  const avgSteps = sequencesList.length > 0 ? totalSteps / sequencesList.length : 0;
+
   return (
     <div>
       <PageHeader
@@ -167,6 +172,14 @@ export default function SequencesPage() {
         action={<Button onClick={() => setShowNew(true)}><Plus size={15} /> New Sequence</Button>}
       />
       <div className="px-8 pb-8">
+        {!isLoading && sequencesList.length > 0 && (
+          <MetricStrip className="mb-6">
+            <MetricCard label="Sequences" value={sequencesList.length} caption="Total automations" icon={ListTree} color="indigo" />
+            <MetricCard label="Total Steps" value={totalSteps} caption="Across all sequences" icon={CheckSquare} color="sky" />
+            <MetricCard label="Enrolled Contacts" value={totalEnrollments} caption="Currently enrolled" icon={Users} color="amber" />
+            <MetricCard label="Avg Steps" value={avgSteps.toFixed(1)} caption="Steps per sequence" icon={ListTree} color="emerald" />
+          </MetricStrip>
+        )}
         {isLoading ? (
           <div className="text-sm" style={{ color: "var(--ink-400)" }}>Loading…</div>
         ) : !data?.data?.length ? (

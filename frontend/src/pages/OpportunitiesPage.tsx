@@ -2,7 +2,7 @@ import { useState, Fragment, type ReactElement } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { PageHeader, Card, StageBadge, Button, EmptyState, inputClass, inputStyle, Modal } from "../components/ui";
+import { PageHeader, Card, StageBadge, Button, EmptyState, inputClass, inputStyle, Modal, MetricCard, MetricStrip } from "../components/ui";
 import { NewOpportunityModal } from "../components/CreateModals";
 import { CsvImportModal } from "../components/CsvImportModal";
 import { downloadCsvExport } from "../lib/exportCsv";
@@ -16,7 +16,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
 import type { Opportunity, Pipeline, Paginated } from "../lib/types";
 import { OpportunityDeletionModal } from "../components/OpportunityDeletionModal";
-import { Plus, Search, Download, UploadCloud, Building2, User, FileSpreadsheet, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Trash2 } from "lucide-react";
+import { Plus, Search, Download, UploadCloud, Building2, User, FileSpreadsheet, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Trash2, Layers, IndianRupee, Gauge, TrendingUp } from "lucide-react";
 
 const OPPORTUNITY_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Opportunity Name", permanent: true },
@@ -276,6 +276,20 @@ export default function OpportunitiesPage() {
   const allChecked = !!filteredData.length && filteredData.every((o) => selected.has(o.id));
   const someChecked = filteredData.some((o) => selected.has(o.id)) && !allChecked;
 
+  const metrics = sortedData.reduce(
+    (acc, o) => {
+      const fin = computeOpportunityFinancials(o);
+      const value = Number(fin.actualOpportunityValue ?? fin.expectedOpportunityValue ?? o.amount ?? 0);
+      const prob = (o.probability ?? o.stage?.probability ?? 0) / 100;
+      acc.totalValue += value;
+      acc.weightedValue += value * prob;
+      if (fin.marginValue !== null) acc.totalMargin += fin.marginValue;
+      return acc;
+    },
+    { totalValue: 0, weightedValue: 0, totalMargin: 0 }
+  );
+  const avgDealSize = sortedData.length > 0 ? metrics.totalValue / sortedData.length : 0;
+
   return (
     <div className="pb-24 md:pb-8">
       <PageHeader
@@ -310,6 +324,14 @@ export default function OpportunitiesPage() {
       />
       {showImport && <CsvImportModal entity="opportunities" onClose={() => setShowImport(false)} />}
       <div className="px-4 md:px-8 pb-8 space-y-4">
+        <MetricStrip>
+          <MetricCard label="Opportunities" value={sortedData.length} caption="In current view" icon={Layers} color="indigo" />
+          <MetricCard label="Total Value" value={formatCurrency(metrics.totalValue)} caption="Sum of proposal value" icon={IndianRupee} color="sky" />
+          <MetricCard label="Weighted Pipeline" value={formatCurrency(metrics.weightedValue)} caption="Probability adjusted" icon={TrendingUp} color="amber" />
+          <MetricCard label="Total Margin" value={formatCurrency(metrics.totalMargin)} caption="Across visible deals" icon={Gauge} color="emerald" />
+          <MetricCard label="Avg Deal Size" value={formatCurrency(avgDealSize)} caption="Mean value per deal" icon={IndianRupee} color="purple" />
+        </MetricStrip>
+
         {/* Filter Tabs */}
         <div className="flex items-center gap-1 border-b border-[var(--ink-200)] pb-1">
           <button

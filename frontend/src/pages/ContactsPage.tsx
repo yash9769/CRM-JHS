@@ -2,7 +2,7 @@ import { useState, Fragment, type ReactElement } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { PageHeader, Card, Button, inputClass, inputStyle, EmptyState } from "../components/ui";
+import { PageHeader, Card, Button, inputClass, inputStyle, EmptyState, MetricCard, MetricStrip } from "../components/ui";
 import { NewContactModal } from "../components/CreateModals";
 import { CsvImportModal } from "../components/CsvImportModal";
 import { downloadCsvExport } from "../lib/exportCsv";
@@ -11,7 +11,7 @@ import { fetchOwnerOptions } from "../lib/pickers";
 import { initials, formatDate } from "../lib/format";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
 import type { Contact, Paginated } from "../lib/types";
-import { Plus, Search, Download, UploadCloud, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Search, Download, UploadCloud, ArrowUpDown, ArrowUp, ArrowDown, Users, Building2, Mail } from "lucide-react";
 
 import { useAuth } from "../hooks/useAuth";
 
@@ -98,6 +98,9 @@ export default function ContactsPage() {
     );
   }
 
+  const withEmailCount = contactsList.filter((c) => !!c.email).length;
+  const distinctAccounts = new Set(contactsList.filter((c) => c.account).map((c) => c.account!.id)).size;
+
   return (
     <div>
       <PageHeader
@@ -129,6 +132,12 @@ export default function ContactsPage() {
       />
       {showImport && <CsvImportModal entity="contacts" onClose={() => setShowImport(false)} />}
       <div className="px-8 pb-8">
+        <MetricStrip className="mb-4">
+          <MetricCard label="Contacts" value={sortedContacts.length} caption="In current view" icon={Users} color="indigo" />
+          <MetricCard label="With Email" value={withEmailCount} caption="Reachable by email" icon={Mail} color="sky" />
+          <MetricCard label="Linked Accounts" value={distinctAccounts} caption="Distinct accounts represented" icon={Building2} color="amber" />
+        </MetricStrip>
+
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <div className="relative w-72">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--ink-400)" }} />

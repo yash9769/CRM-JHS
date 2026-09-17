@@ -2,7 +2,7 @@ import { useState, Fragment, useMemo, type ReactElement } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { PageHeader, Card, Button, inputClass, inputStyle, EmptyState, Modal } from "../components/ui";
+import { PageHeader, Card, Button, inputClass, inputStyle, EmptyState, Modal, MetricCard, MetricStrip } from "../components/ui";
 import { NewAccountModal } from "../components/CreateModals";
 import { CsvImportModal } from "../components/CsvImportModal";
 import { downloadCsvExport } from "../lib/exportCsv";
@@ -11,7 +11,7 @@ import { fetchOwnerOptions } from "../lib/pickers";
 import { formatDate } from "../lib/format";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
 import type { Account, Paginated } from "../lib/types";
-import { Plus, Search, Building2, Download, UploadCloud, ArrowUpDown, ArrowUp, ArrowDown, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, Search, Building2, Download, UploadCloud, ArrowUpDown, ArrowUp, ArrowDown, Trash2, AlertTriangle, Users, Handshake, Tags } from "lucide-react";
 
 import { useAuth } from "../hooks/useAuth";
 
@@ -164,6 +164,16 @@ export default function AccountsPage() {
     );
   }
 
+  const accountMetrics = sortedAccounts.reduce(
+    (acc: any, a: any) => {
+      acc.contacts += a._count?.contacts ?? 0;
+      acc.opportunities += a._count?.opportunities ?? 0;
+      if (a.industry) acc.industries.add(a.industry);
+      return acc;
+    },
+    { contacts: 0, opportunities: 0, industries: new Set<string>() }
+  );
+
   return (
     <div>
       <PageHeader
@@ -195,6 +205,13 @@ export default function AccountsPage() {
       />
       {showImport && <CsvImportModal entity="accounts" onClose={() => setShowImport(false)} />}
       <div className="px-8 pb-8 space-y-4">
+        <MetricStrip>
+          <MetricCard label="Accounts" value={sortedAccounts.length} caption="In current view" icon={Building2} color="indigo" />
+          <MetricCard label="Contacts" value={accountMetrics.contacts} caption="Across these accounts" icon={Users} color="sky" />
+          <MetricCard label="Open Opportunities" value={accountMetrics.opportunities} caption="Linked to these accounts" icon={Handshake} color="amber" />
+          <MetricCard label="Industries" value={accountMetrics.industries.size} caption="Distinct industries represented" icon={Tags} color="emerald" />
+        </MetricStrip>
+
         {/* Filters and Sorting Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex flex-wrap items-center gap-3">
