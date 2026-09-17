@@ -67,6 +67,14 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // TOTP (RFC 6238) two-factor auth. totpSecret is stored AES-256-GCM encrypted
+  // (see lib/totp.ts) — never stored or returned in plaintext. totpVerifiedAt is
+  // refreshed every time the user completes a TOTP challenge; login requires a
+  // fresh challenge once it's more than 7 days old.
+  totpSecret     String?
+  totpEnabled    Boolean   @default(false)
+  totpVerifiedAt DateTime?
+
   // Hierarchy links
   createdById  String?
   createdBy    User?   @relation("UserCreatedBy", fields: [createdById], references: [id])

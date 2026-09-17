@@ -27,6 +27,9 @@ A comprehensive registry of every function, class, component, and API route acro
 | `PHONE_COUNTRIES` / `isValidLocalNumber` | `backend/src/lib/phoneCountries.ts` | Curated country-code list (India default) + 10-digit local-number validator | `number: string` | `boolean` |
 | `emailListSchema` / `phoneListSchema` | `backend/src/lib/multiValueFields.ts` | Zod schemas for repeatable email/phone entries (max 10 each) used on Account & Contact | — | `ZodSchema` |
 | `primaryEmail` / `primaryPhoneString` / `normalizePrimary` | `backend/src/lib/multiValueFields.ts` | Resolves the legacy singular `email`/`phone` scalar mirror from a multi-value array's primary entry | `entries: EmailEntry[] \| PhoneEntry[]` | `string \| null` / `EmailEntry[] \| PhoneEntry[]` |
+| `generateTotpSecret` / `totpOtpauthUrl` / `totpQrCodeDataUrl` / `verifyTotpCode` / `needsTotpChallenge` / `encryptTotpSecret` / `decryptTotpSecret` | `backend/src/lib/totp.ts` | RFC 6238 TOTP: secret generation, QR/otpauth URL, code verification, the 7-day re-verification check, and AES-256-GCM at-rest encryption of stored secrets | varies | varies |
+| `signFlowToken` / `verifyFlowToken` | `backend/src/lib/authFlowToken.ts` | Short-lived HMAC tokens (separate secret/scheme from the session JWT) binding the "TOTP setup" / "TOTP challenge" steps of login to a user | `purpose, userId` / `token, purpose` | `string` / `{ userId } \| null` |
+| `sendMail` | `backend/src/lib/mailer.ts` | Sends email via SMTP (env-configured); logs to console instead if SMTP isn't configured | `params: { to, subject, text, html? }` | `Promise<void>` |
 
 ---
 
@@ -35,8 +38,9 @@ A comprehensive registry of every function, class, component, and API route acro
 ### 🔐 Authentication & Users (`/api/v1/auth`, `/api/v1/users`)
 | Method & Endpoint | File Path | Purpose | Request Body / Query | Return Type |
 | :--- | :--- | :--- | :--- | :--- |
-| `POST /api/v1/auth/register` | `backend/src/routes/auth.ts` | Registers new tenant & admin user, seeds default pipelines | `{ companyName, firstName, lastName, email, password }` | `{ token, user, tenant }` (201) |
-| `POST /api/v1/auth/login` | `backend/src/routes/auth.ts` | Authenticates user credentials via Argon2 | `{ email, password }` | `{ token, user }` (200) |
+| `POST /api/v1/auth/login` | `backend/src/routes/auth.ts` | Authenticates user credentials via Argon2. No public self-registration exists — see `backend/scripts/createUser.ts`. Returns a session token directly if TOTP was verified within the last 7 days; otherwise returns a setup/challenge step instead of a token | `{ email, password }` | `{ token, user }` **or** `{ requiresTotpSetup, setupToken, secret, otpauthUrl, qrCodeDataUrl }` **or** `{ requiresTotpChallenge, challengeToken }` (200) |
+| `POST /api/v1/auth/totp/setup-verify` | `backend/src/routes/auth.ts` | Completes first-time TOTP enrollment: verifies the 6-digit code against the pending secret, enables TOTP, issues a session | `{ token: setupToken, code }` | `{ token, user }` (200) |
+| `POST /api/v1/auth/totp/challenge-verify` | `backend/src/routes/auth.ts` | Re-verifies TOTP after the 7-day window has elapsed and issues a new session | `{ token: challengeToken, code }` | `{ token, user }` (200) |
 | `GET /api/v1/auth/me` | `backend/src/routes/auth.ts` | Retrieves current authenticated session user and tenant | Bearer Auth Header | `{ user, tenant }` |
 | `GET /api/v1/users` | `backend/src/routes/users.ts` | Lists all active workspace users | Bearer Auth Header | `{ data: User[] }` |
 | `POST /api/v1/users/invite` | `backend/src/routes/users.ts` | Invites/creates a new team member with role | `{ email, firstName, lastName, role, password? }` | `{ data: User }` |
@@ -175,7 +179,7 @@ A comprehensive registry of every function, class, component, and API route acro
 
 | Name | File Path | One-Line Purpose | Parameters | Return Type |
 | :--- | :--- | :--- | :--- | :--- |
-| `useAuth` | `frontend/src/hooks/useAuth.tsx` | Access current user, tenant, login, register, logout | None | `AuthContextValue` |
+| `useAuth` | `frontend/src/hooks/useAuth.tsx` | Access current user/tenant; `login()` returns an `authenticated` / `totp_setup` / `totp_challenge` result; `completeTotpSetup()` / `completeTotpChallenge()` finish those steps; `logout()` | None | `AuthContextValue` |
 | `AuthProvider` | `frontend/src/hooks/useAuth.tsx` | React Context Provider managing auth session lifecycle | `{ children: ReactNode }` | `JSX.Element` |
 | `api` | `frontend/src/lib/api.ts` | Configured Axios HTTP client with JWT interceptor & 401 redirect | None | `AxiosInstance` |
 | `formatCurrency` | `frontend/src/lib/format.ts` | Formats numbers as INR (`₹X,XX,XXX`) | `value: number \| string, currency?: string` | `string` |
@@ -256,5 +260,4 @@ A comprehensive registry of every function, class, component, and API route acro
 | `ReportsPage` | `frontend/src/pages/ReportsPage.tsx` | `/reports` | Analytics reports (Pipeline health, Win/Loss, Funnel) |
 | `SearchPage` | `frontend/src/pages/SearchPage.tsx` | `/search` | Global cross-entity search result listings |
 | `SettingsPage` | `frontend/src/pages/SettingsPage.tsx` | `/settings` | Team management, role assignment, and custom properties |
-| `LoginPage` | `frontend/src/pages/LoginPage.tsx` | `/login` | User authentication sign-in form |
-| `RegisterPage` | `frontend/src/pages/RegisterPage.tsx` | `/register` | Workspace registration and first admin onboarding |
+| `LoginPage` | `frontend/src/pages/LoginPage.tsx` | `/login` | Sign-in form, plus first-time TOTP enrollment (QR code) and the 7-day TOTP re-challenge step. No self-registration — accounts are created only via `backend/scripts/createUser.ts` |

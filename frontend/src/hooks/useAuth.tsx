@@ -15,12 +15,18 @@ export interface Tenant {
   name: string;
 }
 
+export type LoginResult =
+  | { status: "authenticated" }
+  | { status: "totp_setup"; setupToken: string; secret: string; otpauthUrl: string; qrCodeDataUrl: string }
+  | { status: "totp_challenge"; challengeToken: string };
+
 interface AuthContextValue {
   user: AuthUser | null;
   tenant: Tenant | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: { companyName: string; firstName: string; lastName: string; email: string; password: string }) => Promise<void>;
+  login: (email: string, password: string) => Promise<LoginResult>;
+  completeTotpSetup: (setupToken: string, code: string) => Promise<void>;
+  completeTotpChallenge: (challengeToken: string, code: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -58,20 +64,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     else setLoading(false);
   }, []);
 
-  async function login(email: string, password: string) {
-    const res = await api.post("/auth/login", { email, password });
-    localStorage.setItem("crm_token", res.data.token);
-    setUser(res.data.user);
+  async function applySession(token: string) {
+    localStorage.setItem("crm_token", token);
+    authActionIdRef.current++;
     await fetchMe();
   }
 
-  async function register(data: { companyName: string; firstName: string; lastName: string; email: string; password: string }) {
-    const res = await api.post("/auth/register", data);
-    localStorage.setItem("crm_token", res.data.token);
-    setUser(res.data.user);
-    setTenant(res.data.tenant);
-    authActionIdRef.current++;
-    setLoading(false);
+  async function login(email: string, password: string): Promise<LoginResult> {
+    const res = await api.post("/auth/login", { email, password });
+    if (res.data.requiresTotpSetup) {
+      return {
+        status: "totp_setup",
+        setupToken: res.data.setupToken,
+        secret: res.data.secret,
+        otpauthUrl: res.data.otpauthUrl,
+        qrCodeDataUrl: res.data.qrCodeDataUrl,
+      };
+    }
+    if (res.data.requiresTotpChallenge) {
+      return { status: "totp_challenge", challengeToken: res.data.challengeToken };
+    }
+    await applySession(res.data.token);
+    return { status: "authenticated" };
+  }
+
+  async function completeTotpSetup(setupToken: string, code: string) {
+    const res = await api.post("/auth/totp/setup-verify", { token: setupToken, code });
+    await applySession(res.data.token);
+  }
+
+  async function completeTotpChallenge(challengeToken: string, code: string) {
+    const res = await api.post("/auth/totp/challenge-verify", { token: challengeToken, code });
+    await applySession(res.data.token);
   }
 
   function logout() {
@@ -82,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, tenant, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, tenant, loading, login, completeTotpSetup, completeTotpChallenge, logout }}>
       {children}
     </AuthContext.Provider>
   );
