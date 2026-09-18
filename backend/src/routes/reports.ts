@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
 import { getCreatedByFilter, getVisibleUserIds, requireExportPermission } from "../lib/rbac.js";
 import { toCsv } from "../lib/csv.js";
+import { PERIOD_REGEX, parsePeriodRange } from "../lib/period.js";
 
 export default async function reportRoutes(app: FastifyInstance) {
   // Pipeline health report
@@ -170,25 +171,49 @@ export default async function reportRoutes(app: FastifyInstance) {
   // Win/Loss analysis
   app.get("/api/v1/reports/win-loss", { preHandler: [app.authenticate] }, async (req: any) => {
     const tenantId = req.authUser.tenantId;
-    const { months = "6" } = req.query as any;
-    const since = new Date();
-    since.setMonth(since.getMonth() - Number(months));
+    const { period, months } = req.query as any;
+
+    // A specific period ("YYYY-MM" / "YYYY-Qn" / "YYYY") scopes the summary
+    // numbers to exactly that window; the legacy `months` param (trailing N
+    // months from now) is kept for backward compatibility when no period is
+    // given. Either way, the "Monthly trend" chart always spans a 6-month
+    // window ending at the last month covered by the selection, so a single
+    // month/quarter/year selection still shows a meaningful trend alongside
+    // its own exact-period summary.
+    let summaryStart: Date;
+    let summaryEnd: Date;
+    let anchorMonth: Date;
+    if (period && PERIOD_REGEX.test(period)) {
+      const r = parsePeriodRange(period);
+      summaryStart = r.start;
+      summaryEnd = r.end;
+      anchorMonth = new Date(r.end);
+      anchorMonth.setUTCMonth(anchorMonth.getUTCMonth() - 1);
+    } else {
+      const m = Number(months || 6);
+      summaryEnd = new Date();
+      summaryStart = new Date();
+      summaryStart.setMonth(summaryStart.getMonth() - m);
+      anchorMonth = new Date(Date.UTC(summaryEnd.getUTCFullYear(), summaryEnd.getUTCMonth(), 1));
+    }
+    const trendStart = new Date(Date.UTC(anchorMonth.getUTCFullYear(), anchorMonth.getUTCMonth() - 5, 1));
+    const trendEnd = summaryEnd;
 
     const rbacFilter = await getCreatedByFilter(req.authUser);
     const [wonOpps, lostOpps] = await Promise.all([
       prisma.opportunity.findMany({
         // `rbacFilter` and the date-window filter both use `OR`; compose them
         // with `AND` so the RBAC restriction is not silently overwritten.
-        where: { tenantId, AND: [rbacFilter, { OR: [{ wonDate: { gte: since } }, { actualCloseDate: { gte: since } }] }], stage: { isClosed: true, isWon: true } },
+        where: { tenantId, AND: [rbacFilter, { OR: [{ wonDate: { gte: trendStart, lt: trendEnd } }, { actualCloseDate: { gte: trendStart, lt: trendEnd } }] }], stage: { isClosed: true, isWon: true } },
         include: { stage: true, owner: { select: { id: true, firstName: true, lastName: true } } },
       }),
       prisma.opportunity.findMany({
-        where: { tenantId, ...rbacFilter, updatedAt: { gte: since }, stage: { isClosed: true, isWon: false } },
+        where: { tenantId, ...rbacFilter, updatedAt: { gte: trendStart, lt: trendEnd }, stage: { isClosed: true, isWon: false } },
         include: { stage: true, owner: { select: { id: true, firstName: true, lastName: true } } },
       }),
     ]);
 
-    // Group by month
+    // Group by month (always the full trend window)
     const monthlyData: Record<string, { period: string; won: number; lost: number; wonAmount: number; lostAmount: number }> = {};
     const addToMonth = (date: Date | null | undefined, amount: number, type: "won" | "lost") => {
       if (!date) return;
@@ -197,17 +222,22 @@ export default async function reportRoutes(app: FastifyInstance) {
       monthlyData[period][type]++;
       monthlyData[period][`${type}Amount`] += amount;
     };
-
     wonOpps.forEach(o => addToMonth(o.wonDate || o.actualCloseDate, Number(o.amount), "won"));
     lostOpps.forEach(o => addToMonth(o.updatedAt, Number(o.amount), "lost"));
 
+    // Summary numbers are scoped to exactly the selected period (a subset of
+    // the wider trend window fetched above).
+    const inSummaryWindow = (date: Date | null | undefined) => !!date && date >= summaryStart && date < summaryEnd;
+    const summaryWon = wonOpps.filter(o => inSummaryWindow(o.wonDate || o.actualCloseDate));
+    const summaryLost = lostOpps.filter(o => inSummaryWindow(o.updatedAt));
+
     return {
       summary: {
-        totalWon: wonOpps.length,
-        totalLost: lostOpps.length,
-        wonRevenue: wonOpps.reduce((s, o) => s + Number(o.amount), 0),
-        lostRevenue: lostOpps.reduce((s, o) => s + Number(o.amount), 0),
-        winRate: (wonOpps.length + lostOpps.length) > 0 ? wonOpps.length / (wonOpps.length + lostOpps.length) : 0,
+        totalWon: summaryWon.length,
+        totalLost: summaryLost.length,
+        wonRevenue: summaryWon.reduce((s, o) => s + Number(o.amount), 0),
+        lostRevenue: summaryLost.reduce((s, o) => s + Number(o.amount), 0),
+        winRate: (summaryWon.length + summaryLost.length) > 0 ? summaryWon.length / (summaryWon.length + summaryLost.length) : 0,
       },
       monthly: Object.values(monthlyData).sort((a, b) => a.period.localeCompare(b.period)),
     };

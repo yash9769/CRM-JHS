@@ -1255,10 +1255,14 @@ export default async function opportunityRoutes(app: FastifyInstance) {
   });
 
   // ATTACHMENTS — Metadata endpoint for Opportunity attachments
+  const ALLOWED_ATTACHMENT_EXTENSIONS = [".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png", ".eml", ".msg"];
   app.post("/api/v1/opportunities/:id/attachments", { preHandler: app.authenticate }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const attachSchema = z.object({
-      originalFilename: z.string().min(1),
+      originalFilename: z.string().min(1).refine(
+        (name) => ALLOWED_ATTACHMENT_EXTENSIONS.some((ext) => name.toLowerCase().endsWith(ext)),
+        { message: "Only PDF, DOCX, image, and email confirmation files are accepted" }
+      ),
       mimeType: z.string().min(1),
       size: z.number().int().positive(),
       storageKey: z.string().optional().nullable(),

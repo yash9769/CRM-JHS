@@ -11,6 +11,14 @@ interface ClosedWonModalProps {
   onSuccess: () => void;
 }
 
+/** Matches what the upload label promises: PDF, Word, images, and email confirmations. */
+const ALLOWED_ATTACHMENT_EXTENSIONS = [".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png", ".eml", ".msg"];
+
+function hasAllowedExtension(filename: string): boolean {
+  const lower = filename.toLowerCase();
+  return ALLOWED_ATTACHMENT_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
 export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess }: ClosedWonModalProps) {
   const { user } = useAuth();
   const isManager = user?.orgRole === "MANAGER";
@@ -32,16 +40,28 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
     if (!files || !files.length) return;
 
     const newFiles: { filename: string; size: number; mimeType: string }[] = [];
+    const rejected: string[] = [];
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
+      if (!hasAllowedExtension(f.name)) {
+        rejected.push(f.name);
+        continue;
+      }
       newFiles.push({
         filename: f.name,
         size: f.size,
         mimeType: f.type || "application/octet-stream",
       });
     }
-    setAttachments((prev) => [...prev, ...newFiles]);
-    setUploadNotice("Attachment staged ready for upload.");
+    if (rejected.length) {
+      setUploadNotice(null);
+      setError(`Unsupported file type: ${rejected.join(", ")}. Only PDF, DOCX, images, and email confirmations are accepted.`);
+    } else if (newFiles.length) {
+      setError(null);
+      setUploadNotice("Attachment staged ready for upload.");
+    }
+    if (newFiles.length) setAttachments((prev) => [...prev, ...newFiles]);
+    e.target.value = "";
   };
 
   const removeAttachment = (idx: number) => {
@@ -133,6 +153,7 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
             <input
               type="file"
               multiple
+              accept={ALLOWED_ATTACHMENT_EXTENSIONS.join(",")}
               onChange={handleFileUpload}
               className="hidden"
               id="close-won-file-upload"

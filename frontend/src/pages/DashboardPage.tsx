@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAuth, isManager as checkIsManager } from "../hooks/useAuth";
 import { ApprovalSummary } from "../components/ApprovalQueueTable";
+import { usePeriodPicker, PeriodPicker, periodDisplayLabel } from "../components/PeriodPicker";
 
 interface ActionCenterData {
   todaysWork: { overdueTasks: number; tasksDueToday: number; newLeads: number; uncontactedLeads: number; oppsClosingThisWeek: number; quotesAwaiting: number };
@@ -61,7 +62,7 @@ function Kpi({
   const a = accentClasses[tone];
   const content = (
     <Card
-      className={`p-3.5 min-h-[145px] h-full hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between bg-gradient-to-br ${a.gradient} ${a.border}`}
+      className={`p-3.5 min-h-[145px] h-full overflow-hidden hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between bg-gradient-to-br ${a.gradient} ${a.border}`}
       style={{ borderColor: undefined, background: undefined }}
     >
       {/* Top Header Row - Fixed single-line height across all cards */}
@@ -97,7 +98,7 @@ function Kpi({
       {/* Footer Row */}
       <div className={`pt-1.5 border-t flex items-center justify-between gap-1.5 text-[10px] h-5 ${a.caption}`} style={{ borderColor: "var(--ink-100)" }}>
         <span className="truncate">{footerLeft || " "}</span>
-        <span className={`shrink-0 font-medium ${a.label}`}>{footerRight || " "}</span>
+        <span className={`min-w-0 overflow-hidden font-medium ${a.label}`}>{footerRight || " "}</span>
       </div>
     </Card>
   );
@@ -223,10 +224,6 @@ function SectionHeader({ icon: Icon, title, action, tone = "ink" }: { icon: any;
 function periodLabel(p: string) {
   const [y, m] = p.split("-");
   return new Date(Number(y), Number(m) - 1).toLocaleString("default", { month: "short", year: "2-digit" });
-}
-
-function currentPeriod() {
-  return new Date().toISOString().slice(0, 7);
 }
 
 /** Indian fiscal year runs April-March; label e.g. "Q2 FY26 Active" for July 2025. */
@@ -597,31 +594,25 @@ function PipelineHealthSection() {
 
 /* ---------- Win / Loss section (merged from ReportsPage) ---------- */
 
-const WIN_LOSS_PERIODS = [
-  { months: 3, label: "Last 3 months" },
-  { months: 6, label: "Last 6 months" },
-  { months: 12, label: "Last 12 months" },
-];
-
 function WinLossSection() {
-  const [months, setMonths] = useState(6);
-  const { data, isLoading, isError } = useQuery<any>({ queryKey: ["report-win-loss", months], queryFn: async () => (await api.get("/reports/win-loss", { params: { months } })).data });
+  const winLossPicker = usePeriodPicker("MONTH");
+  const period = winLossPicker.period;
+  const { data, isLoading, isError } = useQuery<any>({ queryKey: ["report-win-loss", period], queryFn: async () => (await api.get("/reports/win-loss", { params: { period } })).data });
+  const periodLabel = periodDisplayLabel(period);
 
   if (isLoading) {
-    const periodLabel = WIN_LOSS_PERIODS.find((p) => p.months === months)?.label || `Last ${months} months`;
     return (
       <div className="space-y-4">
-        <SectionHeader icon={Trophy} title={`Win / Loss (${periodLabel.toLowerCase()})`} />
+        <SectionHeader icon={Trophy} title={`Win / Loss (${periodLabel})`} action={<PeriodPicker state={winLossPicker} />} />
         <Card className="p-8 text-sm text-center text-[var(--ink-400)]">Loading…</Card>
       </div>
     );
   }
 
   if (isError || !data) {
-    const periodLabel = WIN_LOSS_PERIODS.find((p) => p.months === months)?.label || `Last ${months} months`;
     return (
       <div className="space-y-4">
-        <SectionHeader icon={Trophy} title={`Win / Loss (${periodLabel.toLowerCase()})`} />
+        <SectionHeader icon={Trophy} title={`Win / Loss (${periodLabel})`} action={<PeriodPicker state={winLossPicker} />} />
         <Card className="p-8 text-sm text-center text-[var(--rose-600)]">Failed to load win/loss data.</Card>
       </div>
     );
@@ -633,30 +624,19 @@ function WinLossSection() {
     { name: "Won", value: s.totalWon },
     { name: "Lost", value: s.totalLost },
   ].filter((d) => d.value > 0);
-  const periodLabel = WIN_LOSS_PERIODS.find((p) => p.months === months)?.label || `Last ${months} months`;
 
   return (
     <div className="space-y-4">
       <SectionHeader
         icon={Trophy}
-        title={`Win / Loss (${periodLabel.toLowerCase()})`}
-        action={
-          <select
-            value={months}
-            onChange={(e) => setMonths(Number(e.target.value))}
-            className="px-2.5 py-1.5 rounded-lg border text-xs outline-none border-[var(--ink-200)] bg-white font-medium"
-          >
-            {WIN_LOSS_PERIODS.map((p) => (
-              <option key={p.months} value={p.months}>{p.label}</option>
-            ))}
-          </select>
-        }
+        title={`Win / Loss (${periodLabel})`}
+        action={<PeriodPicker state={winLossPicker} />}
       />
       <MetricStrip>
         <MetricCard label="Opportunities Won" value={String(s.totalWon)} caption={formatCurrency(s.wonRevenue)} icon={Trophy} color="indigo" />
         <MetricCard label="Opportunities Lost" value={String(s.totalLost)} caption={formatCurrency(s.lostRevenue)} icon={AlertCircle} color="sky" />
         <MetricCard label="Win Rate" value={`${Math.round(s.winRate * 100)}%`} caption="by count" icon={Percent} color="amber" />
-        <MetricCard label="Won Revenue" value={formatCurrency(s.wonRevenue)} caption={periodLabel.toLowerCase()} icon={IndianRupee} color="emerald" />
+        <MetricCard label="Won Revenue" value={formatCurrency(s.wonRevenue)} caption={periodLabel} icon={IndianRupee} color="emerald" />
       </MetricStrip>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {pieData.length > 0 && (
@@ -766,14 +746,8 @@ function OwnerPerformanceSection() {
 export default function DashboardPage() {
   const { user } = useAuth();
   const [downloadingPdf, setDownloadingPdf] = useState(false);
-  const [cycleGranularity, setCycleGranularity] = useState<"MONTH" | "QUARTER" | "YEAR">("MONTH");
-  const [cycleMonth, setCycleMonth] = useState(currentPeriod());
-  const [cycleYear, setCycleYear] = useState(new Date().getFullYear().toString());
-  const [cycleQuarter, setCycleQuarter] = useState(() => `Q${Math.floor(new Date().getMonth() / 3) + 1}`);
-  const cyclePeriod =
-    cycleGranularity === "YEAR" ? cycleYear
-    : cycleGranularity === "QUARTER" ? `${cycleYear}-${cycleQuarter}`
-    : cycleMonth;
+  const cyclePicker = usePeriodPicker("MONTH");
+  const cyclePeriod = cyclePicker.period;
   const [breakdown, setBreakdown] = useState<{ title: string; key: OwnerMetricKey; format: (n: number) => string } | null>(null);
   const isManager = checkIsManager(user);
   const canDrillDown = !isManager;
@@ -837,62 +811,7 @@ export default function DashboardPage() {
           <Badge tone="green">{fyBadgeLabel}</Badge>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <label className="flex items-center gap-1.5 text-xs font-medium text-[var(--ink-500)]">
-            Current Cycle
-            <select
-              value={cycleGranularity}
-              onChange={(e) => setCycleGranularity(e.target.value as "MONTH" | "QUARTER" | "YEAR")}
-              className="text-sm px-2 py-1.5 rounded-md border bg-white font-medium"
-              style={{ borderColor: "var(--ink-200)" }}
-            >
-              <option value="MONTH">Monthly</option>
-              <option value="QUARTER">Quarterly</option>
-              <option value="YEAR">Yearly</option>
-            </select>
-          </label>
-          {cycleGranularity === "MONTH" && (
-            <input
-              type="month"
-              value={cycleMonth}
-              onChange={(e) => setCycleMonth(e.target.value)}
-              className="text-sm px-2.5 py-1.5 rounded-md border bg-white font-medium"
-              style={{ borderColor: "var(--ink-200)" }}
-            />
-          )}
-          {cycleGranularity === "QUARTER" && (
-            <>
-              <select
-                value={cycleQuarter}
-                onChange={(e) => setCycleQuarter(e.target.value)}
-                className="text-sm px-2 py-1.5 rounded-md border bg-white font-medium"
-                style={{ borderColor: "var(--ink-200)" }}
-              >
-                {["Q1", "Q2", "Q3", "Q4"].map((q) => <option key={q} value={q}>{q}</option>)}
-              </select>
-              <select
-                value={cycleYear}
-                onChange={(e) => setCycleYear(e.target.value)}
-                className="text-sm px-2 py-1.5 rounded-md border bg-white font-medium"
-                style={{ borderColor: "var(--ink-200)" }}
-              >
-                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((y) => (
-                  <option key={y} value={y.toString()}>{y}</option>
-                ))}
-              </select>
-            </>
-          )}
-          {cycleGranularity === "YEAR" && (
-            <select
-              value={cycleYear}
-              onChange={(e) => setCycleYear(e.target.value)}
-              className="text-sm px-2.5 py-1.5 rounded-md border bg-white font-medium"
-              style={{ borderColor: "var(--ink-200)" }}
-            >
-              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((y) => (
-                <option key={y} value={y.toString()}>{y}</option>
-              ))}
-            </select>
-          )}
+          <PeriodPicker state={cyclePicker} label="Current Cycle" />
           <Button variant="secondary" onClick={downloadPdf} disabled={downloadingPdf}>
             <FileDown size={14} /> {downloadingPdf ? "Generating…" : "Download PDF"}
           </Button>
@@ -943,10 +862,14 @@ export default function DashboardPage() {
           // Matches the "Active Opportunities" KPI's own definition, which
           // excludes Prospect -- so this breakdown doesn't list a stage the
           // headline count itself doesn't include.
-          const topOpenStages = [...(data.charts.pipelineByStage || [])]
+          const openStagesByCount = [...(data.charts.pipelineByStage || [])]
             .filter((s) => s.stageName !== "Prospect")
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 2);
+            .sort((a, b) => b.count - a.count);
+          // Only the single largest stage is shown as a pill (with a "+N" for
+          // the rest) -- showing two full stage-name pills routinely overflowed
+          // this card's narrow footer once stage names got longer.
+          const topOpenStages = openStagesByCount.slice(0, 1);
+          const remainingOpenStages = openStagesByCount.length - topOpenStages.length;
           const closingThisWeek = action?.todaysWork?.oppsClosingThisWeek || 0;
 
           const cycleTarget = cycleForecast?.summary?.target || 0;
@@ -1000,8 +923,13 @@ export default function DashboardPage() {
                 badge={closingThisWeek > 0 ? <KpiPill tone="amber">{closingThisWeek} closing this week</KpiPill> : undefined}
                 footerLeft="Stages"
                 footerRight={topOpenStages.length > 0 ? (
-                  <span className="flex gap-1">
-                    {topOpenStages.map((s) => <KpiPill key={s.stageName}>{s.stageName} ({s.count})</KpiPill>)}
+                  <span className="flex items-center gap-1 min-w-0">
+                    {topOpenStages.map((s) => (
+                      <span key={s.stageName} className="truncate">
+                        <KpiPill>{s.stageName} ({s.count})</KpiPill>
+                      </span>
+                    ))}
+                    {remainingOpenStages > 0 && <KpiPill>+{remainingOpenStages}</KpiPill>}
                   </span>
                 ) : undefined}
               />
