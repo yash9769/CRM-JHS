@@ -388,12 +388,12 @@ export default async function contactRoutes(app: FastifyInstance) {
       phone: resolvedPhone,
       jobTitle: designation !== undefined ? designation : body.jobTitle,
     };
-    // A contact with neither a phone nor an email is unreachable -- require
-    // at least one, mirroring the same check the create/edit forms run.
-    if (!dataToSave.email && !dataToSave.phone) {
+    // An email address is mandatory for every contact -- phone is optional,
+    // mirroring the same check the create/edit forms run.
+    if (!dataToSave.email) {
       return reply.code(400).send({
         error: "Validation error",
-        details: [{ path: ["email"], message: "Provide a phone number or an email address." }],
+        details: [{ path: ["email"], message: "Email address is required." }],
       });
     }
     if (dataToSave.accountId) {
@@ -451,6 +451,14 @@ export default async function contactRoutes(app: FastifyInstance) {
     if (!existing) return reply.code(404).send({ error: "Contact not found" });
     await requireCanAccess(req.authUser, existing, "write");
     const { designation, phoneNumber, emails, phones, ...rest } = body;
+    // Email is mandatory -- if the caller is replacing the emails[] list,
+    // it must still resolve to at least one address.
+    if (emails !== undefined && !primaryEmail(emails)) {
+      return reply.code(400).send({
+        error: "Validation error",
+        details: [{ path: ["email"], message: "Email address is required." }],
+      });
+    }
     const dataToUpdate = {
       ...rest,
       ...(emails !== undefined ? { email: primaryEmail(emails) } : {}),

@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { PageHeader, Card, Button, Badge, Modal, Field, inputClass, inputStyle, EmptyState, MetricCard, MetricStrip } from "../components/ui";
 import { formatCurrency } from "../lib/format";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
+import { SortableTh } from "../components/SortableTh";
 import { useAuth } from "../hooks/useAuth";
 import { NewServiceModal } from "./ServicesPage";
 import type { Product, Service } from "../lib/types";
@@ -422,9 +423,16 @@ export default function ProductsPage() {
                   <thead>
                     <tr className="text-left border-b border-[var(--ink-100)]">
                       {orderedColumns.filter((col) => isVisible(col.key)).map((col) => (
-                        <th key={col.key} className={`px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)] ${col.key === "actions" ? "text-right" : ""}`}>
+                        <SortableTh
+                          key={col.key}
+                          colKey={col.key}
+                          onReorder={reorder}
+                          onHide={toggle}
+                          canHide={!col.permanent}
+                          className={`px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)] ${col.key === "actions" ? "text-right" : ""}`}
+                        >
                           {col.label}
-                        </th>
+                        </SortableTh>
                       ))}
                     </tr>
                   </thead>

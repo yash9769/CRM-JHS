@@ -219,8 +219,8 @@ export function NewContactModal({
           e.preventDefault();
           setContactMethodError(null);
           if (!allPhonesValid(phones)) return;
-          if (!emails.length && !phones.length) {
-            setContactMethodError("Provide a phone number or an email address.");
+          if (!emails.length) {
+            setContactMethodError("Email address is required.");
             return;
           }
           mutation.mutate(false);
@@ -241,7 +241,7 @@ export function NewContactModal({
               <FieldError message={fieldErrors.lastName} />
             </Field>
           </div>
-          <MultiEmailField value={emails} onChange={setEmails} />
+          <MultiEmailField value={emails} onChange={setEmails} required />
           <MultiPhoneField value={phones} onChange={setPhones} />
           <Field label="Designation">
             <input value={form.jobTitle} onChange={(e) => setForm({ ...form, jobTitle: e.target.value })} className={inputClass} style={inputStyle} placeholder="Chief Technology Officer" />
@@ -262,7 +262,7 @@ export function NewContactModal({
           )}
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={mutation.isPending || !allPhonesValid(phones)}>{mutation.isPending ? "Creating…" : "Create Contact"}</Button>
+            <Button type="submit" disabled={mutation.isPending || !allPhonesValid(phones) || !emails.length}>{mutation.isPending ? "Creating…" : "Create Contact"}</Button>
           </div>
         </form>
       </Modal>

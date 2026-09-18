@@ -83,7 +83,7 @@ export function OpportunityDeletionModal({ opportunity, onClose, onSuccess }: Op
               required
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Explain why this opportunity needs to be deleted (e.g. Created in error, Duplicate deal)…"
+              placeholder="Explain why this opportunity needs to be deleted (e.g. Created in error, Duplicate opportunity)…"
               rows={3}
               className={`${inputClass} resize-none`}
               style={inputStyle}

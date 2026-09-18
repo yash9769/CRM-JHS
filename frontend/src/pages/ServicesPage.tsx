@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { PageHeader, Card, Button, Badge, Modal, Field, inputClass, inputStyle, EmptyState, MetricCard, MetricStrip } from "../components/ui";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
+import { SortableTh } from "../components/SortableTh";
 import type { Service } from "../lib/types";
 import { Plus, Pencil, Trash2, Layers, CheckCircle2, Package } from "lucide-react";
 
@@ -239,9 +240,16 @@ export default function ServicesPage() {
                   <thead>
                     <tr className="text-left border-b border-[var(--ink-100)]">
                       {orderedColumns.filter((col) => isVisible(col.key)).map((col) => (
-                        <th key={col.key} className={`px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)] ${col.key === "actions" ? "text-right" : ""}`}>
+                        <SortableTh
+                          key={col.key}
+                          colKey={col.key}
+                          onReorder={reorder}
+                          onHide={toggle}
+                          canHide={!col.permanent}
+                          className={`px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)] ${col.key === "actions" ? "text-right" : ""}`}
+                        >
                           {col.label}
-                        </th>
+                        </SortableTh>
                       ))}
                     </tr>
                   </thead>

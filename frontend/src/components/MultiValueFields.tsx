@@ -23,7 +23,7 @@ export interface PhoneEntry {
  */
 import { ValidatedEmailInput } from "./ValidatedInput";
 
-export function MultiEmailField({ value, onChange }: { value: EmailEntry[]; onChange: (v: EmailEntry[]) => void }) {
+export function MultiEmailField({ value, onChange, required }: { value: EmailEntry[]; onChange: (v: EmailEntry[]) => void; required?: boolean }) {
   function update(i: number, patch: Partial<EmailEntry>) {
     onChange(value.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
   }
@@ -41,7 +41,9 @@ export function MultiEmailField({ value, onChange }: { value: EmailEntry[]; onCh
 
   return (
     <div className="mb-4">
-      <div className="text-xs font-medium mb-1.5" style={{ color: "var(--ink-600)" }}>Email addresses</div>
+      <div className="text-xs font-medium mb-1.5" style={{ color: "var(--ink-600)" }}>
+        Email addresses{required && <span className="text-rose-600"> *</span>}
+      </div>
       <div className="space-y-2">
         {value.map((entry, i) => (
           <div key={i} className="p-2.5 rounded-xl bg-[var(--ink-50)]/70 border border-[var(--ink-100)] space-y-2">
@@ -146,7 +148,7 @@ export function MultiPhoneField({ value, onChange }: { value: PhoneEntry[]; onCh
                     className={`${inputClass} text-xs font-medium py-1`}
                     style={{ ...inputStyle, width: 145 }}
                   >
-                    <option value="Mobile">Mobile (max 10 digits)</option>
+                    <option value="Mobile">Mobile (exactly 10 digits)</option>
                     <option value="Landline">Landline (7-12 digits)</option>
                     <option value="Company Landline">Company Landline</option>
                     <option value="Main">Main</option>
@@ -204,7 +206,7 @@ export function MultiPhoneField({ value, onChange }: { value: PhoneEntry[]; onCh
                   value={entry.number}
                   maxLength={maxDigits}
                   onChange={(e) => update(i, { number: e.target.value.replace(/\D/g, "").slice(0, maxDigits) })}
-                  placeholder={isLandline ? "e.g. 02224001234 (7 to 12 digits)" : "e.g. 9876543210 (max 10 digits)"}
+                  placeholder={isLandline ? "e.g. 02224001234 (7 to 12 digits)" : "e.g. 9876543210 (exactly 10 digits)"}
                   inputMode="numeric"
                   className={`${inputClass} flex-1 font-mono-num`}
                   style={inputStyle}
@@ -213,7 +215,7 @@ export function MultiPhoneField({ value, onChange }: { value: PhoneEntry[]; onCh
 
               {invalid && (
                 <div className="text-xs text-rose-600 font-medium pt-0.5">
-                  {isLandline ? "Landline number must be 7 to 12 digits" : "Mobile number must be max 10 digits"}
+                  {isLandline ? "Landline number must be 7 to 12 digits" : "Mobile number must be exactly 10 digits"}
                 </div>
               )}
             </div>
@@ -222,7 +224,7 @@ export function MultiPhoneField({ value, onChange }: { value: PhoneEntry[]; onCh
       </div>
       <div className="flex items-center gap-3 mt-2">
         <button type="button" onClick={() => add("mobile")} className="text-xs font-medium hover:underline flex items-center gap-1" style={{ color: "var(--ledger-700)" }}>
-          <Plus size={12} /> Add Mobile Phone (max 10 digits)
+          <Plus size={12} /> Add Mobile Phone (exactly 10 digits)
         </button>
         <span className="text-xs text-[var(--ink-300)]">|</span>
         <button type="button" onClick={() => add("landline")} className="text-xs font-medium hover:underline flex items-center gap-1 text-emerald-700">

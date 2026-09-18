@@ -239,33 +239,84 @@ function fiscalYearQuarterLabel(d: Date) {
   return `Q${quarter} FY${String(fyEndYear).slice(-2)} Active`;
 }
 
+/** Human label for any of the three period formats ("YYYY-MM", "YYYY-Qn", "YYYY"). */
+function anyPeriodLabel(p: string) {
+  const quarterMatch = p.match(/^(\d{4})-Q([1-4])$/);
+  if (quarterMatch) return `Q${quarterMatch[2]} ${quarterMatch[1]}`;
+  if (/^\d{4}$/.test(p)) return p;
+  return periodLabel(p);
+}
+
 function SetTargetModal({ period, users, onClose }: { period: string; users: any[]; onClose: () => void }) {
   const qc = useQueryClient();
-  const [ownerId, setOwnerId] = useState("");
+  const { user: actor } = useAuth();
+  const isSeniorPartner = actor?.orgRole === "SENIOR_PARTNER";
+  // A Senior Partner sets a target for one Partner at a time; a Partner can
+  // select several of their own Managers at once (or just one).
+  const assignableUsers = users.filter((u) => u.orgRole === (isSeniorPartner ? "PARTNER" : "MANAGER"));
+
+  const [teamTotal, setTeamTotal] = useState(true);
+  const [ownerId, setOwnerId] = useState(""); // Senior Partner: single select
+  const [ownerIds, setOwnerIds] = useState<string[]>([]); // Partner: multi-select
   const [amount, setAmount] = useState("");
 
   const mutation = useMutation({
-    mutationFn: () => api.post("/forecast/targets", { period, targetAmount: Number(amount), ownerId: ownerId || undefined }),
+    mutationFn: () =>
+      api.post("/forecast/targets", {
+        period,
+        targetAmount: Number(amount),
+        ...(teamTotal ? {} : isSeniorPartner ? { ownerId } : { ownerIds }),
+      }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["forecast"] }); onClose(); },
   });
+
+  function toggleOwner(id: string) {
+    setOwnerIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  const canSubmit = !!amount && (teamTotal || (isSeniorPartner ? !!ownerId : ownerIds.length > 0));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(20,23,26,0.5)" }} onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-        <h3 className="font-semibold mb-4">Set Forecast Target — {periodLabel(period)}</h3>
+        <h3 className="font-semibold mb-4">Set Forecast Target — {anyPeriodLabel(period)}</h3>
         <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }}>
-          <Field label="Team member (leave blank for team total)">
-            <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className={inputClass} style={inputStyle}>
-              <option value="">Team total</option>
-              {users.map((u) => <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>)}
-            </select>
-          </Field>
+          <label className="flex items-center gap-2 mb-3 text-sm font-medium" style={{ color: "var(--ink-700)" }}>
+            <input type="checkbox" checked={teamTotal} onChange={(e) => setTeamTotal(e.target.checked)} className="rounded" />
+            Team total (no specific member)
+          </label>
+
+          {!teamTotal && (
+            isSeniorPartner ? (
+              <Field label="Partner">
+                <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className={inputClass} style={inputStyle}>
+                  <option value="">Select a partner…</option>
+                  {assignableUsers.map((u) => <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>)}
+                </select>
+              </Field>
+            ) : (
+              <Field label="Manager(s) — select one or more">
+                <div className="space-y-1 max-h-40 overflow-y-auto rounded-md border p-2" style={{ borderColor: "var(--ink-200)" }}>
+                  {assignableUsers.length === 0 && (
+                    <div className="text-xs" style={{ color: "var(--ink-400)" }}>No managers report to you yet.</div>
+                  )}
+                  {assignableUsers.map((u) => (
+                    <label key={u.id} className="flex items-center gap-2 text-sm py-0.5 cursor-pointer">
+                      <input type="checkbox" checked={ownerIds.includes(u.id)} onChange={() => toggleOwner(u.id)} className="rounded" />
+                      {u.firstName} {u.lastName}
+                    </label>
+                  ))}
+                </div>
+              </Field>
+            )
+          )}
+
           <Field label="Target amount" required>
             <input required type="number" min="0" step="1000" value={amount} onChange={(e) => setAmount(e.target.value)} className={inputClass} style={inputStyle} placeholder="100000" />
           </Field>
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={mutation.isPending || !amount}>{mutation.isPending ? "Saving…" : "Set Target"}</Button>
+            <Button type="submit" disabled={mutation.isPending || !canSubmit}>{mutation.isPending ? "Saving…" : "Set Target"}</Button>
           </div>
         </form>
       </div>
@@ -275,11 +326,17 @@ function SetTargetModal({ period, users, onClose }: { period: string; users: any
 
 function ForecastSection({ period }: { period: string }) {
   const qc = useQueryClient();
-  const [viewType, setViewType] = useState<"MONTHLY" | "YEARLY">("MONTHLY");
+  const { user } = useAuth();
+  const canSetTarget = user?.orgRole === "SENIOR_PARTNER" || user?.orgRole === "PARTNER";
+  const [viewType, setViewType] = useState<"MONTHLY" | "QUARTERLY" | "YEARLY">("MONTHLY");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [selectedQuarter, setSelectedQuarter] = useState(() => `Q${Math.floor(new Date().getMonth() / 3) + 1}`);
   const [showTarget, setShowTarget] = useState(false);
 
-  const activePeriod = viewType === "YEARLY" ? selectedYear : period;
+  const activePeriod =
+    viewType === "YEARLY" ? selectedYear
+    : viewType === "QUARTERLY" ? `${selectedYear}-${selectedQuarter}`
+    : period;
 
   const { data: forecast } = useQuery<any>({
     queryKey: ["forecast", activePeriod],
@@ -302,25 +359,49 @@ function ForecastSection({ period }: { period: string }) {
       <SectionHeader
         icon={Target}
         title="Forecast"
-        action={<Button size="sm" onClick={() => setShowTarget(true)}><Target size={13} /> Set Target</Button>}
+        action={canSetTarget ? <Button size="sm" onClick={() => setShowTarget(true)}><Target size={13} /> Set Target</Button> : undefined}
       />
 
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-sm font-medium" style={{ color: "var(--ink-500)" }}>View Mode:</span>
         <select
           value={viewType}
-          onChange={(e) => setViewType(e.target.value as "MONTHLY" | "YEARLY")}
+          onChange={(e) => setViewType(e.target.value as "MONTHLY" | "QUARTERLY" | "YEARLY")}
           className="text-sm px-2.5 py-1 rounded-md border font-medium bg-white"
           style={{ borderColor: "var(--ink-200)" }}
         >
           <option value="MONTHLY">Monthly View</option>
+          <option value="QUARTERLY">Quarterly View</option>
           <option value="YEARLY">Yearly View</option>
         </select>
-        {viewType === "MONTHLY" ? (
+        {viewType === "MONTHLY" && (
           <span className="text-sm font-medium px-2.5 py-1 rounded-md" style={{ background: "var(--ink-50)", color: "var(--ink-700)" }}>
             {periodLabel(period)} <span className="text-[var(--ink-400)] font-normal">(set via Current Cycle above)</span>
           </span>
-        ) : (
+        )}
+        {viewType === "QUARTERLY" && (
+          <>
+            <select
+              value={selectedQuarter}
+              onChange={(e) => setSelectedQuarter(e.target.value)}
+              className="text-sm px-2.5 py-1 rounded-md border bg-white font-medium"
+              style={{ borderColor: "var(--ink-200)" }}
+            >
+              {["Q1", "Q2", "Q3", "Q4"].map((q) => <option key={q} value={q}>{q}</option>)}
+            </select>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="text-sm px-2.5 py-1 rounded-md border bg-white font-medium"
+              style={{ borderColor: "var(--ink-200)" }}
+            >
+              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((y) => (
+                <option key={y} value={y.toString()}>{y}</option>
+              ))}
+            </select>
+          </>
+        )}
+        {viewType === "YEARLY" && (
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
@@ -419,7 +500,7 @@ function ForecastSection({ period }: { period: string }) {
 
       {trend?.data?.length > 0 && (
         <Card className="p-5">
-          <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--ink-800)" }}>12-month: Target vs. Actual</h3>
+          <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--ink-800)" }}>Target Achieved vs Actual Target</h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={trend.data} margin={{ right: 16 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-100)" vertical={false} />
@@ -806,7 +887,11 @@ export default function DashboardPage() {
           const marginHealthLabel = marginPct >= 20 ? "Optimal" : marginPct >= 10 ? "Moderate" : "Low";
           const marginHealthTone = marginPct >= 20 ? "green" : marginPct >= 10 ? "amber" : "rose";
 
+          // Matches the "Active Opportunities" KPI's own definition, which
+          // excludes Prospect -- so this breakdown doesn't list a stage the
+          // headline count itself doesn't include.
           const topOpenStages = [...(data.charts.pipelineByStage || [])]
+            .filter((s) => s.stageName !== "Prospect")
             .sort((a, b) => b.count - a.count)
             .slice(0, 2);
           const closingThisWeek = action?.todaysWork?.oppsClosingThisWeek || 0;
@@ -843,7 +928,7 @@ export default function DashboardPage() {
                   </KpiPill>
                 ) : undefined}
                 belowValue={data.charts.pipelineVelocity?.length > 0 ? <KpiSparkline data={data.charts.pipelineVelocity} full /> : undefined}
-                footerLeft="3-month velocity"
+                footerLeft="All-time, all open opportunities"
               />
 
               <Kpi
@@ -856,9 +941,9 @@ export default function DashboardPage() {
               />
 
               <Kpi
-                icon={Target} label="Open Opportunities" value={String(data.kpis.openOpportunities)} tone="amber"
+                icon={Target} label="Active Opportunities" value={String(data.kpis.openOpportunities)} tone="amber"
                 url={canDrillDown ? undefined : "/opportunities"}
-                onClick={canDrillDown ? () => setBreakdown({ title: "Open Opportunities", key: "openOpportunities", format: (n) => String(Math.round(n)) }) : undefined}
+                onClick={canDrillDown ? () => setBreakdown({ title: "Active Opportunities", key: "openOpportunities", format: (n) => String(Math.round(n)) }) : undefined}
                 badge={closingThisWeek > 0 ? <KpiPill tone="amber">{closingThisWeek} closing this week</KpiPill> : undefined}
                 footerLeft="Stages"
                 footerRight={topOpenStages.length > 0 ? (
@@ -900,7 +985,7 @@ export default function DashboardPage() {
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Avg Opportunity Size", key: "avgOpportunitySize", format: formatCurrency }) : undefined}
                 footerLeft="Based on"
-                footerRight={`${data.kpis.closedWonCount} closed-won deal${data.kpis.closedWonCount === 1 ? "" : "s"}`}
+                footerRight={`${data.kpis.closedWonCount} closed-won opportunit${data.kpis.closedWonCount === 1 ? "y" : "ies"}`}
               />
 
               <Kpi
@@ -919,7 +1004,7 @@ export default function DashboardPage() {
                 onClick={canDrillDown ? () => setBreakdown({ title: "Cost Incurred to Company", key: "costIncurred", format: formatCurrency }) : undefined}
                 badge={revenueBase > 0 ? <KpiPill>{costPct}% of value</KpiPill> : undefined}
                 bar={revenueBase > 0 ? <KpiBar pct={costPct} tone="ink" /> : undefined}
-                footerLeft={data.kpis.closedWonCount > 0 ? "Realized Cost (Won Deals)" : "Expected Pipeline Cost"}
+                footerLeft={data.kpis.closedWonCount > 0 ? "Realized Cost (Won Opportunities)" : "Expected Pipeline Cost"}
               />
             </div>
 

@@ -10,6 +10,7 @@ import { RelationshipSelector } from "../components/RelationshipSelector";
 import { fetchOwnerOptions } from "../lib/pickers";
 import { initials, formatDate } from "../lib/format";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
+import { SortableTh } from "../components/SortableTh";
 import type { Contact, Paginated } from "../lib/types";
 import { Plus, Search, Download, UploadCloud, ArrowUpDown, ArrowUp, ArrowDown, Users, Building2, Mail } from "lucide-react";
 
@@ -199,8 +200,12 @@ export default function ContactsPage() {
                       (col.key === "owner" && (sortBy === "created_by_asc" || sortBy === "created_by_desc"));
                     const isAsc = sortBy.endsWith("_asc");
                     return (
-                      <th
+                      <SortableTh
                         key={col.key}
+                        colKey={col.key}
+                        onReorder={reorder}
+                        onHide={toggle}
+                        canHide={!col.permanent}
                         onClick={() => isSortable && handleHeaderSort(col.key)}
                         className={`px-4 py-2.5 text-xs uppercase font-medium select-none ${isSortable ? "cursor-pointer hover:text-[var(--ledger-700)]" : ""}`}
                         style={{ color: isCurrent ? "var(--ledger-700)" : "var(--ink-400)" }}
@@ -217,7 +222,7 @@ export default function ContactsPage() {
                             </span>
                           )}
                         </div>
-                      </th>
+                      </SortableTh>
                     );
                   })}
                 </tr>

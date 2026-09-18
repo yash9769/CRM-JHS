@@ -78,10 +78,10 @@ export const PHONE_COUNTRIES: PhoneCountry[] = [
 
 export const DEFAULT_COUNTRY_CODE = "+91";
 
-/** Mobile numbers accept max 10 digits (7 to 10 digits). */
+/** Mobile numbers must be exactly 10 digits. */
 export function isValidMobileNumber(number: string): boolean {
   const digits = number.replace(/\D/g, "");
-  return digits.length >= 7 && digits.length <= 10;
+  return digits.length === 10;
 }
 
 /** Landline numbers accept 7 to 12 digits. */

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
@@ -13,8 +13,21 @@ import { fetchOwnerOptions } from "../lib/pickers";
 import { initials, relativeTime } from "../lib/format";
 import type { Lead, Paginated, LeadStatus } from "../lib/types";
 import { Plus, Search, UploadCloud, Download, Users, Sparkles, CheckCircle2, Gauge } from "lucide-react";
+import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
+import { SortableTh } from "../components/SortableTh";
 
 const STATUSES: (LeadStatus | "ALL")[] = ["ALL", "NEW", "CONTACTED", "QUALIFIED", "NURTURING", "UNQUALIFIED", "CONVERTED"];
+
+const LEAD_COLUMNS: ColumnDef[] = [
+  { key: "name", label: "Name", permanent: true },
+  { key: "company", label: "Company" },
+  { key: "contact", label: "Phone / Email" },
+  { key: "source", label: "Source" },
+  { key: "score", label: "Score" },
+  { key: "owner", label: "Owner" },
+  { key: "status", label: "Status" },
+  { key: "createdAt", label: "Created" },
+];
 
 const statusTone: Record<string, "neutral" | "green" | "amber" | "rose"> = {
   NEW: "neutral", CONTACTED: "amber", QUALIFIED: "green", NURTURING: "amber", UNQUALIFIED: "rose", CONVERTED: "green",
@@ -31,6 +44,10 @@ export default function LeadsPage() {
   const [bulkOwnerId, setBulkOwnerId] = useState<string | null>(null);
   const [bulkOwnerLabel, setBulkOwnerLabel] = useState<string | null>(null);
   const [bulkStatusPicker, setBulkStatusPicker] = useState(false);
+  const { visibleKeys, toggle, showAll, reset, isVisible, orderedColumns, reorder } = useColumnVisibility(
+    "leads-table",
+    LEAD_COLUMNS
+  );
 
   const { data, isLoading } = useQuery<Paginated<Lead>>({
     queryKey: ["leads", search, status],
@@ -115,6 +132,14 @@ export default function LeadsPage() {
               </button>
             ))}
           </div>
+          <ColumnFilterDropdown
+            columns={LEAD_COLUMNS}
+            visibleKeys={visibleKeys}
+            onToggle={toggle}
+            onShowAll={showAll}
+            onReset={reset}
+            onReorder={reorder}
+          />
         </div>
 
         <div className="mb-4">
@@ -138,29 +163,48 @@ export default function LeadsPage() {
             <table className="w-full text-sm">
               <thead><tr className="text-left border-b" style={{ borderColor: "var(--ink-100)" }}>
                 <th className="px-4 py-2.5 w-8"><SelectAllCheckbox checked={allChecked} indeterminate={!!someChecked} onChange={toggleAll} /></th>
-                {["Name", "Company", "Phone / Email", "Source", "Score", "Owner", "Status", "Created"].map((h) => (
-                  <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium" style={{ color: "var(--ink-400)" }}>{h}</th>
+                {orderedColumns.filter((c) => isVisible(c.key)).map((col) => (
+                  <SortableTh
+                    key={col.key}
+                    colKey={col.key}
+                    onReorder={reorder}
+                    onHide={toggle}
+                    canHide={!col.permanent}
+                    className="px-4 py-2.5 text-xs uppercase font-medium"
+                    style={{ color: "var(--ink-400)" }}
+                  >
+                    {col.label}
+                  </SortableTh>
                 ))}
               </tr></thead>
               <tbody>
-                {data.data.map((l) => (
-                  <tr key={l.id} className="border-b last:border-0 hover:bg-[var(--ink-50)]" style={{ borderColor: "var(--ink-100)" }}>
-                    <td className="px-4 py-3"><RowCheckbox checked={selected.has(l.id)} onChange={(v) => toggleOne(l.id, v)} /></td>
-                    <td className="px-4 py-3">
-                      <Link to={`/leads/${l.id}`} className="flex items-center gap-2.5 font-medium">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold text-white shrink-0" style={{ background: "var(--ink-600)" }}>{initials(l.firstName, l.lastName)}</div>
-                        {l.firstName} {l.lastName}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3" style={{ color: "var(--ink-600)" }}>{l.companyName || "—"}</td>
-                    <td className="px-4 py-3" style={{ color: "var(--ink-600)" }}>{l.phone || l.email || "—"}</td>
-                    <td className="px-4 py-3" style={{ color: "var(--ink-600)" }}>{l.source || "—"}</td>
-                    <td className="px-4 py-3 font-mono-num">{l.score}</td>
-                    <td className="px-4 py-3" style={{ color: "var(--ink-600)" }}>{l.owner ? `${l.owner.firstName} ${l.owner.lastName}` : "—"}</td>
-                    <td className="px-4 py-3"><Badge tone={statusTone[l.status]}>{l.status.replace("_", " ")}</Badge></td>
-                    <td className="px-4 py-3" style={{ color: "var(--ink-500)" }}>{relativeTime(l.createdAt)}</td>
-                  </tr>
-                ))}
+                {data.data.map((l) => {
+                  const cellRenderers: Record<string, () => import("react").ReactElement> = {
+                    name: () => (
+                      <td className="px-4 py-3">
+                        <Link to={`/leads/${l.id}`} className="flex items-center gap-2.5 font-medium">
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold text-white shrink-0" style={{ background: "var(--ink-600)" }}>{initials(l.firstName, l.lastName)}</div>
+                          {l.firstName} {l.lastName}
+                        </Link>
+                      </td>
+                    ),
+                    company: () => <td className="px-4 py-3" style={{ color: "var(--ink-600)" }}>{l.companyName || "—"}</td>,
+                    contact: () => <td className="px-4 py-3" style={{ color: "var(--ink-600)" }}>{l.phone || l.email || "—"}</td>,
+                    source: () => <td className="px-4 py-3" style={{ color: "var(--ink-600)" }}>{l.source || "—"}</td>,
+                    score: () => <td className="px-4 py-3 font-mono-num">{l.score}</td>,
+                    owner: () => <td className="px-4 py-3" style={{ color: "var(--ink-600)" }}>{l.owner ? `${l.owner.firstName} ${l.owner.lastName}` : "—"}</td>,
+                    status: () => <td className="px-4 py-3"><Badge tone={statusTone[l.status]}>{l.status.replace("_", " ")}</Badge></td>,
+                    createdAt: () => <td className="px-4 py-3" style={{ color: "var(--ink-500)" }}>{relativeTime(l.createdAt)}</td>,
+                  };
+                  return (
+                    <tr key={l.id} className="border-b last:border-0 hover:bg-[var(--ink-50)]" style={{ borderColor: "var(--ink-100)" }}>
+                      <td className="px-4 py-3"><RowCheckbox checked={selected.has(l.id)} onChange={(v) => toggleOne(l.id, v)} /></td>
+                      {orderedColumns.filter((c) => isVisible(c.key)).map((col) => (
+                        <Fragment key={col.key}>{cellRenderers[col.key]?.()}</Fragment>
+                      ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

@@ -174,7 +174,10 @@ async function computeDashboardData(tenantId: string, rbacFilter: any, period?: 
       kpis: {
         totalPipeline,
         weightedPipeline,
-        openOpportunities: openOpps.length,
+        // "Active Opportunities" excludes the Prospect stage (too early to
+        // count as active pipeline) on top of the isClosed:false filter that
+        // already keeps out Closed Won/Closed Lost/Opportunity Dead.
+        openOpportunities: openOpps.filter((o) => o.stage.name !== "Prospect").length,
         closedWonRevenue,
         closedWonCount: activeWonOpps.length,
         winRate,

@@ -30,10 +30,10 @@ export const phoneEntrySchema = z
       if (isLandline) {
         return digits.length >= 7 && digits.length <= 12;
       }
-      return digits.length >= 7 && digits.length <= 10;
+      return digits.length === 10;
     },
     {
-      message: "Phone number accepts max 10 digits for mobile and 7 to 12 digits for landlines",
+      message: "Phone number must be exactly 10 digits for mobile, or 7 to 12 digits for landlines",
       path: ["number"],
     }
   );

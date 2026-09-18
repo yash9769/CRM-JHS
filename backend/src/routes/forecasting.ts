@@ -3,11 +3,57 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { getCreatedByFilter, getVisibleUserIds } from "../lib/rbac.js";
 
+/** Accepts "YYYY-MM" (monthly), "YYYY-Qn" (quarterly), or "YYYY" (yearly). */
+const PERIOD_REGEX = /^(\d{4})(?:-(\d{2})|-Q([1-4]))?$/;
+
 const SetTargetSchema = z.object({
-  period: z.string().regex(/^\d{4}-\d{2}$/, "Period must be YYYY-MM format"),
+  period: z.string().regex(PERIOD_REGEX, "Period must be YYYY-MM, YYYY-Qn, or YYYY format"),
   targetAmount: z.number().positive(),
   ownerId: z.string().optional(),
+  // Multi-select: a Partner can assign the same target amount to several
+  // Managers at once. Mutually exclusive with `ownerId` in practice -- if
+  // both are sent, `ownerIds` wins.
+  ownerIds: z.array(z.string()).max(50).optional(),
 });
+
+/** Parses any of the three period formats into a concrete date range. */
+function parsePeriodRange(period: string): { start: Date; end: Date; granularity: "MONTH" | "QUARTER" | "YEAR" } {
+  const match = period.match(PERIOD_REGEX);
+  if (!match) throw new Error(`Invalid period: ${period}`);
+  const year = Number(match[1]);
+  if (match[2]) {
+    const month = Number(match[2]);
+    return {
+      start: new Date(year, month - 1, 1),
+      end: new Date(year, month, 0, 23, 59, 59, 999),
+      granularity: "MONTH",
+    };
+  }
+  if (match[3]) {
+    const quarter = Number(match[3]);
+    const startMonth = (quarter - 1) * 3;
+    return {
+      start: new Date(year, startMonth, 1),
+      end: new Date(year, startMonth + 3, 0, 23, 59, 59, 999),
+      granularity: "QUARTER",
+    };
+  }
+  return {
+    start: new Date(year, 0, 1),
+    end: new Date(year, 11, 31, 23, 59, 59, 999),
+    granularity: "YEAR",
+  };
+}
+
+/** True if `period` is a bare year, e.g. "2026" (not "2026-01" or "2026-Q1"). */
+function isYearOnly(period: string): boolean {
+  return /^\d{4}$/.test(period);
+}
+
+/** True if `period` is a quarter, e.g. "2026-Q1". */
+function isQuarter(period: string): boolean {
+  return /^\d{4}-Q[1-4]$/.test(period);
+}
 
 export default async function forecastingRoutes(app: FastifyInstance) {
   // Get forecast for a period (or current month)
@@ -15,21 +61,12 @@ export default async function forecastingRoutes(app: FastifyInstance) {
     const { period, ownerId } = req.query as any;
     const targetPeriod = period || new Date().toISOString().slice(0, 7); // YYYY-MM
 
-    // Period start/end (supports YYYY-MM or YYYY)
-    let periodStart: Date;
-    let periodEnd: Date;
-    let targetPeriodFilter: any = targetPeriod;
-
-    if (/^\d{4}$/.test(targetPeriod)) {
-      const y = Number(targetPeriod);
-      periodStart = new Date(y, 0, 1);
-      periodEnd = new Date(y, 11, 31, 23, 59, 59, 999);
-      targetPeriodFilter = { startsWith: targetPeriod };
-    } else {
-      const [year, month] = targetPeriod.split("-").map(Number);
-      periodStart = new Date(year, month - 1, 1);
-      periodEnd = new Date(year, month, 0, 23, 59, 59, 999);
-    }
+    const { start: periodStart, end: periodEnd } = parsePeriodRange(targetPeriod);
+    // A bare-year request rolls up any monthly targets set for that year (but
+    // never quarter-granularity targets, which would double-count against a
+    // monthly total for the same months). Anything else matches its own
+    // period string exactly.
+    const targetPeriodFilter: any = isYearOnly(targetPeriod) ? { startsWith: targetPeriod } : targetPeriod;
 
     const tenantId = req.authUser.tenantId;
     const ownerFilter = ownerId ? { ownerId } : {};
@@ -40,13 +77,17 @@ export default async function forecastingRoutes(app: FastifyInstance) {
     // createdById/ownerId OR clause would throw a Prisma "unknown argument" error here.
     // Scope by ownerId directly using the same visibility rules as GET /forecast/targets.
     const targetRbacFilter = { ownerId: { in: await getVisibleUserIds(req.authUser) } };
-    const targets = await prisma.forecastTarget.findMany({
+    let targets = await prisma.forecastTarget.findMany({
       where: {
         tenantId,
         period: targetPeriodFilter,
         AND: [targetRbacFilter, ...(ownerId ? [{ ownerId }] : [])],
       },
     });
+    // Exclude quarter-format rows from a yearly roll-up (see comment above).
+    if (isYearOnly(targetPeriod)) {
+      targets = targets.filter((t) => !isQuarter(t.period));
+    }
 
     // Get opportunities.
     // `rbacFilter` contains an `OR` clause, and so do the period-window filters
@@ -160,41 +201,64 @@ export default async function forecastingRoutes(app: FastifyInstance) {
     };
   });
 
-  // Set forecast target
+  // Set forecast target(s)
   app.post("/api/v1/forecast/targets", { preHandler: [app.authenticate] }, async (req: any, reply) => {
     const body = SetTargetSchema.parse(req.body);
+    const actor = req.authUser;
 
-    // A caller may only set a target for a user inside their own visibility scope:
-    // a Manager for themselves, a Partner for themselves or one of their Managers,
-    // a Senior Partner for anyone in the tenant. Without this check any
-    // authenticated user could overwrite anyone else's target.
-    const targetOwnerId = body.ownerId || req.authUser.id;
-    if (targetOwnerId !== req.authUser.id) {
-      const visibleUserIds = await getVisibleUserIds(req.authUser);
-      if (!visibleUserIds.includes(targetOwnerId)) {
-        return reply
-          .code(403)
-          .send({ error: "Access denied: You do not have permission to set a forecast target for this user." });
-      }
+    // Targets are assigned top-down only: a Senior Partner sets targets for
+    // the Partners under them, a Partner sets targets for the Managers under
+    // them. Managers cannot set targets for anyone (including themselves).
+    if (actor.orgRole === "MANAGER") {
+      return reply.code(403).send({ error: "Access denied: Managers cannot set forecast targets." });
     }
 
-    const target = await prisma.forecastTarget.upsert({
-      where: {
-        tenantId_ownerId_period: {
-          tenantId: req.authUser.tenantId,
-          ownerId: targetOwnerId,
-          period: body.period,
-        },
-      },
-      create: {
-        tenantId: req.authUser.tenantId,
-        ownerId: targetOwnerId,
-        period: body.period,
-        targetAmount: body.targetAmount,
-      },
-      update: { targetAmount: body.targetAmount },
+    const requestedOwnerIds = body.ownerIds && body.ownerIds.length > 0 ? body.ownerIds : (body.ownerId ? [body.ownerId] : []);
+
+    // No owner specified -> a "team total" target owned by the actor themself
+    // (the existing behaviour), which needs no extra role check.
+    if (requestedOwnerIds.length === 0) {
+      const target = await prisma.forecastTarget.upsert({
+        where: { tenantId_ownerId_period: { tenantId: actor.tenantId, ownerId: actor.id, period: body.period } },
+        create: { tenantId: actor.tenantId, ownerId: actor.id, period: body.period, targetAmount: body.targetAmount },
+        update: { targetAmount: body.targetAmount },
+      });
+      return reply.code(201).send(target);
+    }
+
+    if (actor.orgRole === "SENIOR_PARTNER" && requestedOwnerIds.length > 1) {
+      return reply.code(400).send({ error: "A Senior Partner sets a target for one Partner at a time." });
+    }
+
+    // Verify every requested owner is actually within this actor's role-based
+    // hierarchy (never trust the client-supplied id list at face value).
+    const owners = await prisma.user.findMany({
+      where: { tenantId: actor.tenantId, id: { in: requestedOwnerIds } },
+      select: { id: true, orgRole: true, partnerId: true },
     });
-    return reply.code(201).send(target);
+    if (owners.length !== requestedOwnerIds.length) {
+      return reply.code(400).send({ error: "One or more selected team members were not found." });
+    }
+    const invalid = owners.find((o) => {
+      if (actor.orgRole === "SENIOR_PARTNER") return o.orgRole !== "PARTNER";
+      // actor.orgRole === "PARTNER"
+      return o.orgRole !== "MANAGER" || o.partnerId !== actor.id;
+    });
+    if (invalid) {
+      const allowed = actor.orgRole === "SENIOR_PARTNER" ? "Partners" : "Managers who report to you";
+      return reply.code(403).send({ error: `Access denied: you can only set targets for ${allowed}.` });
+    }
+
+    const targets = await prisma.$transaction(
+      requestedOwnerIds.map((ownerId) =>
+        prisma.forecastTarget.upsert({
+          where: { tenantId_ownerId_period: { tenantId: actor.tenantId, ownerId, period: body.period } },
+          create: { tenantId: actor.tenantId, ownerId, period: body.period, targetAmount: body.targetAmount },
+          update: { targetAmount: body.targetAmount },
+        })
+      )
+    );
+    return reply.code(201).send(requestedOwnerIds.length === 1 ? targets[0] : { data: targets });
   });
 
   // Get targets

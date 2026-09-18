@@ -14,6 +14,7 @@ import { formatCurrency, formatDate } from "../lib/format";
 import { computeOpportunityFinancials } from "../lib/financial";
 import { useAuth } from "../hooks/useAuth";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
+import { SortableTh } from "../components/SortableTh";
 import type { Opportunity, Pipeline, Paginated } from "../lib/types";
 import { OpportunityDeletionModal } from "../components/OpportunityDeletionModal";
 import { Plus, Search, Download, UploadCloud, Building2, User, FileSpreadsheet, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Trash2, Layers, IndianRupee, Gauge, TrendingUp } from "lucide-react";
@@ -328,8 +329,8 @@ export default function OpportunitiesPage() {
           <MetricCard label="Opportunities" value={sortedData.length} caption="In current view" icon={Layers} color="indigo" />
           <MetricCard label="Total Value" value={formatCurrency(metrics.totalValue)} caption="Sum of proposal value" icon={IndianRupee} color="sky" />
           <MetricCard label="Weighted Pipeline" value={formatCurrency(metrics.weightedValue)} caption="Probability adjusted" icon={TrendingUp} color="amber" />
-          <MetricCard label="Total Margin" value={formatCurrency(metrics.totalMargin)} caption="Across visible deals" icon={Gauge} color="emerald" />
-          <MetricCard label="Avg Deal Size" value={formatCurrency(avgDealSize)} caption="Mean value per deal" icon={IndianRupee} color="purple" />
+          <MetricCard label="Total Margin" value={formatCurrency(metrics.totalMargin)} caption="Across visible opportunities" icon={Gauge} color="emerald" />
+          <MetricCard label="Avg Opportunity Size" value={formatCurrency(avgDealSize)} caption="Mean value per opportunity" icon={IndianRupee} color="purple" />
         </MetricStrip>
 
         {/* Filter Tabs */}
@@ -488,8 +489,12 @@ export default function OpportunitiesPage() {
                           "closeDate",
                         ].includes(col.key);
                         return (
-                          <th
+                          <SortableTh
                             key={col.key}
+                            colKey={col.key}
+                            onReorder={reorder}
+                            onHide={toggle}
+                            canHide={!col.permanent}
                             onClick={() => isSortable && handleHeaderSort(col.key)}
                             className={`px-4 py-2.5 text-xs uppercase font-medium whitespace-nowrap border-b border-[var(--ink-100)] bg-white select-none ${
                               isSortable
@@ -501,7 +506,7 @@ export default function OpportunitiesPage() {
                               <span>{col.label}</span>
                               {isSortable && getSortIcon(col.key)}
                             </div>
-                          </th>
+                          </SortableTh>
                         );
                       })}
                     </tr>

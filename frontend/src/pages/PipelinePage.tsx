@@ -80,7 +80,12 @@ export default function PipelinePage() {
   const pipelineMetrics = useMemo(() => {
     let totalOpenValue = 0;
     let totalWeightedValue = 0;
-    let activeDealsCount = 0;
+    // "Active Opportunities" excludes Prospect (too early to count as active
+    // pipeline) in addition to the already-excluded closed/won stages -- so
+    // its own count/value are tracked separately from the Total Pipeline
+    // figures above, which still include every open stage.
+    let activeOpportunitiesCount = 0;
+    let activeOpportunitiesValue = 0;
     let closedWonValue = 0;
     let closedWonCount = 0;
 
@@ -97,27 +102,31 @@ export default function PipelinePage() {
       const stage = pipeline?.stages.find((s) => s.id === item.stageId);
       const isWon = stage?.isWon || stage?.name.toLowerCase().includes("won");
       const isClosed = stage?.isClosed;
+      const stageName = stage?.name || "";
 
       if (isWon) {
         closedWonValue += val;
         closedWonCount += 1;
       } else if (!isClosed) {
         totalOpenValue += val;
-        activeDealsCount += 1;
         const prob = (item.probability ?? stage?.probability ?? 0) / 100;
         totalWeightedValue += val * prob;
+        if (stageName !== "Prospect") {
+          activeOpportunitiesCount += 1;
+          activeOpportunitiesValue += val;
+        }
       }
     });
 
-    const avgDealSize = activeDealsCount > 0 ? totalOpenValue / activeDealsCount : 0;
+    const avgOpportunitySize = activeOpportunitiesCount > 0 ? activeOpportunitiesValue / activeOpportunitiesCount : 0;
 
     return {
       totalOpenValue,
       totalWeightedValue,
-      activeDealsCount,
+      activeOpportunitiesCount,
       closedWonValue,
       closedWonCount,
-      avgDealSize,
+      avgOpportunitySize,
     };
   }, [items, pipeline]);
 
@@ -201,13 +210,13 @@ export default function PipelinePage() {
           {/* Card 3: Active Opportunities Count */}
           <div className="p-3.5 rounded-xl bg-gradient-to-br from-amber-50/80 via-white to-amber-50/30 border border-amber-200/70 shadow-xs">
             <div className="flex items-center justify-between gap-1 text-[var(--ink-500)] mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900">Active Deals</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900">Active Opportunities</span>
               <div className="w-5 h-5 rounded-md bg-amber-100/80 flex items-center justify-center text-amber-700">
                 <Layers size={11} />
               </div>
             </div>
             <div className="font-mono-num text-base md:text-lg font-bold text-amber-950">
-              {pipelineMetrics.activeDealsCount} <span className="text-xs font-normal text-amber-800/80">deals</span>
+              {pipelineMetrics.activeOpportunitiesCount} <span className="text-xs font-normal text-amber-800/80">opportunities</span>
             </div>
             <div className="text-[10px] text-amber-700/80 mt-0.5 font-medium">
               In qualification & discussion
@@ -226,23 +235,23 @@ export default function PipelinePage() {
               {formatCurrency(pipelineMetrics.closedWonValue)}
             </div>
             <div className="text-[10px] text-emerald-700/80 mt-0.5 font-medium">
-              {pipelineMetrics.closedWonCount} deals closed successfully
+              {pipelineMetrics.closedWonCount} opportunities closed successfully
             </div>
           </div>
 
           {/* Card 5: Average Deal Size */}
           <div className="p-3.5 rounded-xl bg-gradient-to-br from-purple-50/80 via-white to-purple-50/30 border border-purple-200/70 shadow-xs col-span-2 sm:col-span-1">
             <div className="flex items-center justify-between gap-1 text-[var(--ink-500)] mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-purple-900">Avg. Deal Size</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-purple-900">Avg. Opportunity Size</span>
               <div className="w-5 h-5 rounded-md bg-purple-100/80 flex items-center justify-center text-purple-700">
                 <IndianRupee size={11} />
               </div>
             </div>
             <div className="font-mono-num text-base md:text-lg font-bold text-purple-950">
-              {formatCurrency(pipelineMetrics.avgDealSize)}
+              {formatCurrency(pipelineMetrics.avgOpportunitySize)}
             </div>
             <div className="text-[10px] text-purple-700/80 mt-0.5 font-medium">
-              Mean value per open deal
+              Mean value per open opportunity
             </div>
           </div>
         </div>

@@ -152,8 +152,8 @@ export function EditContactModal({ contact, onClose }: { contact: Contact; onClo
       <form onSubmit={(e) => {
         e.preventDefault();
         if (!allPhonesValid(phones)) return;
-        if (!emails.length && !phones.length) {
-          setContactMethodError("Provide a phone number or an email address.");
+        if (!emails.length) {
+          setContactMethodError("Email address is required.");
           return;
         }
         setContactMethodError(null);
@@ -175,13 +175,13 @@ export function EditContactModal({ contact, onClose }: { contact: Contact; onClo
             <FieldError message={fieldErrors.lastName} />
           </Field>
         </div>
-        <MultiEmailField value={emails} onChange={setEmails} />
+        <MultiEmailField value={emails} onChange={setEmails} required />
         <MultiPhoneField value={phones} onChange={setPhones} />
         <Field label="Designation"><input value={form.jobTitle} onChange={(e) => setForm({ ...form, jobTitle: e.target.value })} className={inputClass} style={inputStyle} /></Field>
         <Field label="LinkedIn"><input value={form.linkedinUrl} onChange={(e) => setForm({ ...form, linkedinUrl: e.target.value })} className={inputClass} style={inputStyle} /></Field>
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={mutation.isPending || !allPhonesValid(phones)}>{mutation.isPending ? "Saving…" : "Save Changes"}</Button>
+          <Button type="submit" disabled={mutation.isPending || !allPhonesValid(phones) || !emails.length}>{mutation.isPending ? "Saving…" : "Save Changes"}</Button>
         </div>
       </form>
     </Modal>

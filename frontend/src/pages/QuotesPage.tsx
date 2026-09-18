@@ -5,6 +5,7 @@ import { PageHeader, Card, Button, Badge, Modal, Field, inputClass, inputStyle, 
 import { formatCurrency, formatDate } from "../lib/format";
 import { downloadCsvExport } from "../lib/exportCsv";
 import { useColumnVisibility, ColumnFilterDropdown, type ColumnDef } from "../components/ColumnFilter";
+import { SortableTh } from "../components/SortableTh";
 import { Plus, FileText, Send, CheckCircle, XCircle, Download, Copy, FileStack, IndianRupee, Percent } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; tone: "neutral" | "green" | "amber" | "rose"; icon: any }> = {
@@ -223,9 +224,16 @@ export default function QuotesPage() {
                 <thead>
                   <tr className="text-left border-b border-[var(--ink-100)]">
                     {orderedColumns.filter((col) => isVisible(col.key)).map((col) => (
-                      <th key={col.key} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
+                      <SortableTh
+                        key={col.key}
+                        colKey={col.key}
+                        onReorder={reorder}
+                        onHide={toggle}
+                        canHide={!col.permanent}
+                        className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]"
+                      >
                         {col.label}
-                      </th>
+                      </SortableTh>
                     ))}
                   </tr>
                 </thead>
