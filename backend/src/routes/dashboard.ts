@@ -3,13 +3,14 @@ import { prisma } from "../lib/prisma.js";
 import { getCreatedByFilter } from "../lib/rbac.js";
 import { computeOpportunityFinancials } from "../lib/financial.js";
 import { generateDashboardPdf } from "../lib/dashboardPdf.js";
+import { PERIOD_REGEX, parsePeriodRange } from "../lib/period.js";
 
 async function computeDashboardData(tenantId: string, rbacFilter: any, period?: string) {
-    const targetDate = period && /^\d{4}-\d{2}$/.test(period)
-      ? new Date(`${period}-01T00:00:00Z`)
-      : new Date();
-    const cycleStart = new Date(Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth(), 1));
-    const cycleEnd = new Date(Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth() + 1, 1));
+    // Accepts "YYYY-MM" (monthly), "YYYY-Qn" (quarterly), or "YYYY" (yearly);
+    // anything else (or no period) falls back to the current month.
+    const { start: cycleStart, end: cycleEnd } = period && PERIOD_REGEX.test(period)
+      ? parsePeriodRange(period)
+      : parsePeriodRange(new Date().toISOString().slice(0, 7));
 
     const [openOpps, closedWonOpps, closedLostOpps] = await Promise.all([
       prisma.opportunity.findMany({ where: { tenantId, ...rbacFilter, stage: { isClosed: false } }, include: { stage: true, account: true, owner: true } }),
@@ -120,10 +121,17 @@ async function computeDashboardData(tenantId: string, rbacFilter: any, period?: 
       byStageMap.set(key, cur);
     }
 
+    // Both rolling-month charts below anchor to the last calendar month covered
+    // by the selected cycle (for a single month, that's just that month; for a
+    // quarter/year, its final month) so the trailing window always ends at the
+    // most recent month the viewer actually selected.
+    const anchorMonth = new Date(cycleEnd);
+    anchorMonth.setUTCMonth(anchorMonth.getUTCMonth() - 1);
+
     // Revenue by month leading up to target cycle month (last 6 months)
     const revenueByMonth: { month: string; revenue: number }[] = [];
     for (let i = 5; i >= 0; i--) {
-      const d = new Date(Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth() - i, 1));
+      const d = new Date(Date.UTC(anchorMonth.getUTCFullYear(), anchorMonth.getUTCMonth() - i, 1));
       const label = d.toLocaleString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" });
       const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
       const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
@@ -154,7 +162,7 @@ async function computeDashboardData(tenantId: string, rbacFilter: any, period?: 
     // New pipeline created per month leading up to target cycle month (last 3 months)
     const pipelineVelocity: { month: string; amount: number }[] = [];
     for (let i = 2; i >= 0; i--) {
-      const d = new Date(Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth() - i, 1));
+      const d = new Date(Date.UTC(anchorMonth.getUTCFullYear(), anchorMonth.getUTCMonth() - i, 1));
       const label = d.toLocaleString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" });
       const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
       const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));

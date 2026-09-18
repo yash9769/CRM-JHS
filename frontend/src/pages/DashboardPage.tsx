@@ -376,7 +376,7 @@ function ForecastSection({ period }: { period: string }) {
         </select>
         {viewType === "MONTHLY" && (
           <span className="text-sm font-medium px-2.5 py-1 rounded-md" style={{ background: "var(--ink-50)", color: "var(--ink-700)" }}>
-            {periodLabel(period)} <span className="text-[var(--ink-400)] font-normal">(set via Current Cycle above)</span>
+            {anyPeriodLabel(period)} <span className="text-[var(--ink-400)] font-normal">(set via Current Cycle above)</span>
           </span>
         )}
         {viewType === "QUARTERLY" && (
@@ -766,7 +766,14 @@ function OwnerPerformanceSection() {
 export default function DashboardPage() {
   const { user } = useAuth();
   const [downloadingPdf, setDownloadingPdf] = useState(false);
-  const [cyclePeriod, setCyclePeriod] = useState(currentPeriod());
+  const [cycleGranularity, setCycleGranularity] = useState<"MONTH" | "QUARTER" | "YEAR">("MONTH");
+  const [cycleMonth, setCycleMonth] = useState(currentPeriod());
+  const [cycleYear, setCycleYear] = useState(new Date().getFullYear().toString());
+  const [cycleQuarter, setCycleQuarter] = useState(() => `Q${Math.floor(new Date().getMonth() / 3) + 1}`);
+  const cyclePeriod =
+    cycleGranularity === "YEAR" ? cycleYear
+    : cycleGranularity === "QUARTER" ? `${cycleYear}-${cycleQuarter}`
+    : cycleMonth;
   const [breakdown, setBreakdown] = useState<{ title: string; key: OwnerMetricKey; format: (n: number) => string } | null>(null);
   const isManager = checkIsManager(user);
   const canDrillDown = !isManager;
@@ -832,14 +839,60 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <label className="flex items-center gap-1.5 text-xs font-medium text-[var(--ink-500)]">
             Current Cycle
+            <select
+              value={cycleGranularity}
+              onChange={(e) => setCycleGranularity(e.target.value as "MONTH" | "QUARTER" | "YEAR")}
+              className="text-sm px-2 py-1.5 rounded-md border bg-white font-medium"
+              style={{ borderColor: "var(--ink-200)" }}
+            >
+              <option value="MONTH">Monthly</option>
+              <option value="QUARTER">Quarterly</option>
+              <option value="YEAR">Yearly</option>
+            </select>
+          </label>
+          {cycleGranularity === "MONTH" && (
             <input
               type="month"
-              value={cyclePeriod}
-              onChange={(e) => setCyclePeriod(e.target.value)}
+              value={cycleMonth}
+              onChange={(e) => setCycleMonth(e.target.value)}
               className="text-sm px-2.5 py-1.5 rounded-md border bg-white font-medium"
               style={{ borderColor: "var(--ink-200)" }}
             />
-          </label>
+          )}
+          {cycleGranularity === "QUARTER" && (
+            <>
+              <select
+                value={cycleQuarter}
+                onChange={(e) => setCycleQuarter(e.target.value)}
+                className="text-sm px-2 py-1.5 rounded-md border bg-white font-medium"
+                style={{ borderColor: "var(--ink-200)" }}
+              >
+                {["Q1", "Q2", "Q3", "Q4"].map((q) => <option key={q} value={q}>{q}</option>)}
+              </select>
+              <select
+                value={cycleYear}
+                onChange={(e) => setCycleYear(e.target.value)}
+                className="text-sm px-2 py-1.5 rounded-md border bg-white font-medium"
+                style={{ borderColor: "var(--ink-200)" }}
+              >
+                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((y) => (
+                  <option key={y} value={y.toString()}>{y}</option>
+                ))}
+              </select>
+            </>
+          )}
+          {cycleGranularity === "YEAR" && (
+            <select
+              value={cycleYear}
+              onChange={(e) => setCycleYear(e.target.value)}
+              className="text-sm px-2.5 py-1.5 rounded-md border bg-white font-medium"
+              style={{ borderColor: "var(--ink-200)" }}
+            >
+              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((y) => (
+                <option key={y} value={y.toString()}>{y}</option>
+              ))}
+            </select>
+          )}
           <Button variant="secondary" onClick={downloadPdf} disabled={downloadingPdf}>
             <FileDown size={14} /> {downloadingPdf ? "Generating…" : "Download PDF"}
           </Button>
