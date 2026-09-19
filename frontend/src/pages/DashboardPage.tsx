@@ -392,7 +392,7 @@ function ForecastSection({ period }: { period: string }) {
               className="text-sm px-2.5 py-1 rounded-md border bg-white font-medium"
               style={{ borderColor: "var(--ink-200)" }}
             >
-              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((y) => (
+              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 4 + i).map((y) => (
                 <option key={y} value={y.toString()}>{y}</option>
               ))}
             </select>
@@ -405,7 +405,7 @@ function ForecastSection({ period }: { period: string }) {
             className="text-sm px-2.5 py-1 rounded-md border bg-white font-medium"
             style={{ borderColor: "var(--ink-200)" }}
           >
-            {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((y) => (
+            {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 4 + i).map((y) => (
               <option key={y} value={y.toString()}>{y} (Full Year)</option>
             ))}
           </select>

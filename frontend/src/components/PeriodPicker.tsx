@@ -47,7 +47,9 @@ const selectStyle = { borderColor: "var(--ink-200)" };
  * next to any control that currently only supports a single month.
  */
 export function PeriodPicker({ state, label }: { state: ReturnType<typeof usePeriodPicker>; label?: string }) {
-  const yearOptions = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
+  // Last 5 years ending at the current year -- a reporting/target picker has
+  // no business offering years that haven't happened yet.
+  const yearOptions = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 4 + i);
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {label && <span className="text-xs font-medium text-[var(--ink-500)]">{label}</span>}
