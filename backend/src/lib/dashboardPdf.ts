@@ -1,4 +1,9 @@
 import PDFDocument from "pdfkit";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const LOGO_PATH = path.join(__dirname, "..", "assets", "envista_logomark.png");
 
 interface DashboardPdfInput {
   tenantName: string;
@@ -94,9 +99,15 @@ export function generateDashboardPdf(input: DashboardPdfInput): Promise<Buffer> 
     // Brand Accent Line
     doc.rect(40, 40, 6, 76).fill("#0f6b4e");
 
-    // Title & Subtitle inside Header Banner
-    doc.fontSize(16).font("Helvetica-Bold").fillColor("#ffffff").text("Envista Cyber Defence CRM", 58, 52);
-    doc.fontSize(10).font("Helvetica").fillColor("#94a3b8").text("Executive Dashboard & Financial Summary Report", 58, 72);
+    // Logo mark + Title & Subtitle inside Header Banner
+    try {
+      doc.image(LOGO_PATH, 58, 50, { height: 36 });
+    } catch {
+      // Falls back to text-only header if the asset is unavailable at runtime.
+    }
+    const titleX = 104;
+    doc.fontSize(16).font("Helvetica-Bold").fillColor("#ffffff").text("Envista Cyber Defence CRM", titleX, 52);
+    doc.fontSize(10).font("Helvetica").fillColor("#94a3b8").text("Executive Dashboard & Financial Summary Report", titleX, 72);
 
     // Meta Metadata on right side of Banner
     doc.fontSize(8).font("Helvetica").fillColor("#cbd5e1")
