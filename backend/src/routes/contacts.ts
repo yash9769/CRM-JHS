@@ -352,6 +352,7 @@ export default async function contactRoutes(app: FastifyInstance) {
               lifecycleStage: validatedStage,
               linkedinUrl,
               ownerId: owner.id,
+              createdById: req.authUser.id,
             },
           });
           existingContacts.push(created as any);

@@ -291,7 +291,7 @@ export default async function leadRoutes(app: FastifyInstance) {
             },
           });
         } else {
-          await prisma.lead.create({ data: { ...leadFields, tenantId, ownerId: owner.id } });
+          await prisma.lead.create({ data: { ...leadFields, tenantId, ownerId: owner.id, createdById: req.authUser.id } });
         }
       }
       results.push({ row: i, status: "valid", data });

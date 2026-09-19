@@ -380,6 +380,7 @@ export default async function accountRoutes(app: FastifyInstance) {
               employeeCount,
               billingAddress: billingAddress || null,
               ownerId: owner.id,
+              createdById: req.authUser.id,
               description: description || null,
             },
           });
