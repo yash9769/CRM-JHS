@@ -699,7 +699,7 @@ function OwnerPerformanceSection() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left border-b border-[var(--ink-100)]">
-                  {["Rep", "Role", "Open Opps", "Pipeline", "Weighted", "Closed Won", "Win Rate"].map(h => (
+                  {["Representative", "Role", "Open Opps", "Pipeline", "Weighted", "Closed Won", "Win Rate"].map(h => (
                     <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">{h}</th>
                   ))}
                 </tr>
