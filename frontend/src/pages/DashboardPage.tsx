@@ -913,7 +913,7 @@ export default function DashboardPage() {
                 onClick={canDrillDown ? () => setBreakdown({ title: "Weighted Pipeline", key: "weightedPipeline", format: formatCurrency }) : undefined}
                 badge={<KpiPill tone="green">{weightedRatioPct}% ratio</KpiPill>}
                 bar={<KpiBar pct={weightedRatioPct} />}
-                footerLeft="Risk factored" footerRight={formatCurrencyCompact(data.kpis.weightedPipeline)}
+                footerLeft="Probability adjusted" footerRight={formatCurrencyCompact(data.kpis.weightedPipeline)}
               />
 
               <Kpi

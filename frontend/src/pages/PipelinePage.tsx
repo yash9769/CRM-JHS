@@ -219,7 +219,7 @@ export default function PipelinePage() {
               {pipelineMetrics.activeOpportunitiesCount} <span className="text-xs font-normal text-amber-800/80">opportunities</span>
             </div>
             <div className="text-[10px] text-amber-700/80 mt-0.5 font-medium">
-              In qualification & discussion
+              All open stages except Prospect
             </div>
           </div>
 

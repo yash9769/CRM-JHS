@@ -52,6 +52,12 @@ export function KanbanBoard<T extends KanbanItem>({
   const isPartnerOrSenior = user?.orgRole === "PARTNER" || user?.orgRole === "SENIOR_PARTNER";
 
   const [dragId, setDragId] = useState<string | null>(null);
+  // Native HTML5 drag-and-drop is supposed to show a ghost image that follows
+  // the cursor automatically, but that's the browser's own rendering and it
+  // unreliably fails to appear at all in some browsers/CSS combinations --
+  // this floating element is a manual fallback that always follows the
+  // pointer during a drag, driven by the `drag` event's coordinates.
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
   const [confirmMove, setConfirmMove] = useState<{ item: T; targetStage: { id: string; name: string; isClosed: boolean; isWon: boolean } } | null>(null);
   const [terminalPoNumber, setTerminalPoNumber] = useState("");
@@ -65,6 +71,7 @@ export function KanbanBoard<T extends KanbanItem>({
     const item = items.find((i) => i.id === dragId);
     if (!item || item.stageId === targetStage.id) {
       setDragId(null);
+      setDragPos(null);
       return;
     }
 
@@ -202,7 +209,21 @@ export function KanbanBoard<T extends KanbanItem>({
                       key={item.id}
                       to={`${basePath}/${item.id}`}
                       draggable
-                      onDragStart={() => setDragId(item.id)}
+                      onDragStart={(e) => {
+                        setDragId(item.id);
+                        setDragPos({ x: e.clientX, y: e.clientY });
+                      }}
+                      onDrag={(e) => {
+                        // clientX/Y are 0 on the trailing dragend-adjacent tick
+                        // in some browsers -- ignore those to avoid a jump to
+                        // the top-left corner right before the ghost disappears.
+                        if (e.clientX === 0 && e.clientY === 0) return;
+                        setDragPos({ x: e.clientX, y: e.clientY });
+                      }}
+                      onDragEnd={() => {
+                        setDragId(null);
+                        setDragPos(null);
+                      }}
                       data-dragging={dragId === item.id}
                       className={`kanban-card group block rounded-xl p-3.5 bg-white shadow-xs hover:shadow-md transition-all duration-200 cursor-grab active:cursor-grabbing border border-[var(--ink-200)] hover:border-[var(--ledger-300)] relative overflow-hidden ${theme.cardLeftStripe}`}
                     >
@@ -301,6 +322,23 @@ export function KanbanBoard<T extends KanbanItem>({
           );
         })}
       </div>
+
+      {/* Floating drag ghost -- manual fallback since the native HTML5 drag
+          image is browser-rendered and unreliably fails to appear */}
+      {dragId && dragPos && (() => {
+        const draggedItem = items.find((i) => i.id === dragId);
+        if (!draggedItem) return null;
+        return (
+          <div
+            className="fixed z-50 pointer-events-none w-80 rounded-xl p-3.5 bg-white shadow-lg border border-[var(--ledger-300)] opacity-90 rotate-2"
+            style={{ left: dragPos.x + 16, top: dragPos.y + 16 }}
+          >
+            <div className="text-sm font-bold text-[var(--ink-900)] line-clamp-2">
+              {draggedItem.name}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Terminal Stage Move Confirmation Modal */}
       {confirmMove && (
