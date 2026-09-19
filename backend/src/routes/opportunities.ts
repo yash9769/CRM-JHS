@@ -9,7 +9,7 @@ import { phoneSchema, nameSchema } from "../lib/validators.js";
 
 export function isApprovalRequiredStage(stageName: string, userRole: string = "MANAGER"): boolean {
   if (!stageName) return false;
-  if (userRole === "SENIOR_PARTNER" || userRole === "PARTNER") {
+  if (userRole === "SUPER_ADMIN" || userRole === "SENIOR_PARTNER" || userRole === "PARTNER") {
     return false;
   }
   const s = stageName.toLowerCase().trim();
@@ -1627,7 +1627,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
 
     let visibleScoped = scoped;
     let skippedIds: string[] = [];
-    if (req.authUser.orgRole !== "SENIOR_PARTNER") {
+    if (req.authUser.orgRole !== "SENIOR_PARTNER" && req.authUser.orgRole !== "SUPER_ADMIN") {
       const visibleUserIds = await getVisibleUserIds(req.authUser);
       visibleScoped = scoped.filter(
         (o) =>
@@ -1738,7 +1738,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
 
     let visibleScoped = scoped;
     let skippedIds: string[] = [];
-    if (req.authUser.orgRole !== "SENIOR_PARTNER") {
+    if (req.authUser.orgRole !== "SENIOR_PARTNER" && req.authUser.orgRole !== "SUPER_ADMIN") {
       const visibleUserIds = await getVisibleUserIds(req.authUser);
       visibleScoped = scoped.filter(
         (o) =>

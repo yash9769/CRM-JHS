@@ -10,7 +10,7 @@ A comprehensive registry of every function, class, component, and API route acro
 | :--- | :--- | :--- | :--- | :--- |
 | `buildApp` | `backend/src/app.ts` | Builds and configures Fastify instance, registers plugins, routes, and central error handlers | `opts?: object` | `Promise<FastifyInstance>` |
 | `registerAuth` | `backend/src/plugins/auth.ts` | Configures JWT plugin, decorates `authenticate` with dynamic DB tenant resolution | `app: FastifyInstance` | `Promise<void>` |
-| `authenticate` | `backend/src/plugins/auth.ts` | Pre-handler hook verifying JWT token and attaching fresh user tenant & role to `req.authUser` | `req: FastifyRequest, reply: FastifyReply` | `Promise<void>` |
+| `authenticate` | `backend/src/plugins/auth.ts` | Pre-handler hook verifying JWT token and attaching fresh user tenant & role to `req.authUser`. For `SUPER_ADMIN`, resolves `tenantId` to whichever tenant the `x-active-tenant-id` header names (validated to exist) instead of the user's own home tenant, letting every existing tenant-scoped route work unchanged for a cross-tenant admin | `req: FastifyRequest, reply: FastifyReply` | `Promise<void>` |
 
 ---
 
@@ -47,6 +47,7 @@ A comprehensive registry of every function, class, component, and API route acro
 | `PATCH /api/v1/users/:id` | `backend/src/routes/users.ts` | Updates a team member's role or status | `{ firstName?, lastName?, role?, active? }` | `{ data: User }` |
 | `DELETE /api/v1/users/:id` | `backend/src/routes/users.ts` | Deactivates or removes a workspace member | None | `{ success: true }` |
 | `GET /api/v1/users/stats` | `backend/src/routes/users.ts` | Returns workspace user count breakdown by role | None | `{ total, byRole: Record<string, number> }` |
+| `GET /api/v1/tenants` | `backend/src/routes/tenants.ts` | `SUPER_ADMIN`-only: lists every tenant (id, name, user count) to power the frontend's tenant switcher | Bearer Auth Header | `{ data: { id, name, _count: { users } }[] }` (403 for non-Super-Admins) |
 
 ### 🏢 Accounts (`/api/v1/accounts`)
 | Method & Endpoint | File Path | Purpose | Request Body / Query | Return Type |
@@ -181,7 +182,8 @@ A comprehensive registry of every function, class, component, and API route acro
 | :--- | :--- | :--- | :--- | :--- |
 | `useAuth` | `frontend/src/hooks/useAuth.tsx` | Access current user/tenant; `login()` returns an `authenticated` / `totp_setup` / `totp_challenge` result; `completeTotpSetup()` / `completeTotpChallenge()` finish those steps; `logout()` | None | `AuthContextValue` |
 | `AuthProvider` | `frontend/src/hooks/useAuth.tsx` | React Context Provider managing auth session lifecycle | `{ children: ReactNode }` | `JSX.Element` |
-| `api` | `frontend/src/lib/api.ts` | Configured Axios HTTP client with JWT interceptor & 401 redirect | None | `AxiosInstance` |
+| `api` | `frontend/src/lib/api.ts` | Configured Axios HTTP client with JWT interceptor, `x-active-tenant-id` header injection (for `SUPER_ADMIN`'s tenant switcher), & 401 redirect | None | `AxiosInstance` |
+| `getActiveTenantId` / `setActiveTenantId` | `frontend/src/lib/api.ts` | Reads/writes the `SUPER_ADMIN`-only tenant selection (localStorage-backed) that `api`'s request interceptor sends as `x-active-tenant-id` | `tenantId: string \| null` (setter) | `string \| null` / `void` |
 | `formatCurrency` | `frontend/src/lib/format.ts` | Formats numbers as INR (`₹X,XX,XXX`) | `value: number \| string, currency?: string` | `string` |
 | `formatDate` | `frontend/src/lib/format.ts` | Formats dates as `MMM d, yyyy` | `value?: string \| Date \| null` | `string` |
 | `formatDateTime` | `frontend/src/lib/format.ts` | Formats date and time string | `value?: string \| Date \| null` | `string` |
@@ -198,7 +200,8 @@ A comprehensive registry of every function, class, component, and API route acro
 
 | Component Name | File Path | One-Line Purpose | Key Props |
 | :--- | :--- | :--- | :--- |
-| `AppShell` | `frontend/src/components/AppShell.tsx` | Master CRM application layout (Sidebar, Navbar, Global Search, Notifications) | None (Outlet layout) |
+| `AppShell` | `frontend/src/components/AppShell.tsx` | Master CRM application layout (Sidebar, Navbar, Global Search, Notifications); renders `TenantSwitcher` in the sidebar footer in place of the static tenant name when `user.orgRole === "SUPER_ADMIN"` | None (Outlet layout) |
+| `TenantSwitcher` | `frontend/src/components/TenantSwitcher.tsx` | `SUPER_ADMIN`-only dropdown listing every tenant; selecting one sets `x-active-tenant-id` and invalidates all queries so the whole app re-fetches as that tenant | `currentTenantName?: string` |
 | `PageHeader` | `frontend/src/components/ui.tsx` | Standard header with title, subtitle, and action buttons | `title, subtitle?, actions?, breadcrumb?` |
 | `Card` | `frontend/src/components/ui.tsx` | Surface card container with consistent border & background | `children, className?` |
 | `Button` | `frontend/src/components/ui.tsx` | Standard styled button (primary, secondary, danger, ghost) | `variant, tone, size, loading, icon, children` |

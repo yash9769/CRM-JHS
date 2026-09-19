@@ -42,7 +42,7 @@ export default async function approvalRoutes(app: FastifyInstance) {
             OR: [
               { approverId: req.authUser.id },
               { approverId: null },
-              ...(req.authUser.orgRole === "SENIOR_PARTNER" ? [{ tenantId: req.authUser.tenantId }] : []),
+              ...((req.authUser.orgRole === "SENIOR_PARTNER" || req.authUser.orgRole === "SUPER_ADMIN") ? [{ tenantId: req.authUser.tenantId }] : []),
             ],
           }),
     };
@@ -83,7 +83,7 @@ export default async function approvalRoutes(app: FastifyInstance) {
           OR: [
             { approverId: req.authUser.id },
             { approverId: null },
-            ...(req.authUser.orgRole === "SENIOR_PARTNER" ? [{ tenantId: req.authUser.tenantId }] : []),
+            ...((req.authUser.orgRole === "SENIOR_PARTNER" || req.authUser.orgRole === "SUPER_ADMIN") ? [{ tenantId: req.authUser.tenantId }] : []),
           ],
         };
 
@@ -126,7 +126,7 @@ export default async function approvalRoutes(app: FastifyInstance) {
     // Partner) may act on this request — a Partner outside the requester's chain
     // must not be able to approve/disapprove a request routed to someone else.
     if (
-      req.authUser.orgRole !== "SENIOR_PARTNER" &&
+      req.authUser.orgRole !== "SENIOR_PARTNER" && req.authUser.orgRole !== "SUPER_ADMIN" &&
       approval.approverId !== null &&
       approval.approverId !== req.authUser.id
     ) {
@@ -271,7 +271,7 @@ export default async function approvalRoutes(app: FastifyInstance) {
 
     // STRICT RULE: Only the assigned approver (or an unassigned request, or a Senior Partner) may act on this request.
     if (
-      req.authUser.orgRole !== "SENIOR_PARTNER" &&
+      req.authUser.orgRole !== "SENIOR_PARTNER" && req.authUser.orgRole !== "SUPER_ADMIN" &&
       approval.approverId !== null &&
       approval.approverId !== req.authUser.id
     ) {
@@ -369,7 +369,7 @@ export default async function approvalRoutes(app: FastifyInstance) {
     if (approval.status !== "PENDING") return reply.code(400).send({ error: "This approval request has already been processed." });
     if (approval.requestedById === req.authUser.id) return reply.code(403).send({ error: "You cannot disapprove your own stage change request." });
     if (
-      req.authUser.orgRole !== "SENIOR_PARTNER" &&
+      req.authUser.orgRole !== "SENIOR_PARTNER" && req.authUser.orgRole !== "SUPER_ADMIN" &&
       approval.approverId !== null &&
       approval.approverId !== req.authUser.id
     ) {

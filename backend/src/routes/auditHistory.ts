@@ -94,7 +94,7 @@ export default async function auditHistoryRoutes(app: FastifyInstance) {
     // Senior Partner, or we positively verified their access to the specific
     // record being requested (in which case they may see its full trail,
     // including entries written by users outside their hierarchy).
-    if (req.authUser.orgRole !== "SENIOR_PARTNER" && !recordVerified) {
+    if (req.authUser.orgRole !== "SENIOR_PARTNER" && req.authUser.orgRole !== "SUPER_ADMIN" && !recordVerified) {
       const visibleUserIds = await getVisibleUserIds(req.authUser);
       where.userId = { in: visibleUserIds };
     }

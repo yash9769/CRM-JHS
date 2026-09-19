@@ -9,8 +9,8 @@ import { initials, formatCurrency } from "../lib/format";
 import { Shield, UploadCloud, Download, GitBranch } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const roleTone: Record<string, "green" | "amber" | "neutral"> = {
-  SENIOR_PARTNER: "green", PARTNER: "amber", MANAGER: "neutral",
+const roleTone: Record<string, "green" | "amber" | "neutral" | "rose"> = {
+  SUPER_ADMIN: "rose", SENIOR_PARTNER: "green", PARTNER: "amber", MANAGER: "neutral",
 };
 
 export default function SettingsPage() {

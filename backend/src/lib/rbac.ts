@@ -9,7 +9,7 @@ import type { AuthUser } from "../plugins/auth.js";
  * MANAGER        → only self
  */
 export async function getVisibleUserIds(user: AuthUser): Promise<string[]> {
-  if (user.orgRole === "SENIOR_PARTNER") {
+  if (user.orgRole === "SUPER_ADMIN" || user.orgRole === "SENIOR_PARTNER") {
     const allUsers = await prisma.user.findMany({
       where: { tenantId: user.tenantId },
       select: { id: true },
@@ -52,7 +52,7 @@ export async function getVisibleUserIds(user: AuthUser): Promise<string[]> {
  *   if (q.search) where.AND.push({ OR: [ ...search clauses... ] });
  */
 export async function getCreatedByFilter(user: AuthUser): Promise<any> {
-  if (user.orgRole === "SENIOR_PARTNER") {
+  if (user.orgRole === "SUPER_ADMIN" || user.orgRole === "SENIOR_PARTNER") {
     return {};
   }
   const ids = await getVisibleUserIds(user);
@@ -72,7 +72,7 @@ export async function requireCanAccess(
   record: { createdById?: string | null; ownerId?: string | null },
   _action: "read" | "write" = "read"
 ) {
-  if (user.orgRole === "SENIOR_PARTNER") {
+  if (user.orgRole === "SUPER_ADMIN" || user.orgRole === "SENIOR_PARTNER") {
     return;
   }
   const visibleIds = await getVisibleUserIds(user);
@@ -90,18 +90,24 @@ export async function requireCanAccess(
  * Checks whether `actorUser` can create or manage `targetUser` based on hierarchy rules.
  *
  * Rules:
+ *  - SUPER_ADMIN can create/manage any role, in whichever tenant is
+ *    currently active (see auth.ts's x-active-tenant-id resolution) --
+ *    it's a platform-operator role, not part of the normal per-tenant chain.
  *  - SENIOR_PARTNER can create/manage Partners and Managers
  *  - PARTNER can create/manage only Managers whose partnerId = self.id
  *  - MANAGER cannot manage any user
  */
 export function canManageUser(
   actor: AuthUser,
-  targetOrgRole: "SENIOR_PARTNER" | "PARTNER" | "MANAGER",
+  targetOrgRole: "SUPER_ADMIN" | "SENIOR_PARTNER" | "PARTNER" | "MANAGER",
   targetPartnerId?: string | null
 ): boolean {
+  if (actor.orgRole === "SUPER_ADMIN") {
+    return true;
+  }
   if (actor.orgRole === "SENIOR_PARTNER") {
     // SP can create Partners or Managers, but not another SP
-    return targetOrgRole !== "SENIOR_PARTNER";
+    return targetOrgRole !== "SENIOR_PARTNER" && targetOrgRole !== "SUPER_ADMIN";
   }
   if (actor.orgRole === "PARTNER") {
     // Partner can only create/manage Managers who report to them

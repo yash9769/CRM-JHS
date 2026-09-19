@@ -8,10 +8,15 @@
 //     --email jane@company.com --firstName Jane --lastName Doe \
 //     --role PARTNER --tenant "Envista Cyber Defence"
 //
-// --role is one of SENIOR_PARTNER | PARTNER | MANAGER (default MANAGER).
+// --role is one of SUPER_ADMIN | SENIOR_PARTNER | PARTNER | MANAGER (default MANAGER).
 // --partnerEmail is required when --role MANAGER and the tenant has more than one
 // Partner, to say which Partner this Manager reports to.
 // --tenant selects a tenant by name; omit it if the database only has one tenant.
+//
+// SUPER_ADMIN is a cross-tenant platform role (see src/plugins/auth.ts) -- the
+// tenant given here just becomes its "home" row (a User FK requires one), not a
+// restriction on what it can see: once logged in, a Super Admin can switch to
+// any tenant via the sidebar's tenant switcher.
 import crypto from "node:crypto";
 import argon2 from "argon2";
 import { PrismaClient, type OrgRole } from "@prisma/client";
@@ -47,12 +52,12 @@ async function main() {
   const role = (args.role?.trim().toUpperCase() || "MANAGER") as OrgRole;
 
   if (!email || !firstName || !lastName) {
-    console.error("Usage: npx tsx scripts/createUser.ts --email <email> --firstName <first> --lastName <last> [--role SENIOR_PARTNER|PARTNER|MANAGER] [--tenant <name>] [--partnerEmail <email>]");
+    console.error("Usage: npx tsx scripts/createUser.ts --email <email> --firstName <first> --lastName <last> [--role SUPER_ADMIN|SENIOR_PARTNER|PARTNER|MANAGER] [--tenant <name>] [--partnerEmail <email>]");
     process.exitCode = 1;
     return;
   }
-  if (!["SENIOR_PARTNER", "PARTNER", "MANAGER"].includes(role)) {
-    console.error(`Invalid --role "${role}". Must be SENIOR_PARTNER, PARTNER, or MANAGER.`);
+  if (!["SUPER_ADMIN", "SENIOR_PARTNER", "PARTNER", "MANAGER"].includes(role)) {
+    console.error(`Invalid --role "${role}". Must be SUPER_ADMIN, SENIOR_PARTNER, PARTNER, or MANAGER.`);
     process.exitCode = 1;
     return;
   }

@@ -16,6 +16,14 @@ import {
 
 // ── Role Config & Badge ──────────────────────────────────────────────────────
 const roleConfig: Record<string, { bg: string; text: string; border: string; accent: string; icon: any; title: string }> = {
+  SUPER_ADMIN: {
+    bg: "linear-gradient(135deg, #78350f 0%, #b45309 100%)",
+    text: "#fffbeb",
+    border: "#f59e0b",
+    accent: "#fbbf24",
+    icon: Sparkles,
+    title: "Super Admin / Platform Owner",
+  },
   SENIOR_PARTNER: {
     bg: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
     text: "#f8fafc",
@@ -511,19 +519,20 @@ export function BirdsEyeModal({
 // ── Add User modal ─────────────────────────────────────────────────────────
 function AddUserModal({
   actorOrgRole,
-  partners: _partners,
+  partners,
   onClose,
 }: {
   actorOrgRole: string;
   partners: any[];
   onClose: () => void;
 }) {
+  const isSuperAdmin = actorOrgRole === "SUPER_ADMIN";
   const qc = useQueryClient();
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
     email: "",
-    orgRole: actorOrgRole === "SENIOR_PARTNER" ? "PARTNER" : "MANAGER",
+    orgRole: actorOrgRole === "SENIOR_PARTNER" ? "PARTNER" : isSuperAdmin ? "PARTNER" : "MANAGER",
     partnerId: "",
     password: "",
   });
@@ -583,16 +592,51 @@ function AddUserModal({
             <input required type="email" className={inputCls} style={inputStyle} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </div>
 
-          <div>
-            <label className="block text-xs font-medium mb-1 text-[var(--ink-600)]">Assigned Role</label>
-            <input
-              readOnly
-              disabled
-              className={`${inputCls} bg-slate-100 text-slate-700 font-semibold cursor-not-allowed`}
-              style={inputStyle}
-              value={actorOrgRole === "SENIOR_PARTNER" ? "Partner / Sales Lead" : "Manager / Sales Rep"}
-            />
-          </div>
+          {isSuperAdmin ? (
+            <>
+              <div>
+                <label className="block text-xs font-medium mb-1 text-[var(--ink-600)]">Role</label>
+                <select
+                  className={inputCls}
+                  style={inputStyle}
+                  value={form.orgRole}
+                  onChange={(e) => setForm({ ...form, orgRole: e.target.value, partnerId: "" })}
+                >
+                  <option value="SUPER_ADMIN">Super Admin</option>
+                  <option value="SENIOR_PARTNER">Senior Partner</option>
+                  <option value="PARTNER">Partner</option>
+                  <option value="MANAGER">Manager</option>
+                </select>
+              </div>
+              {form.orgRole === "MANAGER" && (
+                <div>
+                  <label className="block text-xs font-medium mb-1 text-[var(--ink-600)]">Reports to (Partner)</label>
+                  <select
+                    className={inputCls}
+                    style={inputStyle}
+                    value={form.partnerId}
+                    onChange={(e) => setForm({ ...form, partnerId: e.target.value })}
+                  >
+                    <option value="">— Unassigned —</option>
+                    {partners.map((p: any) => (
+                      <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </>
+          ) : (
+            <div>
+              <label className="block text-xs font-medium mb-1 text-[var(--ink-600)]">Assigned Role</label>
+              <input
+                readOnly
+                disabled
+                className={`${inputCls} bg-slate-100 text-slate-700 font-semibold cursor-not-allowed`}
+                style={inputStyle}
+                value={actorOrgRole === "SENIOR_PARTNER" ? "Partner / Sales Lead" : "Manager / Sales Rep"}
+              />
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-medium mb-1 text-[var(--ink-600)]">Temporary password</label>
@@ -647,7 +691,7 @@ function EditUserModal({
         firstName: form.firstName,
         lastName: form.lastName,
         email: form.email,
-        ...(actorOrgRole === "SENIOR_PARTNER"
+        ...(actorOrgRole === "SENIOR_PARTNER" || actorOrgRole === "SUPER_ADMIN"
           ? {
               orgRole: form.orgRole,
               partnerId: form.orgRole === "MANAGER" ? (form.partnerId || null) : null,
@@ -702,17 +746,19 @@ function EditUserModal({
             <input required type="email" className={inputCls} style={inputStyle} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </div>
 
-          {actorOrgRole === "SENIOR_PARTNER" && (
+          {(actorOrgRole === "SENIOR_PARTNER" || actorOrgRole === "SUPER_ADMIN") && (
             <div>
               <label className="block text-xs font-medium mb-1 text-[var(--ink-600)]">Role</label>
               <select className={inputCls} style={inputStyle} value={form.orgRole} onChange={(e) => setForm({ ...form, orgRole: e.target.value })}>
+                {actorOrgRole === "SUPER_ADMIN" && <option value="SUPER_ADMIN">Super Admin</option>}
+                {actorOrgRole === "SUPER_ADMIN" && <option value="SENIOR_PARTNER">Senior Partner</option>}
                 <option value="PARTNER">Partner</option>
                 <option value="MANAGER">Manager</option>
               </select>
             </div>
           )}
 
-          {(actorOrgRole === "SENIOR_PARTNER" && form.orgRole === "MANAGER") && (
+          {((actorOrgRole === "SENIOR_PARTNER" || actorOrgRole === "SUPER_ADMIN") && form.orgRole === "MANAGER") && (
             <div>
               <label className="block text-xs font-medium mb-1 text-[var(--ink-600)]">Reports to (Partner)</label>
               <select className={inputCls} style={inputStyle} value={form.partnerId} onChange={(e) => setForm({ ...form, partnerId: e.target.value })}>

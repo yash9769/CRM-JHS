@@ -7,7 +7,10 @@ const CreateUserSchema = z.object({
   email: z.string().email(),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
-  orgRole: z.enum(["PARTNER", "MANAGER"]),
+  // SENIOR_PARTNER/SUPER_ADMIN are accepted here but only a SUPER_ADMIN actor
+  // can actually create one -- enforced below via canManageUser, not by this
+  // schema (a SENIOR_PARTNER/PARTNER actor sending one still gets a 403).
+  orgRole: z.enum(["SUPER_ADMIN", "SENIOR_PARTNER", "PARTNER", "MANAGER"]),
   partnerId: z.string().uuid().optional().nullable(),
   password: z.string().min(8),
 });
@@ -16,7 +19,7 @@ const UpdateUserSchema = z.object({
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   email: z.string().email().optional(),
-  orgRole: z.enum(["PARTNER", "MANAGER"]).optional(),
+  orgRole: z.enum(["SUPER_ADMIN", "SENIOR_PARTNER", "PARTNER", "MANAGER"]).optional(),
   partnerId: z.string().uuid().nullable().optional(),
   active: z.boolean().optional(),
 });
@@ -117,8 +120,23 @@ export default async function userRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "Partners can only create Managers" });
     }
 
-    const partnerId =
-      actor.orgRole === "PARTNER" ? actor.id : (body.partnerId ?? (actor.orgRole === "SENIOR_PARTNER" ? actor.id : null));
+    let partnerId: string | null;
+    if (actor.orgRole === "PARTNER") {
+      partnerId = actor.id;
+    } else if (body.orgRole === "PARTNER") {
+      // Reports to a Senior Partner: an explicit partnerId if given, else the
+      // creating Senior Partner themselves, else (a Super Admin creating a
+      // Partner in someone else's tenant) that tenant's own Senior Partner.
+      partnerId = body.partnerId ?? (actor.orgRole === "SENIOR_PARTNER" ? actor.id : null);
+      if (!partnerId) {
+        const tenantSp = await prisma.user.findFirst({ where: { tenantId: actor.tenantId, orgRole: "SENIOR_PARTNER" } });
+        partnerId = tenantSp?.id ?? null;
+      }
+    } else if (body.orgRole === "MANAGER") {
+      partnerId = body.partnerId ?? null;
+    } else {
+      partnerId = null; // SENIOR_PARTNER / SUPER_ADMIN have no partnerId
+    }
 
     if (!canManageUser(actor, body.orgRole, partnerId)) {
       return reply.code(403).send({ error: "You are not allowed to create this user type" });
@@ -151,7 +169,7 @@ export default async function userRoutes(app: FastifyInstance) {
         firstName: body.firstName,
         lastName: body.lastName,
         orgRole: body.orgRole,
-        partnerId: body.orgRole === "MANAGER" ? partnerId : (body.orgRole === "PARTNER" ? actor.id : null),
+        partnerId,
         createdById: actor.id,
         passwordHash,
       },
@@ -191,8 +209,8 @@ export default async function userRoutes(app: FastifyInstance) {
         ...(body.lastName ? { lastName: body.lastName } : {}),
         ...(body.email ? { email: body.email } : {}),
         ...(body.active !== undefined ? { active: body.active } : {}),
-        ...(actor.orgRole === "SENIOR_PARTNER" && body.orgRole ? { orgRole: body.orgRole } : {}),
-        ...(actor.orgRole === "SENIOR_PARTNER" && body.partnerId !== undefined ? { partnerId: body.partnerId } : {}),
+        ...((actor.orgRole === "SUPER_ADMIN" || actor.orgRole === "SENIOR_PARTNER") && body.orgRole ? { orgRole: body.orgRole } : {}),
+        ...((actor.orgRole === "SUPER_ADMIN" || actor.orgRole === "SENIOR_PARTNER") && body.partnerId !== undefined ? { partnerId: body.partnerId } : {}),
       },
       select: userSelect,
     });
@@ -222,7 +240,7 @@ export default async function userRoutes(app: FastifyInstance) {
       }
     }
 
-    if (target.orgRole === "SENIOR_PARTNER") {
+    if (target.orgRole === "SENIOR_PARTNER" && actor.orgRole !== "SUPER_ADMIN") {
       return reply.code(403).send({ error: "Cannot remove the Senior Partner" });
     }
 

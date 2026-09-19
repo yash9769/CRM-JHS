@@ -404,7 +404,7 @@ export default async function leadRoutes(app: FastifyInstance) {
 
     let visibleScoped = scoped;
     let skippedIds: string[] = [];
-    if (req.authUser.orgRole !== "SENIOR_PARTNER") {
+    if (req.authUser.orgRole !== "SENIOR_PARTNER" && req.authUser.orgRole !== "SUPER_ADMIN") {
       const visibleUserIds = await getVisibleUserIds(req.authUser);
       visibleScoped = scoped.filter(
         (l) =>

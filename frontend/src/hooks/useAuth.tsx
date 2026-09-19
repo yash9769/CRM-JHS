@@ -6,7 +6,7 @@ export interface AuthUser {
   email: string;
   firstName: string;
   lastName: string;
-  orgRole: "SENIOR_PARTNER" | "PARTNER" | "MANAGER";
+  orgRole: "SUPER_ADMIN" | "SENIOR_PARTNER" | "PARTNER" | "MANAGER";
   partnerId?: string | null;
   partner?: { id: string; firstName: string; lastName: string } | null;
 }
@@ -119,6 +119,9 @@ export function useAuth() {
 }
 
 // ---- RBAC helpers ----
+export function isSuperAdmin(user: AuthUser | null) {
+  return user?.orgRole === "SUPER_ADMIN";
+}
 export function isSeniorPartner(user: AuthUser | null) {
   return user?.orgRole === "SENIOR_PARTNER";
 }
@@ -129,14 +132,15 @@ export function isManager(user: AuthUser | null) {
   return user?.orgRole === "MANAGER";
 }
 export function canManageUsers(user: AuthUser | null) {
-  return user?.orgRole === "SENIOR_PARTNER" || user?.orgRole === "PARTNER";
+  return user?.orgRole === "SUPER_ADMIN" || user?.orgRole === "SENIOR_PARTNER" || user?.orgRole === "PARTNER";
 }
 export function canViewOrgChart(user: AuthUser | null) {
-  return user?.orgRole === "SENIOR_PARTNER" || user?.orgRole === "PARTNER";
+  return user?.orgRole === "SUPER_ADMIN" || user?.orgRole === "SENIOR_PARTNER" || user?.orgRole === "PARTNER";
 }
 
 /** Human-readable role label */
 export function roleLabel(orgRole?: string) {
+  if (orgRole === "SUPER_ADMIN") return "Super Admin";
   if (orgRole === "SENIOR_PARTNER") return "Senior Partner";
   if (orgRole === "PARTNER") return "Partner";
   if (orgRole === "MANAGER") return "Manager";

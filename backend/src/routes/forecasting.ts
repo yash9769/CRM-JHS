@@ -239,11 +239,14 @@ export default async function forecastingRoutes(app: FastifyInstance) {
     if (owners.length !== requestedOwnerIds.length) {
       return reply.code(400).send({ error: "One or more selected team members were not found." });
     }
-    const invalid = owners.find((o) => {
-      if (actor.orgRole === "SENIOR_PARTNER") return o.orgRole !== "PARTNER";
-      // actor.orgRole === "PARTNER"
-      return o.orgRole !== "MANAGER" || o.partnerId !== actor.id;
-    });
+    const invalid =
+      actor.orgRole === "SUPER_ADMIN"
+        ? undefined
+        : owners.find((o) => {
+            if (actor.orgRole === "SENIOR_PARTNER") return o.orgRole !== "PARTNER";
+            // actor.orgRole === "PARTNER"
+            return o.orgRole !== "MANAGER" || o.partnerId !== actor.id;
+          });
     if (invalid) {
       const allowed = actor.orgRole === "SENIOR_PARTNER" ? "Partners" : "Managers who report to you";
       return reply.code(403).send({ error: `Access denied: you can only set targets for ${allowed}.` });
@@ -282,7 +285,7 @@ export default async function forecastingRoutes(app: FastifyInstance) {
     // ForecastTarget has no createdById field (only ownerId); reuse the same
     // ownerId-based scoping as the /forecast/targets endpoint above.
     const targetRbacFilter =
-      req.authUser.orgRole === "SENIOR_PARTNER"
+      req.authUser.orgRole === "SENIOR_PARTNER" || req.authUser.orgRole === "SUPER_ADMIN"
         ? {}
         : { ownerId: { in: await getVisibleUserIds(req.authUser) } };
     const months = [];

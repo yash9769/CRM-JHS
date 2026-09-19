@@ -12,13 +12,14 @@ import { api } from "../lib/api";
 import { QuickCreateButton } from "./QuickCreate";
 import { StageApprovalsWidget } from "./StageApprovalsWidget";
 import { StickyNotesWidget } from "./StickyNotesWidget";
+import { TenantSwitcher } from "./TenantSwitcher";
 
 type NavigationItem = {
   to: string;
   label: string;
   icon: typeof LayoutDashboard;
   exact?: boolean;
-  roles?: Array<"SENIOR_PARTNER" | "PARTNER" | "MANAGER">;
+  roles?: Array<"SUPER_ADMIN" | "SENIOR_PARTNER" | "PARTNER" | "MANAGER">;
 };
 
 const navigationItems: NavigationItem[] = [
@@ -206,7 +207,7 @@ export default function AppShell() {
       {/* Navigation items in strictly required order */}
       <div className="space-y-0.5 mb-4">
         {navigationItems
-          .filter((item) => !item.roles || (user?.orgRole && item.roles.includes(user.orgRole as NonNullable<NavigationItem["roles"]>[number])))
+          .filter((item) => !item.roles || user?.orgRole === "SUPER_ADMIN" || (user?.orgRole && item.roles.includes(user.orgRole as NonNullable<NavigationItem["roles"]>[number])))
           .map((item) => {
           const isActive = item.exact
             ? location.pathname === item.to
@@ -260,7 +261,11 @@ export default function AppShell() {
         >
           <Settings size={15} /> Settings
         </Link>
-        <div className="px-3 text-[10px] text-[var(--ink-600)]">{tenant?.name}</div>
+        {user?.orgRole === "SUPER_ADMIN" ? (
+          <TenantSwitcher currentTenantName={tenant?.name} />
+        ) : (
+          <div className="px-3 text-[10px] text-[var(--ink-600)]">{tenant?.name}</div>
+        )}
       </div>
     </div>
   );

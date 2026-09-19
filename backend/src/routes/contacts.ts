@@ -560,7 +560,7 @@ export default async function contactRoutes(app: FastifyInstance) {
             OR: [
               { approverId: req.authUser.id },
               { approverId: null },
-              ...(req.authUser.orgRole === "SENIOR_PARTNER" ? [{ tenantId: req.authUser.tenantId }] : []),
+              ...((req.authUser.orgRole === "SENIOR_PARTNER" || req.authUser.orgRole === "SUPER_ADMIN") ? [{ tenantId: req.authUser.tenantId }] : []),
             ],
           }),
     };

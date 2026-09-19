@@ -49,6 +49,7 @@ model Tenant {
 }
 
 enum OrgRole {
+  SUPER_ADMIN
   SENIOR_PARTNER
   PARTNER
   MANAGER

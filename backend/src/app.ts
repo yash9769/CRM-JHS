@@ -26,6 +26,7 @@ import serviceRoutes from "./routes/services.js";
 import userRoutes from "./routes/users.js";
 import approvalRoutes from "./routes/approvals.js";
 import stickyNoteRoutes from "./routes/stickyNotes.js";
+import tenantRoutes from "./routes/tenants.js";
 
 export async function buildApp(opts = {}) {
   const app = Fastify({ logger: false, ...opts });
@@ -99,6 +100,7 @@ export async function buildApp(opts = {}) {
   await app.register(userRoutes);
   await app.register(approvalRoutes);
   await app.register(stickyNoteRoutes);
+  await app.register(tenantRoutes);
 
   return app;
 }
