@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { PageHeader, Button, inputClass, inputStyle } from "../components/ui";
@@ -18,8 +18,10 @@ import {
   Layers,
   Trophy,
   IndianRupee,
+  Info,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { useClickOutside } from "../hooks/useClickOutside";
 
 export default function PipelinePage() {
   const { user } = useAuth();
@@ -28,6 +30,9 @@ export default function PipelinePage() {
   const [search, setSearch] = useState("");
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [ownerLabel, setOwnerLabel] = useState<string | null>(null);
+  const [showActiveStagesInfo, setShowActiveStagesInfo] = useState(false);
+  const activeStagesInfoRef = useRef<HTMLDivElement>(null);
+  useClickOutside(activeStagesInfoRef, showActiveStagesInfo, () => setShowActiveStagesInfo(false));
 
   const { data: pipelines, isLoading: isPipelinesLoading } = useQuery<{ data: Pipeline[] }>({
     queryKey: ["pipelines", "OPPORTUNITY"],
@@ -130,6 +135,18 @@ export default function PipelinePage() {
     };
   }, [items, pipeline]);
 
+  // Same inclusion rule as activeOpportunitiesCount above, expressed as the
+  // actual stage names so the KPI card can show what it counts.
+  const activeStageNames = useMemo(() => {
+    if (!pipeline?.stages) return [];
+    return pipeline.stages
+      .filter((s) => {
+        const isWon = s.isWon || s.name.toLowerCase().includes("won");
+        return !isWon && !s.isClosed && s.name !== "Prospect";
+      })
+      .map((s) => s.name);
+  }, [pipeline]);
+
   if (isPipelinesLoading || !pipeline) {
     return (
       <div className="px-4 md:px-8 py-5 md:py-7 space-y-6">
@@ -208,7 +225,7 @@ export default function PipelinePage() {
           </div>
 
           {/* Card 3: Active Opportunities Count */}
-          <div className="p-3.5 rounded-xl bg-gradient-to-br from-amber-50/80 via-white to-amber-50/30 border border-amber-200/70 shadow-xs">
+          <div ref={activeStagesInfoRef} className="relative p-3.5 rounded-xl bg-gradient-to-br from-amber-50/80 via-white to-amber-50/30 border border-amber-200/70 shadow-xs">
             <div className="flex items-center justify-between gap-1 text-[var(--ink-500)] mb-1">
               <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900">Active Opportunities</span>
               <div className="w-5 h-5 rounded-md bg-amber-100/80 flex items-center justify-center text-amber-700">
@@ -218,9 +235,33 @@ export default function PipelinePage() {
             <div className="font-mono-num text-base md:text-lg font-bold text-amber-950">
               {pipelineMetrics.activeOpportunitiesCount} <span className="text-xs font-normal text-amber-800/80">opportunities</span>
             </div>
-            <div className="text-[10px] text-amber-700/80 mt-0.5 font-medium">
-              All open stages except Prospect
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowActiveStagesInfo((v) => !v)}
+              className="flex items-center gap-1 text-[10px] text-amber-700/80 mt-0.5 font-medium hover:text-amber-900 hover:underline"
+            >
+              <Info size={10} />
+              Which stages?
+            </button>
+
+            {showActiveStagesInfo && (
+              <div className="absolute z-20 top-full left-0 mt-1.5 w-56 rounded-lg bg-white border border-amber-200 shadow-lg p-3">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-amber-900 mb-1.5">
+                  Counted stages
+                </div>
+                <ul className="space-y-1">
+                  {activeStageNames.map((name) => (
+                    <li key={name} className="text-xs text-[var(--ink-700)] flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                      {name}
+                    </li>
+                  ))}
+                </ul>
+                <div className="text-[10px] text-[var(--ink-400)] mt-2 pt-2 border-t border-[var(--ink-100)]">
+                  Excludes Prospect and closed stages.
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Card 4: Closed Won Revenue */}
