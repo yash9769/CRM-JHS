@@ -13,5 +13,10 @@ export function toCsv(rows: Record<string, any>[], columns: { key: string; label
   };
   const header = columns.map((c) => escape(c.label)).join(",");
   const lines = rows.map((row) => columns.map((c) => escape(row[c.key])).join(","));
-  return [header, ...lines].join("\n");
+  // Excel opens a .csv with no encoding marker as Windows-1252, not UTF-8, and
+  // garbles any non-ASCII byte sequence into mojibake (e.g. an em dash "—"
+  // becomes "â€"") -- a leading UTF-8 BOM tells it to read the file correctly.
+  // Every other consumer (other spreadsheet apps, csv-parsers, a browser
+  // fetch) either recognizes and strips the BOM or ignores it harmlessly.
+  return "﻿" + [header, ...lines].join("\n");
 }
