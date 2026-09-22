@@ -254,6 +254,12 @@ export default async function userRoutes(app: FastifyInstance) {
       prisma.activity.updateMany({ where: { ownerId: targetId }, data: { ownerId: actorId } }),
       prisma.note.updateMany({ where: { authorId: targetId }, data: { authorId: actorId } }),
       prisma.sequence.updateMany({ where: { ownerId: targetId }, data: { ownerId: actorId } }),
+      // Other users can reference this one via partnerId (their "reports to")
+      // or createdById -- both are foreign keys with no ON DELETE rule, so
+      // prisma.user.delete() below would fail with a constraint violation
+      // (surfacing as an opaque 500) if either is left pointing at targetId.
+      prisma.user.updateMany({ where: { partnerId: targetId }, data: { partnerId: null } }),
+      prisma.user.updateMany({ where: { createdById: targetId }, data: { createdById: actorId } }),
       prisma.user.delete({ where: { id: targetId } }),
     ]);
 
