@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { Card, Button, Badge, Field, Modal, inputClass, inputStyle, MetricCard, MetricStrip, accentClasses, type AccentColor } from "../components/ui";
+import { Card, Button, Badge, Field, Modal, inputClass, inputStyle, MetricCard, MetricStrip, accentClasses, type AccentColor, InfoTooltip } from "../components/ui";
 import { formatCurrency, formatCurrencyCompact } from "../lib/format";
 import { downloadCsvExport } from "../lib/exportCsv";
 import { RoleBadge, BirdsEyeModal } from "./OrgChartPage";
@@ -54,10 +54,10 @@ interface DashboardData {
 }
 
 function Kpi({
-  icon: Icon, label, value, url, onClick, tone = "indigo", badge, footerLeft, footerRight, bar, sparkline, belowValue,
+  icon: Icon, label, value, url, onClick, tone = "indigo", badge, footerLeft, footerRight, bar, sparkline, belowValue, tooltip,
 }: {
   icon: any; label: string; value: ReactNode; url?: string; onClick?: () => void; tone?: AccentColor;
-  badge?: ReactNode; footerLeft?: ReactNode; footerRight?: ReactNode; bar?: ReactNode; sparkline?: ReactNode; belowValue?: ReactNode;
+  badge?: ReactNode; footerLeft?: ReactNode; footerRight?: ReactNode; bar?: ReactNode; sparkline?: ReactNode; belowValue?: ReactNode; tooltip?: string;
 }) {
   const a = accentClasses[tone];
   const content = (
@@ -71,8 +71,9 @@ function Kpi({
           <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-transform group-hover:scale-105 shrink-0 ${a.iconBg}`}>
             <Icon size={13} className={a.iconText} />
           </div>
-          <span className={`text-[11px] font-bold uppercase tracking-wider truncate ${a.label}`} title={label}>
-            {label}
+          <span className={`flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider truncate ${a.label}`} title={label}>
+            <span className="truncate">{label}</span>
+            {tooltip && <InfoTooltip text={tooltip} />}
           </span>
         </div>
         {badge && <div className="shrink-0 flex items-center">{badge}</div>}
@@ -893,6 +894,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               <Kpi
                 icon={BarChart3} label="Total Pipeline" value={formatCurrency(data.kpis.totalPipeline)} tone="indigo"
+                tooltip="Sum of the proposal value of every open opportunity (every stage except Closed Won/Lost), regardless of when it's expected to close."
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Total Pipeline", key: "totalPipeline", format: formatCurrency }) : undefined}
                 badge={formattedVelocity ? (
@@ -909,6 +911,7 @@ export default function DashboardPage() {
 
               <Kpi
                 icon={TrendingUp} label="Weighted Pipeline" value={formatCurrency(data.kpis.weightedPipeline)} tone="sky"
+                tooltip="Each open opportunity's proposal value × its stage's win probability, summed across all open opportunities. A more realistic forecast than raw pipeline size, since early-stage deals count for less."
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Weighted Pipeline", key: "weightedPipeline", format: formatCurrency }) : undefined}
                 badge={<KpiPill tone="green">{weightedRatioPct}% ratio</KpiPill>}
@@ -918,6 +921,7 @@ export default function DashboardPage() {
 
               <Kpi
                 icon={Target} label="Active Opportunities" value={String(data.kpis.openOpportunities)} tone="amber"
+                tooltip="Count of open opportunities in every stage except Prospect — Prospect is excluded since it's too early to count as active pipeline."
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Active Opportunities", key: "openOpportunities", format: (n) => String(Math.round(n)) }) : undefined}
                 badge={closingThisWeek > 0 ? <KpiPill tone="amber">{closingThisWeek} closing this week</KpiPill> : undefined}
@@ -936,6 +940,7 @@ export default function DashboardPage() {
 
               <Kpi
                 icon={Trophy} label="Closed Won Revenue" value={formatCurrency(data.kpis.closedWonRevenue)} tone="emerald"
+                tooltip="Total value of every opportunity marked Closed Won in the selected cycle — uses the final agreed (actual) value where set, otherwise the proposal value."
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Closed Won Revenue", key: "closedWonRevenue", format: formatCurrency }) : undefined}
                 badge={achievedPct !== null ? (
@@ -952,6 +957,7 @@ export default function DashboardPage() {
 
               <Kpi
                 icon={Percent} label="Win Rate" tone="purple"
+                tooltip="Closed Won opportunities ÷ (Closed Won + Closed Lost), counted by number of opportunities — not by their value."
                 value={<span style={{ color: winRateDelta === null || winRateDelta >= 0 ? "var(--ledger-700)" : "var(--rose-600)" }}>{winRatePct}%</span>}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Win Rate", key: "winRate", format: (n) => `${Math.round(n * 100)}%` }) : undefined}
                 badge={winRateDelta !== null ? (
@@ -963,6 +969,7 @@ export default function DashboardPage() {
 
               <Kpi
                 icon={IndianRupee} label="Avg Opportunity Size" value={formatCurrency(data.kpis.avgOpportunitySize)} tone="violet"
+                tooltip="Closed Won revenue ÷ number of Closed Won opportunities — the average deal size among the ones actually won, not the full pipeline."
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Avg Opportunity Size", key: "avgOpportunitySize", format: formatCurrency }) : undefined}
                 footerLeft="Based on"
@@ -971,6 +978,7 @@ export default function DashboardPage() {
 
               <Kpi
                 icon={Gauge} label="Margin Value" value={formatCurrency(marginValue)} tone="emerald"
+                tooltip="Proposal value minus cost incurred. Once you have Closed Won deals, this shows realized margin on those; before any wins, it's the same margin projected across the whole open pipeline."
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Margin Value", key: "marginValue", format: formatCurrency }) : undefined}
                 badge={revenueBase > 0 ? <KpiPill tone="green">{marginPct}% Net</KpiPill> : undefined}
@@ -981,6 +989,7 @@ export default function DashboardPage() {
 
               <Kpi
                 icon={CalendarClock} label="Cost Incurred to Company" value={formatCurrency(costIncurred)} tone="rose"
+                tooltip="Total delivery/internal cost logged against Closed Won opportunities once you have wins; before any wins, the same cost projected across the open pipeline."
                 url={canDrillDown ? undefined : "/opportunities"}
                 onClick={canDrillDown ? () => setBreakdown({ title: "Cost Incurred to Company", key: "costIncurred", format: formatCurrency }) : undefined}
                 badge={revenueBase > 0 ? <KpiPill>{costPct}% of value</KpiPill> : undefined}

@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { PageHeader, Button, inputClass, inputStyle } from "../components/ui";
+import { PageHeader, Button, inputClass, inputStyle, InfoTooltip } from "../components/ui";
 import { KanbanBoard } from "../components/Kanban";
 import { NewOpportunityModal } from "../components/CreateModals";
 import { RelationshipSelector } from "../components/RelationshipSelector";
@@ -195,7 +195,10 @@ export default function PipelinePage() {
           {/* Card 1: Total Open Pipeline */}
           <div className="p-3.5 rounded-xl bg-gradient-to-br from-indigo-50/80 via-white to-indigo-50/30 border border-indigo-200/70 shadow-xs">
             <div className="flex items-center justify-between gap-1 text-[var(--ink-500)] mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-900">Total Pipeline</span>
+              <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-indigo-900">
+                Total Pipeline
+                <InfoTooltip text="Sum of the proposal value of every opportunity in an open (not closed) stage on this board, unweighted by probability." />
+              </span>
               <div className="w-5 h-5 rounded-md bg-indigo-100/80 flex items-center justify-center text-indigo-700">
                 <Sparkles size={11} />
               </div>
@@ -211,7 +214,10 @@ export default function PipelinePage() {
           {/* Card 2: Weighted Forecast */}
           <div className="p-3.5 rounded-xl bg-gradient-to-br from-sky-50/80 via-white to-sky-50/30 border border-sky-200/70 shadow-xs">
             <div className="flex items-center justify-between gap-1 text-[var(--ink-500)] mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-sky-900">Weighted Forecast</span>
+              <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-sky-900">
+                Weighted Forecast
+                <InfoTooltip text="Each open opportunity's proposal value × its stage's win probability, summed — a more realistic forecast than raw pipeline value." />
+              </span>
               <div className="w-5 h-5 rounded-md bg-sky-100/80 flex items-center justify-center text-sky-700">
                 <TrendingUp size={11} />
               </div>
@@ -267,7 +273,10 @@ export default function PipelinePage() {
           {/* Card 4: Closed Won Revenue */}
           <div className="p-3.5 rounded-xl bg-gradient-to-br from-emerald-50/80 via-white to-emerald-50/30 border border-emerald-200/70 shadow-xs">
             <div className="flex items-center justify-between gap-1 text-[var(--ink-500)] mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-900">Closed Won</span>
+              <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-emerald-900">
+                Closed Won
+                <InfoTooltip text="Total value of every opportunity currently marked Closed Won on this board." />
+              </span>
               <div className="w-5 h-5 rounded-md bg-emerald-100/80 flex items-center justify-center text-emerald-700">
                 <Trophy size={11} />
               </div>
@@ -283,7 +292,10 @@ export default function PipelinePage() {
           {/* Card 5: Average Deal Size */}
           <div className="p-3.5 rounded-xl bg-gradient-to-br from-purple-50/80 via-white to-purple-50/30 border border-purple-200/70 shadow-xs col-span-2 sm:col-span-1">
             <div className="flex items-center justify-between gap-1 text-[var(--ink-500)] mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-purple-900">Avg. Opportunity Size</span>
+              <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-purple-900">
+                Avg. Opportunity Size
+                <InfoTooltip text="Total value of Active Opportunities (all open stages except Prospect) ÷ the count of them." />
+              </span>
               <div className="w-5 h-5 rounded-md bg-purple-100/80 flex items-center justify-center text-purple-700">
                 <IndianRupee size={11} />
               </div>

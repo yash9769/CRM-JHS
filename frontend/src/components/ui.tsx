@@ -1,6 +1,36 @@
 import type { ReactNode } from "react";
-import { X, ArrowLeft } from "lucide-react";
+import { X, ArrowLeft, Info } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+
+/**
+ * Small "i" icon that reveals a plain-language explanation on hover/focus --
+ * pure CSS (group-hover), no state, so it's cheap to drop into any KPI card
+ * that shows a computed value people want to understand ("how is this
+ * calculated?"). Keyboard-focusable for accessibility.
+ */
+export function InfoTooltip({ text, className = "" }: { text: string; className?: string }) {
+  return (
+    <span className={`relative inline-flex group/tip ${className}`}>
+      <button
+        type="button"
+        tabIndex={0}
+        onClick={(e) => e.stopPropagation()}
+        className="shrink-0 opacity-60 hover:opacity-100 focus:opacity-100 outline-none"
+        aria-label="How this is calculated"
+      >
+        <Info size={11} />
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute z-50 hidden group-hover/tip:block group-focus-within/tip:block
+                   bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-56 rounded-lg bg-[var(--ink-900)] text-white
+                   text-[11px] leading-snug font-normal normal-case tracking-normal px-2.5 py-2 shadow-lg"
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
 
 /**
  * Vivid gradient accent palette introduced by the pipeline "beautify" work
@@ -79,15 +109,18 @@ export const accentClasses: Record<AccentColor, AccentTheme> = {
 
 /** Single gradient KPI tile, styled after the Pipeline page's metrics strip. */
 export function MetricCard({
-  label, value, caption, icon: Icon, color = "indigo", className = "",
+  label, value, caption, icon: Icon, color = "indigo", className = "", tooltip,
 }: {
-  label: string; value: ReactNode; caption?: string; icon?: React.ElementType; color?: AccentColor; className?: string;
+  label: string; value: ReactNode; caption?: string; icon?: React.ElementType; color?: AccentColor; className?: string; tooltip?: string;
 }) {
   const a = accentClasses[color];
   return (
     <div className={`p-3.5 rounded-xl bg-gradient-to-br ${a.gradient} border ${a.border} shadow-xs ${className}`}>
       <div className="flex items-center justify-between gap-1 mb-1">
-        <span className={`text-[11px] font-bold uppercase tracking-wider ${a.label}`}>{label}</span>
+        <span className={`flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider ${a.label}`}>
+          {label}
+          {tooltip && <InfoTooltip text={tooltip} />}
+        </span>
         {Icon && (
           <div className={`w-5 h-5 rounded-md ${a.iconBg} flex items-center justify-center ${a.iconText}`}>
             <Icon size={11} />
