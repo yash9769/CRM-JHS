@@ -245,21 +245,68 @@ export default async function userRoutes(app: FastifyInstance) {
     }
 
     const actorId = actor.id;
+    // Deleting a user requires clearing EVERY foreign key across the schema
+    // that can point at users.id -- Postgres has no ON DELETE rule on any of
+    // them, so prisma.user.delete() at the end fails with an opaque 500 on
+    // whichever reference is left dangling (this has bitten notifications
+    // and stage_approvals in production already; Lead was previously missing
+    // from this list entirely). Three handling strategies, by field meaning:
+    //  - Ownership/attribution on CRM records -> reassign to the actor,
+    //    matching the "records will be reassigned to you" warning shown
+    //    before this delete is confirmed.
+    //  - Records personal to the deleted user (their notifications, sticky
+    //    notes, saved views, forecast target) -> delete outright; reassigning
+    //    them to the actor would misattribute or spam someone else's data.
+    //  - Historical "who did this" references (audit log, approval/review
+    //    trail) -> null the nullable ones (matches the "unassigned" state
+    //    those workflows already support) and reassign only the non-nullable
+    //    ones (requestedById), since audit_logs.userId must NOT become the
+    //    actor -- that would misattribute the deleted user's past actions.
     await prisma.$transaction([
       prisma.account.updateMany({ where: { ownerId: targetId }, data: { ownerId: actorId } }),
+      prisma.account.updateMany({ where: { createdById: targetId }, data: { createdById: actorId } }),
       prisma.contact.updateMany({ where: { ownerId: targetId }, data: { ownerId: actorId } }),
+      prisma.contact.updateMany({ where: { createdById: targetId }, data: { createdById: actorId } }),
+      prisma.lead.updateMany({ where: { ownerId: targetId }, data: { ownerId: actorId } }),
+      prisma.lead.updateMany({ where: { createdById: targetId }, data: { createdById: actorId } }),
       prisma.opportunity.updateMany({ where: { ownerId: targetId }, data: { ownerId: actorId } }),
+      prisma.opportunity.updateMany({ where: { createdById: targetId }, data: { createdById: actorId } }),
       prisma.quote.updateMany({ where: { ownerId: targetId }, data: { ownerId: actorId } }),
+      prisma.quote.updateMany({ where: { createdById: targetId }, data: { createdById: actorId } }),
       prisma.product.updateMany({ where: { ownerId: targetId }, data: { ownerId: actorId } }),
+      prisma.product.updateMany({ where: { createdById: targetId }, data: { createdById: actorId } }),
       prisma.activity.updateMany({ where: { ownerId: targetId }, data: { ownerId: actorId } }),
+      prisma.activity.updateMany({ where: { createdById: targetId }, data: { createdById: actorId } }),
       prisma.note.updateMany({ where: { authorId: targetId }, data: { authorId: actorId } }),
       prisma.sequence.updateMany({ where: { ownerId: targetId }, data: { ownerId: actorId } }),
+      prisma.sequence.updateMany({ where: { createdById: targetId }, data: { createdById: actorId } }),
+      prisma.opportunityAttachment.updateMany({ where: { uploadedById: targetId }, data: { uploadedById: actorId } }),
+
+      prisma.notification.deleteMany({ where: { userId: targetId } }),
+      prisma.stickyNote.deleteMany({ where: { userId: targetId } }),
+      prisma.savedView.deleteMany({ where: { ownerId: targetId } }),
+      prisma.forecastTarget.deleteMany({ where: { ownerId: targetId } }),
+
+      prisma.auditLog.updateMany({ where: { userId: targetId }, data: { userId: null } }),
+
+      prisma.stageApproval.updateMany({ where: { requestedById: targetId }, data: { requestedById: actorId } }),
+      prisma.stageApproval.updateMany({ where: { approverId: targetId }, data: { approverId: null } }),
+      prisma.stageApproval.updateMany({ where: { reviewedById: targetId }, data: { reviewedById: null } }),
+      prisma.accountDeletionRequest.updateMany({ where: { requestedById: targetId }, data: { requestedById: actorId } }),
+      prisma.accountDeletionRequest.updateMany({ where: { approverId: targetId }, data: { approverId: null } }),
+      prisma.accountDeletionRequest.updateMany({ where: { reviewedById: targetId }, data: { reviewedById: null } }),
+      prisma.contactDeletionRequest.updateMany({ where: { requestedById: targetId }, data: { requestedById: actorId } }),
+      prisma.contactDeletionRequest.updateMany({ where: { approverId: targetId }, data: { approverId: null } }),
+      prisma.contactDeletionRequest.updateMany({ where: { reviewedById: targetId }, data: { reviewedById: null } }),
+      prisma.opportunityDeletionRequest.updateMany({ where: { requestedById: targetId }, data: { requestedById: actorId } }),
+      prisma.opportunityDeletionRequest.updateMany({ where: { approverId: targetId }, data: { approverId: null } }),
+      prisma.opportunityDeletionRequest.updateMany({ where: { reviewedById: targetId }, data: { reviewedById: null } }),
+
       // Other users can reference this one via partnerId (their "reports to")
-      // or createdById -- both are foreign keys with no ON DELETE rule, so
-      // prisma.user.delete() below would fail with a constraint violation
-      // (surfacing as an opaque 500) if either is left pointing at targetId.
+      // or createdById.
       prisma.user.updateMany({ where: { partnerId: targetId }, data: { partnerId: null } }),
       prisma.user.updateMany({ where: { createdById: targetId }, data: { createdById: actorId } }),
+
       prisma.user.delete({ where: { id: targetId } }),
     ]);
 
