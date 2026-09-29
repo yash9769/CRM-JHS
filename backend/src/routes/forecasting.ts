@@ -2,6 +2,14 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { getCreatedByFilter, getVisibleUserIds } from "../lib/rbac.js";
+import { computeOpportunityFinancials } from "../lib/financial.js";
+
+/** Same "Proposal Value" resolver used by the dashboard and pipeline pages:
+ * prefers expectedOpportunityValue, falling back to the legacy amount column. */
+function oppValue(o: { amount: any; expectedOpportunityValue?: any }): number {
+  const f = computeOpportunityFinancials(o);
+  return f.expectedOpportunityValue ?? Number(o.amount || 0);
+}
 
 /** Accepts "YYYY-MM" (monthly), "YYYY-Qn" (quarterly), or "YYYY" (yearly). */
 const PERIOD_REGEX = /^(\d{4})(?:-(\d{2})|-Q([1-4]))?$/;
@@ -150,12 +158,12 @@ export default async function forecastingRoutes(app: FastifyInstance) {
       }),
     ]);
 
-    const closedWonRevenue = closedWonOpps.reduce((s, o) => s + Number(o.amount), 0);
-    const closedLostRevenue = closedLostOpps.reduce((s, o) => s + Number(o.amount), 0);
-    const commitRevenue = openOpps.filter(o => o.forecastCategory === "COMMIT").reduce((s, o) => s + Number(o.amount), 0);
-    const bestCaseRevenue = openOpps.filter(o => ["COMMIT", "BEST_CASE"].includes(o.forecastCategory)).reduce((s, o) => s + Number(o.amount), 0);
-    const pipelineRevenue = openOpps.reduce((s, o) => s + Number(o.amount), 0);
-    const weightedRevenue = openOpps.reduce((s, o) => s + Number(o.amount) * (o.probability / 100), 0);
+    const closedWonRevenue = closedWonOpps.reduce((s, o) => s + oppValue(o), 0);
+    const closedLostRevenue = closedLostOpps.reduce((s, o) => s + oppValue(o), 0);
+    const commitRevenue = openOpps.filter(o => o.forecastCategory === "COMMIT").reduce((s, o) => s + oppValue(o), 0);
+    const bestCaseRevenue = openOpps.filter(o => ["COMMIT", "BEST_CASE"].includes(o.forecastCategory)).reduce((s, o) => s + oppValue(o), 0);
+    const pipelineRevenue = openOpps.reduce((s, o) => s + oppValue(o), 0);
+    const weightedRevenue = openOpps.reduce((s, o) => s + oppValue(o) * (o.probability / 100), 0);
     const totalTarget = targets.reduce((s, t) => s + Number(t.targetAmount), 0);
 
     // By owner breakdown
@@ -167,10 +175,10 @@ export default async function forecastingRoutes(app: FastifyInstance) {
 
     const byOwner = users.map(user => {
       const userTarget = targets.find(t => t.ownerId === user.id);
-      const userClosed = closedWonOpps.filter(o => o.ownerId === user.id).reduce((s, o) => s + Number(o.amount), 0);
-      const userLost = closedLostOpps.filter(o => o.ownerId === user.id).reduce((s, o) => s + Number(o.amount), 0);
-      const userPipeline = openOpps.filter(o => o.ownerId === user.id).reduce((s, o) => s + Number(o.amount), 0);
-      const userWeighted = openOpps.filter(o => o.ownerId === user.id).reduce((s, o) => s + Number(o.amount) * (o.probability / 100), 0);
+      const userClosed = closedWonOpps.filter(o => o.ownerId === user.id).reduce((s, o) => s + oppValue(o), 0);
+      const userLost = closedLostOpps.filter(o => o.ownerId === user.id).reduce((s, o) => s + oppValue(o), 0);
+      const userPipeline = openOpps.filter(o => o.ownerId === user.id).reduce((s, o) => s + oppValue(o), 0);
+      const userWeighted = openOpps.filter(o => o.ownerId === user.id).reduce((s, o) => s + oppValue(o) * (o.probability / 100), 0);
       return {
         owner: user,
         target: userTarget ? Number(userTarget.targetAmount) : 0,
@@ -195,8 +203,8 @@ export default async function forecastingRoutes(app: FastifyInstance) {
       },
       byOwner,
       opportunities: {
-        closedWon: closedWonOpps.map(o => ({ id: o.id, name: o.name, amount: Number(o.amount), owner: o.owner, wonDate: o.wonDate })),
-        open: openOpps.map(o => ({ id: o.id, name: o.name, amount: Number(o.amount), probability: o.probability, forecastCategory: o.forecastCategory, closeDate: o.expectedCloseDate, owner: o.owner })),
+        closedWon: closedWonOpps.map(o => ({ id: o.id, name: o.name, amount: oppValue(o), owner: o.owner, wonDate: o.wonDate })),
+        open: openOpps.map(o => ({ id: o.id, name: o.name, amount: oppValue(o), probability: o.probability, forecastCategory: o.forecastCategory, closeDate: o.expectedCloseDate, owner: o.owner })),
       },
     };
   });
