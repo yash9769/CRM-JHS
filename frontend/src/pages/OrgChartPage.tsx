@@ -797,6 +797,7 @@ function InteractiveZoomCanvas({
   managers,
   collapsedPartners,
   canEdit,
+  canManageSeniorPartner,
   togglePartnerCollapse,
   setEditUser,
   setDeleteTarget,
@@ -808,6 +809,10 @@ function InteractiveZoomCanvas({
   managers: any[];
   collapsedPartners: Record<string, boolean>;
   canEdit: boolean;
+  // Only a SUPER_ADMIN may edit/remove a Senior Partner -- everyone else who
+  // passes canEdit (a Senior Partner or Partner) can manage Partners/Managers
+  // but never the Senior Partner tier itself.
+  canManageSeniorPartner: boolean;
   togglePartnerCollapse: (partnerId: string) => void;
   setEditUser: (u: any) => void;
   setDeleteTarget: (u: any) => void;
@@ -923,9 +928,9 @@ function InteractiveZoomCanvas({
                   <EnhancedUserCard
                     key={sp.id}
                     user={sp}
-                    canEdit={false}
-                    onEdit={() => {}}
-                    onDelete={() => {}}
+                    canEdit={canManageSeniorPartner}
+                    onEdit={(u) => setEditUser(u)}
+                    onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
                     onSelect={(u) => setBirdEyeUser(u)}
                   />
                 ))}
@@ -1087,6 +1092,7 @@ export default function OrgChartPage() {
   const managers: any[] = data?.managers || [];
 
   const canEdit = canManageUsers(me);
+  const canManageSeniorPartner = me?.orgRole === "SUPER_ADMIN";
 
   // Toggle collapse state for partner sub-trees
   const togglePartnerCollapse = (partnerId: string) => {
@@ -1269,7 +1275,7 @@ export default function OrgChartPage() {
                 <EnhancedUserCard
                   key={user.id}
                   user={user}
-                  canEdit={canEdit}
+                  canEdit={user.orgRole === "SENIOR_PARTNER" ? canManageSeniorPartner : canEdit}
                   onEdit={(u) => setEditUser(u)}
                   onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
                   onSelect={(u) => setBirdEyeUser(u)}
@@ -1286,6 +1292,7 @@ export default function OrgChartPage() {
           managers={filteredManagers}
           collapsedPartners={collapsedPartners}
           canEdit={canEdit}
+          canManageSeniorPartner={canManageSeniorPartner}
           togglePartnerCollapse={togglePartnerCollapse}
           setEditUser={setEditUser}
           setDeleteTarget={setDeleteTarget}
