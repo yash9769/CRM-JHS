@@ -86,11 +86,11 @@ export default function TasksPage() {
       />
       <div className="px-4 md:px-8 pb-8">
         <MetricStrip className="mb-5">
-          <MetricCard label="Total Tasks" value={data?.data.length ?? 0} caption="In current scope" icon={ListTodo} color="indigo" />
-          <MetricCard label="Overdue" value={grouped.Overdue.length} caption="Past due date" icon={AlertTriangle} color="sky" />
-          <MetricCard label="Due Today" value={grouped.Today.length} caption="Needs attention today" icon={CalendarClock} color="amber" />
-          <MetricCard label="Completed" value={grouped.Completed.length} caption="Marked done" icon={CheckSquare} color="emerald" />
-          <MetricCard label="Upcoming" value={grouped.Upcoming.length} caption="Scheduled ahead" icon={Square} color="purple" />
+          <MetricCard label="Total Tasks" value={data?.data.length ?? 0} caption="In current scope" icon={ListTodo} color="indigo" tooltip="Count of tasks/activities matching the current filters." />
+          <MetricCard label="Overdue" value={grouped.Overdue.length} caption="Past due date" icon={AlertTriangle} color="sky" tooltip="Count of incomplete tasks whose due date is before today." />
+          <MetricCard label="Due Today" value={grouped.Today.length} caption="Needs attention today" icon={CalendarClock} color="amber" tooltip="Count of incomplete tasks whose due date falls today." />
+          <MetricCard label="Completed" value={grouped.Completed.length} caption="Marked done" icon={CheckSquare} color="emerald" tooltip="Count of tasks marked complete, in the current scope." />
+          <MetricCard label="Upcoming" value={grouped.Upcoming.length} caption="Scheduled ahead" icon={Square} color="purple" tooltip="Count of incomplete tasks whose due date is after today." />
         </MetricStrip>
 
         <div className="flex gap-1 mb-5 rounded-md p-0.5 w-fit bg-[var(--ink-100)]">

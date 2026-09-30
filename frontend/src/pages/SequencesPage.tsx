@@ -174,10 +174,10 @@ export default function SequencesPage() {
       <div className="px-8 pb-8">
         {!isLoading && sequencesList.length > 0 && (
           <MetricStrip className="mb-6">
-            <MetricCard label="Sequences" value={sequencesList.length} caption="Total automations" icon={ListTree} color="indigo" />
-            <MetricCard label="Total Steps" value={totalSteps} caption="Across all sequences" icon={CheckSquare} color="sky" />
-            <MetricCard label="Enrolled Contacts" value={totalEnrollments} caption="Currently enrolled" icon={Users} color="amber" />
-            <MetricCard label="Avg Steps" value={avgSteps.toFixed(1)} caption="Steps per sequence" icon={ListTree} color="emerald" />
+            <MetricCard label="Sequences" value={sequencesList.length} caption="Total automations" icon={ListTree} color="indigo" tooltip="Count of sequences matching the current filters/search." />
+            <MetricCard label="Total Steps" value={totalSteps} caption="Across all sequences" icon={CheckSquare} color="sky" tooltip="Sum of the number of steps in every visible sequence." />
+            <MetricCard label="Enrolled Contacts" value={totalEnrollments} caption="Currently enrolled" icon={Users} color="amber" tooltip="Sum of active enrollment counts across every visible sequence." />
+            <MetricCard label="Avg Steps" value={avgSteps.toFixed(1)} caption="Steps per sequence" icon={ListTree} color="emerald" tooltip="Total Steps ÷ number of visible sequences." />
           </MetricStrip>
         )}
         {isLoading ? (

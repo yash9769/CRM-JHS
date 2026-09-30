@@ -214,10 +214,10 @@ export default function ServicesPage() {
 
       <div className="px-4 md:px-8 pb-8 space-y-4">
         <MetricStrip>
-          <MetricCard label="Services" value={servicesList.length} caption="Service categories" icon={Layers} color="indigo" />
-          <MetricCard label="Active" value={activeCount} caption="Currently offered" icon={CheckCircle2} color="sky" />
-          <MetricCard label="Linked Products" value={totalProducts} caption="Across all services" icon={Package} color="amber" />
-          <MetricCard label="Avg per Service" value={avgProductsPerService.toFixed(1)} caption="Products per service" icon={Package} color="emerald" />
+          <MetricCard label="Services" value={servicesList.length} caption="Service categories" icon={Layers} color="indigo" tooltip="Count of service categories matching the current filters/search." />
+          <MetricCard label="Active" value={activeCount} caption="Currently offered" icon={CheckCircle2} color="sky" tooltip="Count of visible services flagged Active." />
+          <MetricCard label="Linked Products" value={totalProducts} caption="Across all services" icon={Package} color="amber" tooltip="Sum of the number of products linked to each visible service." />
+          <MetricCard label="Avg per Service" value={avgProductsPerService.toFixed(1)} caption="Products per service" icon={Package} color="emerald" tooltip="Linked Products ÷ number of visible services." />
         </MetricStrip>
         <Card>
           {isLoading ? (

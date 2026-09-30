@@ -203,11 +203,11 @@ export default function QuotesPage() {
       />
       <div className="px-4 md:px-8 pb-8 space-y-4">
         <MetricStrip>
-          <MetricCard label="Quotes" value={quotesList.length} caption="In current view" icon={FileStack} color="indigo" />
-          <MetricCard label="Total Value" value={formatCurrency(totalValue)} caption="Sum of all quotes" icon={IndianRupee} color="sky" />
-          <MetricCard label="Accepted" value={acceptedCount} caption="Won by customer" icon={CheckCircle} color="emerald" />
-          <MetricCard label="Pending" value={pendingCount} caption="Sent, awaiting response" icon={Send} color="amber" />
-          <MetricCard label="Acceptance Rate" value={`${acceptanceRate}%`} caption="Accepted of total" icon={Percent} color="purple" />
+          <MetricCard label="Quotes" value={quotesList.length} caption="In current view" icon={FileStack} color="indigo" tooltip="Count of quotes matching the current filters/search." />
+          <MetricCard label="Total Value" value={formatCurrency(totalValue)} caption="Sum of all quotes" icon={IndianRupee} color="sky" tooltip="Sum of each visible quote's amount." />
+          <MetricCard label="Accepted" value={acceptedCount} caption="Won by customer" icon={CheckCircle} color="emerald" tooltip="Count of visible quotes with status = Accepted." />
+          <MetricCard label="Pending" value={pendingCount} caption="Sent, awaiting response" icon={Send} color="amber" tooltip="Count of visible quotes with status = Sent or Viewed (not yet accepted, rejected, or expired)." />
+          <MetricCard label="Acceptance Rate" value={`${acceptanceRate}%`} caption="Accepted of total" icon={Percent} color="purple" tooltip="Accepted ÷ total quotes in the current view, as a percentage." />
         </MetricStrip>
         <Card>
           {isLoading ? (

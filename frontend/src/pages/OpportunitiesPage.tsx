@@ -326,11 +326,11 @@ export default function OpportunitiesPage() {
       {showImport && <CsvImportModal entity="opportunities" onClose={() => setShowImport(false)} />}
       <div className="px-4 md:px-8 pb-8 space-y-4">
         <MetricStrip>
-          <MetricCard label="Opportunities" value={sortedData.length} caption="In current view" icon={Layers} color="indigo" />
-          <MetricCard label="Total Value" value={formatCurrency(metrics.totalValue)} caption="Sum of proposal value" icon={IndianRupee} color="sky" />
-          <MetricCard label="Weighted Pipeline" value={formatCurrency(metrics.weightedValue)} caption="Probability adjusted" icon={TrendingUp} color="amber" />
-          <MetricCard label="Total Margin" value={formatCurrency(metrics.totalMargin)} caption="Across visible opportunities" icon={Gauge} color="emerald" />
-          <MetricCard label="Avg Opportunity Size" value={formatCurrency(avgDealSize)} caption="Mean value per opportunity" icon={IndianRupee} color="purple" />
+          <MetricCard label="Opportunities" value={sortedData.length} caption="In current view" icon={Layers} color="indigo" tooltip="Count of opportunities matching the current filters/search." />
+          <MetricCard label="Total Value" value={formatCurrency(metrics.totalValue)} caption="Sum of proposal value" icon={IndianRupee} color="sky" tooltip="Sum of each visible opportunity's proposal value (actual value if closed, else expected value), unweighted by probability." />
+          <MetricCard label="Weighted Pipeline" value={formatCurrency(metrics.weightedValue)} caption="Probability adjusted" icon={TrendingUp} color="amber" tooltip="Each visible opportunity's proposal value × its stage's win probability, summed." />
+          <MetricCard label="Total Margin" value={formatCurrency(metrics.totalMargin)} caption="Across visible opportunities" icon={Gauge} color="emerald" tooltip="Sum of (proposal value − cost incurred to company) across visible opportunities." />
+          <MetricCard label="Avg Opportunity Size" value={formatCurrency(avgDealSize)} caption="Mean value per opportunity" icon={IndianRupee} color="purple" tooltip="Total Value ÷ number of visible opportunities." />
         </MetricStrip>
 
         {/* Filter Tabs */}

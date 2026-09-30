@@ -398,10 +398,10 @@ export default function ProductsPage() {
 
       <div className="px-4 md:px-8 pb-8 space-y-4">
         <MetricStrip>
-          <MetricCard label="Products" value={productsList.length} caption="In catalog" icon={Package} color="indigo" />
-          <MetricCard label="Active" value={activeCount} caption="Currently sellable" icon={CheckCircle2} color="sky" />
-          <MetricCard label="Avg Unit Price" value={formatCurrency(avgUnitPrice)} caption="Mean price per product" icon={IndianRupee} color="amber" />
-          <MetricCard label="Services Covered" value={distinctServices} caption="Distinct service categories" icon={Layers} color="emerald" />
+          <MetricCard label="Products" value={productsList.length} caption="In catalog" icon={Package} color="indigo" tooltip="Count of products matching the current filters/search." />
+          <MetricCard label="Active" value={activeCount} caption="Currently sellable" icon={CheckCircle2} color="sky" tooltip="Count of visible products flagged Active." />
+          <MetricCard label="Avg Unit Price" value={formatCurrency(avgUnitPrice)} caption="Mean price per product" icon={IndianRupee} color="amber" tooltip="Sum of each visible product's unit price ÷ number of visible products." />
+          <MetricCard label="Services Covered" value={distinctServices} caption="Distinct service categories" icon={Layers} color="emerald" tooltip="Count of distinct service categories linked to at least one visible product." />
         </MetricStrip>
         <Card>
           {isLoading ? (

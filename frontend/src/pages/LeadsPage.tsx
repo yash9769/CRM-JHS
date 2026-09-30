@@ -108,11 +108,11 @@ export default function LeadsPage() {
       {showImport && <CsvImportModal entity="leads" onClose={() => setShowImport(false)} />}
       <div className="px-8 pb-8">
         <MetricStrip className="mb-4">
-          <MetricCard label="Leads" value={leadsList.length} caption="In current view" icon={Users} color="indigo" />
-          <MetricCard label="New" value={newLeadsCount} caption="Awaiting first contact" icon={Sparkles} color="sky" />
-          <MetricCard label="Qualified" value={qualifiedCount} caption="Ready to progress" icon={CheckCircle2} color="amber" />
-          <MetricCard label="Converted" value={convertedCount} caption="Turned into opportunities" icon={CheckCircle2} color="emerald" />
-          <MetricCard label="Avg Score" value={avgScore.toFixed(1)} caption="Mean lead score" icon={Gauge} color="purple" />
+          <MetricCard label="Leads" value={leadsList.length} caption="In current view" icon={Users} color="indigo" tooltip="Count of leads matching the current filters/search." />
+          <MetricCard label="New" value={newLeadsCount} caption="Awaiting first contact" icon={Sparkles} color="sky" tooltip="Count of leads in the current view with status = New." />
+          <MetricCard label="Qualified" value={qualifiedCount} caption="Ready to progress" icon={CheckCircle2} color="amber" tooltip="Count of leads in the current view with status = Qualified." />
+          <MetricCard label="Converted" value={convertedCount} caption="Turned into opportunities" icon={CheckCircle2} color="emerald" tooltip="Count of leads in the current view with status = Converted." />
+          <MetricCard label="Avg Score" value={avgScore.toFixed(1)} caption="Mean lead score" icon={Gauge} color="purple" tooltip="Sum of each lead's score ÷ number of leads in the current view." />
         </MetricStrip>
 
         <div className="flex items-center gap-3 mb-4">

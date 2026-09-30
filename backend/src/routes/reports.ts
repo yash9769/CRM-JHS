@@ -3,6 +3,15 @@ import { prisma } from "../lib/prisma.js";
 import { getCreatedByFilter, getVisibleUserIds, requireExportPermission } from "../lib/rbac.js";
 import { toCsv } from "../lib/csv.js";
 import { PERIOD_REGEX, parsePeriodRange } from "../lib/period.js";
+import { computeOpportunityFinancials } from "../lib/financial.js";
+
+/** Same "Proposal Value" resolver used by the dashboard, pipeline, and
+ * forecast pages: prefers expectedOpportunityValue, falling back to the
+ * legacy amount column. Keeps every report consistent with those pages. */
+function oppValue(o: { amount: any; expectedOpportunityValue?: any }): number {
+  const f = computeOpportunityFinancials(o);
+  return f.expectedOpportunityValue ?? Number(o.amount || 0);
+}
 
 export default async function reportRoutes(app: FastifyInstance) {
   // Pipeline health report
@@ -18,9 +27,9 @@ export default async function reportRoutes(app: FastifyInstance) {
     const stageData = await Promise.all(stages.map(async (stage) => {
       const opps = await prisma.opportunity.findMany({
         where: { tenantId, ...rbacFilter, stageId: stage.id, stage: { isClosed: false } },
-        select: { amount: true, expectedCloseDate: true, createdAt: true, updatedAt: true },
+        select: { amount: true, expectedOpportunityValue: true, expectedCloseDate: true, createdAt: true, updatedAt: true },
       });
-      const total = opps.reduce((s, o) => s + Number(o.amount), 0);
+      const total = opps.reduce((s, o) => s + oppValue(o), 0);
       const overdue = opps.filter(o => o.expectedCloseDate && new Date(o.expectedCloseDate) < new Date()).length;
       const avgAge = opps.length > 0
         ? opps.reduce((s, o) => s + Math.max(0, Date.now() - new Date(o.createdAt).getTime()), 0) / opps.length / 86400000
@@ -70,22 +79,21 @@ export default async function reportRoutes(app: FastifyInstance) {
           // `rbacFilter` and the date-window filter both use `OR`; compose them
           // with `AND` so the RBAC restriction is not silently overwritten.
           where: { tenantId, AND: [rbacFilter, { OR: [{ wonDate: { gte: periodStart, lte: periodEnd } }, { actualCloseDate: { gte: periodStart, lte: periodEnd } }, { updatedAt: { gte: periodStart, lte: periodEnd } }] }], ownerId: user.id, stage: { isClosed: true, isWon: true } },
-          select: { amount: true },
+          select: { amount: true, expectedOpportunityValue: true },
         }),
         prisma.opportunity.findMany({
           where: { tenantId, ...rbacFilter, ownerId: user.id, stage: { isClosed: true, isWon: false }, updatedAt: { gte: periodStart, lte: periodEnd } },
-          select: { amount: true },
+          select: { amount: true, expectedOpportunityValue: true },
         }),
       ]);
 
-      const pipeline = openOpps.reduce((s, o) => s + Number(o.expectedOpportunityValue ?? o.amount ?? 0), 0);
+      const pipeline = openOpps.reduce((s, o) => s + oppValue(o), 0);
       const weighted = openOpps.reduce((s, o) => {
         const prob = (o.probability !== null && o.probability !== undefined) ? o.probability : (o.stage?.probability ?? 0);
-        const amt = Number(o.expectedOpportunityValue ?? o.amount ?? 0);
-        return s + amt * (prob / 100);
+        return s + oppValue(o) * (prob / 100);
       }, 0);
-      const closedWon = wonOpps.reduce((s, o) => s + Number(o.amount), 0);
-      const closedLost = lostOpps.reduce((s, o) => s + Number(o.amount), 0);
+      const closedWon = wonOpps.reduce((s, o) => s + oppValue(o), 0);
+      const closedLost = lostOpps.reduce((s, o) => s + oppValue(o), 0);
       const winRate = (wonOpps.length + lostOpps.length) > 0
         ? wonOpps.length / (wonOpps.length + lostOpps.length)
         : null;
@@ -123,21 +131,20 @@ export default async function reportRoutes(app: FastifyInstance) {
         }),
         prisma.opportunity.findMany({
           where: { tenantId, ...rbacFilter, ownerId: user.id, stage: { isClosed: true, isWon: true } },
-          select: { amount: true },
+          select: { amount: true, expectedOpportunityValue: true },
         }),
         prisma.opportunity.findMany({
           where: { tenantId, ...rbacFilter, ownerId: user.id, stage: { isClosed: true, isWon: false } },
-          select: { amount: true },
+          select: { amount: true, expectedOpportunityValue: true },
         }),
       ]);
 
-      const pipeline = openOpps.reduce((s, o) => s + Number(o.expectedOpportunityValue ?? o.amount ?? 0), 0);
+      const pipeline = openOpps.reduce((s, o) => s + oppValue(o), 0);
       const weighted = openOpps.reduce((s, o) => {
         const prob = (o.probability !== null && o.probability !== undefined) ? o.probability : (o.stage?.probability ?? 0);
-        const amt = Number(o.expectedOpportunityValue ?? o.amount ?? 0);
-        return s + amt * (prob / 100);
+        return s + oppValue(o) * (prob / 100);
       }, 0);
-      const closedWon = wonOpps.reduce((s, o) => s + Number(o.amount), 0);
+      const closedWon = wonOpps.reduce((s, o) => s + oppValue(o), 0);
       const winRate = (wonOpps.length + lostOpps.length) > 0
         ? `${Math.round((wonOpps.length / (wonOpps.length + lostOpps.length)) * 100)}%`
         : "—";
@@ -222,8 +229,8 @@ export default async function reportRoutes(app: FastifyInstance) {
       monthlyData[period][type]++;
       monthlyData[period][`${type}Amount`] += amount;
     };
-    wonOpps.forEach(o => addToMonth(o.wonDate || o.actualCloseDate, Number(o.amount), "won"));
-    lostOpps.forEach(o => addToMonth(o.updatedAt, Number(o.amount), "lost"));
+    wonOpps.forEach(o => addToMonth(o.wonDate || o.actualCloseDate, oppValue(o), "won"));
+    lostOpps.forEach(o => addToMonth(o.updatedAt, oppValue(o), "lost"));
 
     // Summary numbers are scoped to exactly the selected period (a subset of
     // the wider trend window fetched above).
@@ -235,8 +242,8 @@ export default async function reportRoutes(app: FastifyInstance) {
       summary: {
         totalWon: summaryWon.length,
         totalLost: summaryLost.length,
-        wonRevenue: summaryWon.reduce((s, o) => s + Number(o.amount), 0),
-        lostRevenue: summaryLost.reduce((s, o) => s + Number(o.amount), 0),
+        wonRevenue: summaryWon.reduce((s, o) => s + oppValue(o), 0),
+        lostRevenue: summaryLost.reduce((s, o) => s + oppValue(o), 0),
         winRate: (summaryWon.length + summaryLost.length) > 0 ? summaryWon.length / (summaryWon.length + summaryLost.length) : 0,
       },
       monthly: Object.values(monthlyData).sort((a, b) => a.period.localeCompare(b.period)),
@@ -254,11 +261,11 @@ export default async function reportRoutes(app: FastifyInstance) {
 
     const rbacFilter = await getCreatedByFilter(req.authUser);
     const stageCounts = await Promise.all(stages.map(async (s) => {
-      const [count, amount] = await Promise.all([
-        prisma.opportunity.count({ where: { tenantId, ...rbacFilter, stageId: s.id } }),
-        prisma.opportunity.aggregate({ where: { tenantId, ...rbacFilter, stageId: s.id }, _sum: { amount: true } }),
-      ]);
-      return { stage: s, count, amount: Number(amount._sum.amount || 0) };
+      const opps = await prisma.opportunity.findMany({
+        where: { tenantId, ...rbacFilter, stageId: s.id },
+        select: { amount: true, expectedOpportunityValue: true },
+      });
+      return { stage: s, count: opps.length, amount: opps.reduce((sum, o) => sum + oppValue(o), 0) };
     }));
 
     return { data: stageCounts };

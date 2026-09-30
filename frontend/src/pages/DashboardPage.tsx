@@ -415,15 +415,16 @@ function ForecastSection({ period }: { period: string }) {
 
       {s && (
         <MetricStrip>
-          <MetricCard label="Total Target" value={s.target > 0 ? formatCurrency(s.target) : "Not set"} caption="For this cycle" icon={Target} color="indigo" />
-          <MetricCard label="Closed Won" value={formatCurrency(s.closedWon)} caption="Realized revenue" icon={Trophy} color="sky" />
-          <MetricCard label="Weighted Pipeline" value={formatCurrency(s.weighted)} caption="Probability adjusted" icon={TrendingUp} color="amber" />
+          <MetricCard label="Total Target" value={s.target > 0 ? formatCurrency(s.target) : "Not set"} caption="For this cycle" icon={Target} color="indigo" tooltip="The revenue target set for this owner/team for the selected period. Set via the 'Set Target' button." />
+          <MetricCard label="Closed Won" value={formatCurrency(s.closedWon)} caption="Realized revenue" icon={Trophy} color="sky" tooltip="Sum of proposal value for every opportunity moved to a Closed Won stage during this period." />
+          <MetricCard label="Weighted Pipeline" value={formatCurrency(s.weighted)} caption="Probability adjusted" icon={TrendingUp} color="amber" tooltip="Each open opportunity closing in this period: proposal value × its stage's win probability, summed." />
           <MetricCard
             label="Lost Opportunity"
             value={formatCurrency(s.lostOpportunity || 0)}
             caption={s.gap > 0 ? `${formatCurrency(s.gap)} gap to target` : "Closed lost this cycle"}
             icon={AlertCircle}
             color="purple"
+            tooltip="Sum of proposal value for every opportunity moved to a Closed Lost stage during this period. Gap = Target − Closed Won, floored at 0."
           />
         </MetricStrip>
       )}
@@ -634,10 +635,10 @@ function WinLossSection() {
         action={<PeriodPicker state={winLossPicker} />}
       />
       <MetricStrip>
-        <MetricCard label="Opportunities Won" value={String(s.totalWon)} caption={formatCurrency(s.wonRevenue)} icon={Trophy} color="indigo" />
-        <MetricCard label="Opportunities Lost" value={String(s.totalLost)} caption={formatCurrency(s.lostRevenue)} icon={AlertCircle} color="sky" />
-        <MetricCard label="Win Rate" value={`${Math.round(s.winRate * 100)}%`} caption="by count" icon={Percent} color="amber" />
-        <MetricCard label="Won Revenue" value={formatCurrency(s.wonRevenue)} caption={periodLabel} icon={IndianRupee} color="emerald" />
+        <MetricCard label="Opportunities Won" value={String(s.totalWon)} caption={formatCurrency(s.wonRevenue)} icon={Trophy} color="indigo" tooltip="Count of opportunities moved to a Closed Won stage within the selected period." />
+        <MetricCard label="Opportunities Lost" value={String(s.totalLost)} caption={formatCurrency(s.lostRevenue)} icon={AlertCircle} color="sky" tooltip="Count of opportunities moved to a Closed Lost stage within the selected period." />
+        <MetricCard label="Win Rate" value={`${Math.round(s.winRate * 100)}%`} caption="by count" icon={Percent} color="amber" tooltip="Opportunities Won ÷ (Opportunities Won + Opportunities Lost), by count — not by revenue." />
+        <MetricCard label="Won Revenue" value={formatCurrency(s.wonRevenue)} caption={periodLabel} icon={IndianRupee} color="emerald" tooltip="Sum of proposal value for every opportunity in Opportunities Won." />
       </MetricStrip>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {pieData.length > 0 && (
@@ -700,8 +701,21 @@ function OwnerPerformanceSection() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left border-b border-[var(--ink-100)]">
-                  {["Representative", "Role", "Open Opps", "Pipeline", "Weighted", "Closed Won", "Win Rate"].map(h => (
-                    <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">{h}</th>
+                  {[
+                    { h: "Representative" },
+                    { h: "Role" },
+                    { h: "Open Opps", tip: "Count of this rep's opportunities in an open (not closed) stage." },
+                    { h: "Pipeline", tip: "Sum of proposal value across this rep's open opportunities, unweighted by probability." },
+                    { h: "Weighted", tip: "Each of this rep's open opportunities: proposal value × stage win probability, summed." },
+                    { h: "Closed Won", tip: "Sum of proposal value across this rep's opportunities closed as Won." },
+                    { h: "Win Rate", tip: "This rep's Closed Won count ÷ (Closed Won + Closed Lost count), by count." },
+                  ].map(({ h, tip }) => (
+                    <th key={h} className="px-4 py-2.5 text-xs uppercase font-medium text-[var(--ink-400)]">
+                      <span className="inline-flex items-center gap-1">
+                        {h}
+                        {tip && <InfoTooltip text={tip} />}
+                      </span>
+                    </th>
                   ))}
                 </tr>
               </thead>

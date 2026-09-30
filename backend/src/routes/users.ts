@@ -2,6 +2,16 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { canManageUser, getVisibleUserIds } from "../lib/rbac.js";
+import { computeOpportunityFinancials } from "../lib/financial.js";
+import { formatOppWithFinancials } from "./opportunities.js";
+
+/** Same "Proposal Value" resolver used by the dashboard, pipeline, and
+ * forecast/report pages: prefers expectedOpportunityValue, falling back to
+ * the legacy amount column. */
+function oppValue(o: { amount: any; expectedOpportunityValue?: any }): number {
+  const f = computeOpportunityFinancials(o);
+  return f.expectedOpportunityValue ?? Number(o.amount || 0);
+}
 
 const CreateUserSchema = z.object({
   email: z.string().email(),
@@ -327,16 +337,16 @@ export default async function userRoutes(app: FastifyInstance) {
 
     const stats = await Promise.all(
       users.map(async (u) => {
-        const [openOpps, closedWon] = await Promise.all([
+        const [openOpps, closedWonOpps] = await Promise.all([
           prisma.opportunity.count({ where: { tenantId, ownerId: u.id, stage: { isClosed: false } } }),
-          prisma.opportunity.aggregate({
+          prisma.opportunity.findMany({
             where: { tenantId, ownerId: u.id, stage: { isClosed: true, isWon: true } },
-            _sum: { amount: true },
+            select: { amount: true, expectedOpportunityValue: true },
           }),
         ]);
         return {
           ...u,
-          closedWonRevenue: Number(closedWon._sum.amount || 0),
+          closedWonRevenue: closedWonOpps.reduce((sum, o) => sum + oppValue(o), 0),
           openOpportunities: openOpps,
         };
       })
@@ -389,11 +399,11 @@ export default async function userRoutes(app: FastifyInstance) {
     ] = await Promise.all([
       prisma.opportunity.findMany({
         where: { tenantId, ownerId: { in: teamUserIds }, stage: { isWon: true } },
-        select: { id: true, amount: true },
+        select: { id: true, amount: true, expectedOpportunityValue: true },
       }),
       prisma.opportunity.findMany({
         where: { tenantId, ownerId: { in: teamUserIds }, stage: { isClosed: false } },
-        select: { id: true, amount: true },
+        select: { id: true, amount: true, expectedOpportunityValue: true },
       }),
       prisma.opportunity.findMany({
         where: { tenantId, ownerId: { in: teamUserIds } },
@@ -427,8 +437,8 @@ export default async function userRoutes(app: FastifyInstance) {
       }),
     ]);
 
-    const closedWonRevenue = closedWonOpps.reduce((sum, o) => sum + Number(o.amount || 0), 0);
-    const openPipelineRevenue = openOpps.reduce((sum, o) => sum + Number(o.amount || 0), 0);
+    const closedWonRevenue = closedWonOpps.reduce((sum, o) => sum + oppValue(o), 0);
+    const openPipelineRevenue = openOpps.reduce((sum, o) => sum + oppValue(o), 0);
 
     return {
       user: targetUser,
@@ -443,7 +453,7 @@ export default async function userRoutes(app: FastifyInstance) {
         activitiesCount,
       },
       recentActivities,
-      recentOpps,
+      recentOpps: recentOpps.map(formatOppWithFinancials),
       accounts,
     };
   });
