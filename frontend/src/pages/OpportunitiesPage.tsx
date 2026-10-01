@@ -618,14 +618,16 @@ export default function OpportunitiesPage() {
 
               {/* Mobile Card Layout */}
               <div className="block md:hidden divide-y divide-[var(--ink-100)]">
-                {sortedData.map((o) => (
+                {sortedData.map((o) => {
+                  const mobileFinancials = computeOpportunityFinancials(o);
+                  return (
                   <div key={o.id} className="p-4 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <Link to={`/opportunities/${o.id}`} className="font-semibold text-base text-[var(--ledger-700)]">
                         {o.name}
                       </Link>
                       <span className="font-mono-num font-bold text-sm text-[var(--ledger-800)]">
-                        {formatCurrency(o.amount)}
+                        {formatCurrency(mobileFinancials.actualOpportunityValue ?? o.amount)}
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--ink-500)]">
@@ -647,7 +649,8 @@ export default function OpportunitiesPage() {
                       </span>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </>
           )}

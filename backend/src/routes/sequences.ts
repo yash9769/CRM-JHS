@@ -109,7 +109,9 @@ export default async function sequenceRoutes(app: FastifyInstance) {
     const seq = await prisma.sequence.findFirst({ where: { id: req.params.id, tenantId: req.authUser.tenantId } });
     if (!seq) return reply.code(404).send({ error: "Sequence not found" });
     await requireCanAccess(req.authUser, seq);
-    await prisma.sequenceStep.delete({ where: { id: req.params.stepId } });
+    const step = await prisma.sequenceStep.findFirst({ where: { id: req.params.stepId, sequenceId: req.params.id } });
+    if (!step) return reply.code(404).send({ error: "Step not found" });
+    await prisma.sequenceStep.delete({ where: { id: step.id } });
     return reply.code(204).send();
   });
 
@@ -149,7 +151,9 @@ export default async function sequenceRoutes(app: FastifyInstance) {
     const seq = await prisma.sequence.findFirst({ where: { id: req.params.id, tenantId: req.authUser.tenantId } });
     if (!seq) return reply.code(404).send({ error: "Sequence not found" });
     await requireCanAccess(req.authUser, seq);
-    await prisma.sequenceEnrollment.update({ where: { id: req.params.enrollmentId }, data: { status: EnrollmentStatus.UNENROLLED } });
+    const enrollment = await prisma.sequenceEnrollment.findFirst({ where: { id: req.params.enrollmentId, sequenceId: req.params.id } });
+    if (!enrollment) return reply.code(404).send({ error: "Enrollment not found" });
+    await prisma.sequenceEnrollment.update({ where: { id: enrollment.id }, data: { status: EnrollmentStatus.UNENROLLED } });
     return reply.code(204).send();
   });
 }

@@ -1000,7 +1000,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     const stageChanged = body.stageId && body.stageId !== existing.stageId;
     if (stageChanged) {
       targetStage = await prisma.pipelineStage.findFirst({
-        where: { id: body.stageId, pipelineId: body.pipelineId ?? existing.pipelineId },
+        where: { id: body.stageId, pipelineId: body.pipelineId ?? existing.pipelineId, pipeline: { tenantId: req.authUser.tenantId } },
       });
       if (!targetStage) return reply.code(400).send({ error: "Invalid stage for this pipeline" });
     }
@@ -1380,7 +1380,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
             OR: [
               { approverId: req.authUser.id },
               { approverId: null },
-              { tenantId: req.authUser.tenantId },
+              ...((req.authUser.orgRole === "SENIOR_PARTNER" || req.authUser.orgRole === "SUPER_ADMIN") ? [{ tenantId: req.authUser.tenantId }] : []),
             ],
           }),
     };

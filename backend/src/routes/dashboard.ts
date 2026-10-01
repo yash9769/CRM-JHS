@@ -287,10 +287,11 @@ export default async function dashboardRoutes(app: FastifyInstance) {
 
         if (!isInactive && !closeDatePassed) return null;
 
+        const riskFin = computeOpportunityFinancials(o);
         return {
           id: o.id,
           name: o.name,
-          amount: o.amount,
+          amount: riskFin.expectedOpportunityValue ?? Number(o.amount || 0),
           account: o.account,
           reason: closeDatePassed ? "Expected close date passed" : `No activity for ${daysSince} days`,
         };

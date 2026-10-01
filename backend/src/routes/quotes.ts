@@ -5,6 +5,7 @@ import { logAudit } from "../lib/audit.js";
 import { generateQuotePdf } from "../lib/quotePdf.js";
 import { toCsv } from "../lib/csv.js";
 import { requireExportPermission, getCreatedByFilter, requireCanAccess } from "../lib/rbac.js";
+import { computeOpportunityFinancials } from "../lib/financial.js";
 
 const CreateQuoteSchema = z.object({
   opportunityId: z.string(),
@@ -134,6 +135,9 @@ export default async function quoteRoutes(app: FastifyInstance) {
     const opp = await prisma.opportunity.findFirst({ where: { id: body.opportunityId, tenantId: req.authUser.tenantId } });
     if (!opp) return reply.code(404).send({ error: "Opportunity not found" });
 
+    const account = await prisma.account.findFirst({ where: { id: body.accountId, tenantId: req.authUser.tenantId } });
+    if (!account) return reply.code(404).send({ error: "Account not found" });
+
     const count = await prisma.quote.count({ where: { tenantId: req.authUser.tenantId } });
     const quoteNumber = `Q-${String(count + 1).padStart(5, "0")}`;
 
@@ -149,9 +153,11 @@ export default async function quoteRoutes(app: FastifyInstance) {
     }
 
     if (!lineItemsToCreate.length) {
-      const taxAmt2 = Number(opp.amount) * (body.taxPct / 100);
-      const discountAmt2 = Number(opp.amount) * (body.discountPct / 100);
-      const quoteAmount = Number(opp.amount) - discountAmt2 + taxAmt2;
+      const oppFin = computeOpportunityFinancials(opp);
+      const oppAmount = oppFin.expectedOpportunityValue ?? Number(opp.amount || 0);
+      const taxAmt2 = oppAmount * (body.taxPct / 100);
+      const discountAmt2 = oppAmount * (body.discountPct / 100);
+      const quoteAmount = oppAmount - discountAmt2 + taxAmt2;
       const quote = await prisma.quote.create({
         data: {
           tenantId: req.authUser.tenantId,

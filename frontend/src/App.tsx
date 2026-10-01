@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useAuth, canViewOrgChart } from "./hooks/useAuth";
+import { useAuth, canViewOrgChart, canViewQuotes } from "./hooks/useAuth";
 import AppShell from "./components/AppShell";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -39,7 +39,7 @@ export default function App() {
         <Route path="/opportunities" element={<OpportunitiesPage />} />
         <Route path="/opportunities/:id" element={<OpportunityDetailPage />} />
         <Route path="/pipeline" element={<PipelinePage />} />
-        <Route path="/quotes" element={<QuotesPage />} />
+        <Route path="/quotes" element={canViewQuotes(user) ? <QuotesPage /> : <Navigate to="/" replace />} />
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/products" element={<ProductsPage />} />
         {/* Reports and Forecasting were merged into the Dashboard -- redirect old links */}

@@ -56,7 +56,14 @@ export default function LeadsPage() {
 
   const bulkMutation = useMutation({
     mutationFn: (payload: any) => api.post("/leads/bulk", { ids: Array.from(selected), ...payload }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["leads"] }); setSelected(new Set()); setBulkOwnerPicker(false); setBulkStatusPicker(false); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      setSelected(new Set());
+      setBulkOwnerPicker(false);
+      setBulkStatusPicker(false);
+      setBulkOwnerId(null);
+      setBulkOwnerLabel(null);
+    },
   });
 
   function toggleAll(checked: boolean) {
@@ -228,7 +235,7 @@ export default function LeadsPage() {
             placeholder="Search owner…"
           />
           <div className="flex justify-end gap-2 mt-2">
-            <Button size="sm" variant="secondary" onClick={() => setBulkOwnerPicker(false)}>Cancel</Button>
+            <Button size="sm" variant="secondary" onClick={() => { setBulkOwnerPicker(false); setBulkOwnerId(null); setBulkOwnerLabel(null); }}>Cancel</Button>
             <Button size="sm" disabled={!bulkOwnerId || bulkMutation.isPending} onClick={() => bulkMutation.mutate({ action: "assignOwner", ownerId: bulkOwnerId })}>Apply</Button>
           </div>
         </div>

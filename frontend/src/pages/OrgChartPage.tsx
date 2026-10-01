@@ -75,6 +75,7 @@ export function RoleBadge({ role }: { role: string }) {
 function EnhancedUserCard({
   user,
   canEdit,
+  isSelf,
   isExpanded,
   hasChildren,
   onToggleExpand,
@@ -84,6 +85,7 @@ function EnhancedUserCard({
 }: {
   user: any;
   canEdit: boolean;
+  isSelf?: boolean;
   isExpanded?: boolean;
   hasChildren?: boolean;
   onToggleExpand?: () => void;
@@ -185,16 +187,18 @@ function EnhancedUserCard({
           >
             <Edit2 size={12} /> Edit
           </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(user);
-            }}
-            className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors"
-            title="Remove team member"
-          >
-            <Trash2 size={12} />
-          </button>
+          {!isSelf && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(user);
+              }}
+              className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors"
+              title="Remove team member"
+            >
+              <Trash2 size={12} />
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -798,6 +802,7 @@ function InteractiveZoomCanvas({
   collapsedPartners,
   canEdit,
   canManageSeniorPartner,
+  meId,
   togglePartnerCollapse,
   setEditUser,
   setDeleteTarget,
@@ -813,6 +818,10 @@ function InteractiveZoomCanvas({
   // passes canEdit (a Senior Partner or Partner) can manage Partners/Managers
   // but never the Senior Partner tier itself.
   canManageSeniorPartner: boolean;
+  // The viewer's own user id -- a Delete/Remove button is never shown on the
+  // viewer's own card, since the backend always rejects self-removal (400
+  // "Cannot remove yourself") regardless of role.
+  meId?: string;
   togglePartnerCollapse: (partnerId: string) => void;
   setEditUser: (u: any) => void;
   setDeleteTarget: (u: any) => void;
@@ -929,6 +938,7 @@ function InteractiveZoomCanvas({
                     key={sp.id}
                     user={sp}
                     canEdit={canManageSeniorPartner}
+                    isSelf={sp.id === meId}
                     onEdit={(u) => setEditUser(u)}
                     onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
                     onSelect={(u) => setBirdEyeUser(u)}
@@ -977,6 +987,7 @@ function InteractiveZoomCanvas({
                       <EnhancedUserCard
                         user={partner}
                          canEdit={canEdit}
+                        isSelf={partner.id === meId}
                         hasChildren={myManagers.length > 0}
                         isExpanded={!isCollapsed}
                         onToggleExpand={() => togglePartnerCollapse(partner.id)}
@@ -1002,6 +1013,7 @@ function InteractiveZoomCanvas({
                                 <EnhancedUserCard
                                   user={mgr}
                                   canEdit={canEdit}
+                                  isSelf={mgr.id === meId}
                                   onEdit={(u) => setEditUser(u)}
                                   onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
                                   onSelect={(u) => setBirdEyeUser(u)}
@@ -1037,6 +1049,7 @@ function InteractiveZoomCanvas({
                       key={mgr.id}
                       user={mgr}
                       canEdit={canEdit}
+                      isSelf={mgr.id === meId}
                       onEdit={(u) => setEditUser(u)}
                       onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
                       onSelect={(u) => setBirdEyeUser(u)}
@@ -1276,6 +1289,7 @@ export default function OrgChartPage() {
                   key={user.id}
                   user={user}
                   canEdit={user.orgRole === "SENIOR_PARTNER" ? canManageSeniorPartner : canEdit}
+                  isSelf={user.id === me?.id}
                   onEdit={(u) => setEditUser(u)}
                   onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
                   onSelect={(u) => setBirdEyeUser(u)}
@@ -1293,6 +1307,7 @@ export default function OrgChartPage() {
           collapsedPartners={collapsedPartners}
           canEdit={canEdit}
           canManageSeniorPartner={canManageSeniorPartner}
+          meId={me?.id}
           togglePartnerCollapse={togglePartnerCollapse}
           setEditUser={setEditUser}
           setDeleteTarget={setDeleteTarget}

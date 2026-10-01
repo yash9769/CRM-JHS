@@ -224,8 +224,9 @@ export default async function leadRoutes(app: FastifyInstance) {
       const phone = mapped.phone?.trim() || null;
       let dup: any = null;
       if (email || phone) {
+        const importRbacFilter = await getCreatedByFilter(req.authUser);
         dup = await prisma.lead.findFirst({
-          where: { tenantId, archived: false, OR: [...(email ? [{ email }] : []), ...(phone ? [{ phone }] : [])] },
+          where: { tenantId, archived: false, AND: [importRbacFilter, { OR: [...(email ? [{ email }] : []), ...(phone ? [{ phone }] : [])] }] },
         });
       }
 
@@ -464,6 +465,10 @@ export default async function leadRoutes(app: FastifyInstance) {
 
     const result = await prisma.$transaction(async (tx) => {
       let accountId: string | null = body.accountId || null;
+      if (accountId && !body.createAccount) {
+        const existingAccount = await tx.account.findFirst({ where: { id: accountId, tenantId } });
+        if (!existingAccount) throw Object.assign(new Error("Account not found for this tenant"), { statusCode: 400 });
+      }
       if (body.createAccount) {
         if (!body.newAccount) throw Object.assign(new Error("New account details are required"), { statusCode: 400 });
         const acc = await tx.account.create({
@@ -481,6 +486,10 @@ export default async function leadRoutes(app: FastifyInstance) {
       }
 
       let contactId: string | null = body.contactId || null;
+      if (contactId && !body.createContact) {
+        const existingContactCheck = await tx.contact.findFirst({ where: { id: contactId, tenantId } });
+        if (!existingContactCheck) throw Object.assign(new Error("Contact not found for this tenant"), { statusCode: 400 });
+      }
       if (body.createContact) {
         const contact = await tx.contact.create({
           data: {

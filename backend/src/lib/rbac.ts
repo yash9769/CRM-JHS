@@ -18,15 +18,14 @@ export async function getVisibleUserIds(user: AuthUser): Promise<string[]> {
   }
 
   if (user.orgRole === "PARTNER") {
+    // Scoped by CURRENT partnerId only -- a Manager who was reassigned to a
+    // different Partner must drop out of their old Partner's visible set
+    // immediately, matching canManageUser's current-partnerId check below.
+    // (Previously also matched on createdById, which kept a Manager visible
+    // to the Partner who originally created them even after reassignment --
+    // a stale-access leak across reporting lines.)
     const managers = await prisma.user.findMany({
-      where: {
-        tenantId: user.tenantId,
-        orgRole: "MANAGER",
-        OR: [
-          { partnerId: user.id },
-          { createdById: user.id },
-        ],
-      },
+      where: { tenantId: user.tenantId, orgRole: "MANAGER", partnerId: user.id },
       select: { id: true },
     });
     return Array.from(new Set([user.id, ...managers.map((m) => m.id)]));

@@ -70,7 +70,7 @@ export default function PipelinePage() {
   });
 
   const moveMutation = useMutation({
-    mutationFn: ({ id, stageId, extra }: { id: string; stageId: string; extra?: { poNumber?: string; poValue?: string; lostReason?: string } }) =>
+    mutationFn: ({ id, stageId, extra }: { id: string; stageId: string; extra?: { poNumber?: string; poValue?: string; lostReason?: string; remarks?: string } }) =>
       api.patch(`/opportunities/${id}`, { stageId, pipelineId: pipeline!.id, ...extra }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["opportunities"] });

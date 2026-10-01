@@ -1,10 +1,17 @@
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
+
+const ListQuerySchema = z.object({
+  unreadOnly: z.string().optional(),
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(30),
+});
 
 export default async function notificationRoutes(app: FastifyInstance) {
   // List notifications for current user
   app.get("/api/v1/notifications", { preHandler: [app.authenticate] }, async (req: any) => {
-    const { unreadOnly, page = "1", pageSize = "30" } = req.query as any;
+    const { unreadOnly, page, pageSize } = ListQuerySchema.parse(req.query);
     const where: any = { tenantId: req.authUser.tenantId, userId: req.authUser.id };
     if (unreadOnly === "true") where.read = false;
 
@@ -12,8 +19,8 @@ export default async function notificationRoutes(app: FastifyInstance) {
       prisma.notification.findMany({
         where,
         orderBy: { createdAt: "desc" },
-        skip: (Number(page) - 1) * Number(pageSize),
-        take: Number(pageSize),
+        skip: (page - 1) * pageSize,
+        take: pageSize,
       }),
       prisma.notification.count({ where }),
       prisma.notification.count({ where: { tenantId: req.authUser.tenantId, userId: req.authUser.id, read: false } }),
@@ -22,7 +29,7 @@ export default async function notificationRoutes(app: FastifyInstance) {
     return {
       data: notifications,
       unreadCount,
-      pagination: { page: Number(page), pageSize: Number(pageSize), total, totalPages: Math.ceil(total / Number(pageSize)) },
+      pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
     };
   });
 

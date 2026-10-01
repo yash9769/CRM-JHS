@@ -31,12 +31,15 @@ import tenantRoutes from "./routes/tenants.js";
 export async function buildApp(opts = {}) {
   const app = Fastify({ logger: false, ...opts });
 
+  if (process.env.NODE_ENV === "production" && !process.env.CORS_ORIGIN) {
+    throw new Error("CORS_ORIGIN must be set in production — refusing to start with a wildcard-origin fallback.");
+  }
   const allowedOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(",").map((s) => s.trim())
     : ["http://localhost:5173", "http://localhost:4173", "http://localhost:5174"];
 
   await app.register(cors, {
-    origin: process.env.NODE_ENV === "production" && !process.env.CORS_ORIGIN ? true : allowedOrigins,
+    origin: allowedOrigins,
     credentials: true,
   });
 

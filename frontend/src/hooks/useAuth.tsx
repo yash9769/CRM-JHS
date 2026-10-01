@@ -137,6 +137,11 @@ export function canManageUsers(user: AuthUser | null) {
 export function canViewOrgChart(user: AuthUser | null) {
   return user?.orgRole === "SUPER_ADMIN" || user?.orgRole === "SENIOR_PARTNER" || user?.orgRole === "PARTNER";
 }
+// Mirrors the nav-link gating in AppShell.tsx's NAV list for "/quotes" --
+// the route itself had no guard, so a Manager could reach it directly by URL.
+export function canViewQuotes(user: AuthUser | null) {
+  return user?.orgRole === "SUPER_ADMIN" || user?.orgRole === "SENIOR_PARTNER" || user?.orgRole === "PARTNER";
+}
 
 /** Human-readable role label */
 export function roleLabel(orgRole?: string) {

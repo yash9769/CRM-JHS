@@ -48,6 +48,8 @@ export default async function productRoutes(app: FastifyInstance) {
 
   app.post("/api/v1/products", { preHandler: app.authenticate }, async (req, reply) => {
     const body = productSchema.parse(req.body);
+    const service = await prisma.service.findFirst({ where: { id: body.serviceId, tenantId: req.authUser.tenantId } });
+    if (!service) return reply.code(400).send({ error: "Invalid service" });
     const product = await prisma.product.create({
       data: {
         ...body,
@@ -66,6 +68,11 @@ export default async function productRoutes(app: FastifyInstance) {
     if (!existing) return reply.code(404).send({ error: "Product not found" });
 
     await requireCanAccess(req.authUser, existing);
+
+    if (body.serviceId) {
+      const service = await prisma.service.findFirst({ where: { id: body.serviceId, tenantId: req.authUser.tenantId } });
+      if (!service) return reply.code(400).send({ error: "Invalid service" });
+    }
 
     const updated = await prisma.product.update({
       where: { id },

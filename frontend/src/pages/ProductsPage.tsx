@@ -42,7 +42,7 @@ function NewProductModal({ onClose }: { onClose: () => void }) {
   const services = servicesData?.data || [];
 
   // Permission check for unit price: allowed for SENIOR_PARTNER, PARTNER, MANAGER
-  const canEditUnitPrice = ["SENIOR_PARTNER", "PARTNER", "MANAGER"].includes(user?.orgRole || "MANAGER");
+  const canEditUnitPrice = ["SUPER_ADMIN", "SENIOR_PARTNER", "PARTNER", "MANAGER"].includes(user?.orgRole || "MANAGER");
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -208,7 +208,7 @@ function EditProductModal({
   });
   const services = servicesData?.data || [];
 
-  const canEditUnitPrice = ["SENIOR_PARTNER", "PARTNER", "MANAGER"].includes(user?.orgRole || "MANAGER");
+  const canEditUnitPrice = ["SUPER_ADMIN", "SENIOR_PARTNER", "PARTNER", "MANAGER"].includes(user?.orgRole || "MANAGER");
 
   const mutation = useMutation({
     mutationFn: () =>

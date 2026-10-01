@@ -212,6 +212,14 @@ export default async function userRoutes(app: FastifyInstance) {
       if (body.orgRole) return reply.code(403).send({ error: "Partners cannot change roles" });
     }
 
+    // A SENIOR_PARTNER may manage Partners/Managers but never another
+    // SENIOR_PARTNER or a SUPER_ADMIN (canManageUser already encodes this for
+    // user creation -- apply the same rule here so edit/deactivate can't be
+    // used to bypass it).
+    if (actor.orgRole === "SENIOR_PARTNER" && targetId !== actor.id && !canManageUser(actor, target.orgRole, target.partnerId)) {
+      return reply.code(403).send({ error: "Access denied" });
+    }
+
     const updated = await prisma.user.update({
       where: { id: targetId },
       data: {
@@ -252,6 +260,12 @@ export default async function userRoutes(app: FastifyInstance) {
 
     if (target.orgRole === "SENIOR_PARTNER" && actor.orgRole !== "SUPER_ADMIN") {
       return reply.code(403).send({ error: "Cannot remove the Senior Partner" });
+    }
+
+    // A SENIOR_PARTNER may remove Partners/Managers but never a SUPER_ADMIN --
+    // the check above only covers a SENIOR_PARTNER target, not a SUPER_ADMIN one.
+    if (actor.orgRole === "SENIOR_PARTNER" && !canManageUser(actor, target.orgRole, target.partnerId)) {
+      return reply.code(403).send({ error: "Access denied" });
     }
 
     const actorId = actor.id;

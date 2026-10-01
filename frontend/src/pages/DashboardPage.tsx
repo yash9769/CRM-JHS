@@ -105,7 +105,20 @@ function Kpi({
   );
 
   if (onClick) {
-    return <button type="button" onClick={onClick} className="block h-full w-full text-left">{content}</button>;
+    // A plain <button> here would nest the InfoTooltip's own <button> inside
+    // it -- invalid HTML (hydration warning) and unpredictable click
+    // bubbling. A keyboard-accessible div avoids the nested-button problem.
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
+        className="block h-full w-full text-left cursor-pointer"
+      >
+        {content}
+      </div>
+    );
   }
   if (url) {
     return <Link to={url} className="block h-full">{content}</Link>;

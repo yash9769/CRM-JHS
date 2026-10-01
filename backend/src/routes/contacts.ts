@@ -61,13 +61,19 @@ async function syncContactMultiFields(
   }
 }
 
-async function findDuplicateContacts(tenantId: string, data: { email?: string | null; phone?: string | null }) {
+// Duplicate detection is scoped to the contacts the caller can already see --
+// mirrors the RBAC-scoping fix applied to leads.ts's findDuplicateLeads, since
+// without it this returns id/name/email/phone/account for contacts the caller
+// has no other way to read (GET /contacts/:id returns 403 for them), turning
+// duplicate-detection into a tenant-wide PII read.
+async function findDuplicateContacts(user: any, data: { email?: string | null; phone?: string | null }) {
   const or: any[] = [];
   if (data.email) or.push({ email: { equals: data.email, mode: "insensitive" as const } });
   if (data.phone) or.push({ phone: data.phone });
   if (!or.length) return [];
+  const rbacFilter = await getCreatedByFilter(user);
   return prisma.contact.findMany({
-    where: { tenantId, archived: false, OR: or },
+    where: { tenantId: user.tenantId, archived: false, AND: [rbacFilter, { OR: or }] },
     take: 5,
     select: { id: true, firstName: true, lastName: true, email: true, phone: true, account: { select: { id: true, name: true } } },
   });
@@ -132,7 +138,7 @@ export default async function contactRoutes(app: FastifyInstance) {
 
   app.post("/api/v1/contacts/check-duplicate", { preHandler: app.authenticate }, async (req) => {
     const body = contactSchema.pick({ email: true, phone: true }).parse(req.body);
-    const duplicates = await findDuplicateContacts(req.authUser.tenantId, body);
+    const duplicates = await findDuplicateContacts(req.authUser, body);
     return { duplicates };
   });
 
@@ -405,7 +411,7 @@ export default async function contactRoutes(app: FastifyInstance) {
     }
     const force = (req.query as any)?.force === "true" || (req.body as any)?.force === true;
     if (!force && (dataToSave.email || dataToSave.phone)) {
-      const duplicates = await findDuplicateContacts(req.authUser.tenantId, dataToSave);
+      const duplicates = await findDuplicateContacts(req.authUser, dataToSave);
       if (duplicates.length) return reply.code(409).send({ error: "Possible duplicate contact", duplicates });
     }
     const contact = await prisma.$transaction(async (tx) => {
@@ -459,6 +465,12 @@ export default async function contactRoutes(app: FastifyInstance) {
         error: "Validation error",
         details: [{ path: ["email"], message: "Email address is required." }],
       });
+    }
+    if (rest.accountId) {
+      const account = await prisma.account.findFirst({
+        where: { id: rest.accountId, tenantId: req.authUser.tenantId },
+      });
+      if (!account) return reply.code(400).send({ error: "Account not found for this tenant" });
     }
     const dataToUpdate = {
       ...rest,

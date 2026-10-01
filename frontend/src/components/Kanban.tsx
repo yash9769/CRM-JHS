@@ -45,7 +45,7 @@ export function KanbanBoard<T extends KanbanItem>({
   stages: { id: string; name: string; isClosed: boolean; isWon: boolean; probability?: number }[];
   items: T[];
   basePath: string;
-  onMove: (item: T, newStageId: string, extra?: { poNumber?: string; poValue?: string; lostReason?: string }) => void;
+  onMove: (item: T, newStageId: string, extra?: { poNumber?: string; poValue?: string; lostReason?: string; remarks?: string }) => void;
   visibleStageIds?: Set<string>;
 }) {
   const { user } = useAuth();
@@ -472,8 +472,8 @@ export function KanbanBoard<T extends KanbanItem>({
           opportunity={approvalMove.item}
           fromStage={approvalMove.fromStage}
           toStage={approvalMove.targetStage}
-          onSubmit={async () => {
-            await onMove(approvalMove.item, approvalMove.targetStage.id);
+          onSubmit={async (notes) => {
+            await onMove(approvalMove.item, approvalMove.targetStage.id, notes ? { remarks: notes } : undefined);
             setApprovalMove(null);
           }}
           onClose={() => setApprovalMove(null)}

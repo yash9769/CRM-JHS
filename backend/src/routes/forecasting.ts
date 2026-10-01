@@ -314,7 +314,7 @@ export default async function forecastingRoutes(app: FastifyInstance) {
         // `AND` so the period filter cannot silently overwrite the RBAC filter.
         // Without this the ACTUAL series was tenant-wide while the TARGET series
         // was correctly scoped, inflating every non-Senior-Partner's trend chart.
-        prisma.opportunity.aggregate({
+        prisma.opportunity.findMany({
           where: {
             tenantId,
             stage: { isWon: true },
@@ -329,15 +329,16 @@ export default async function forecastingRoutes(app: FastifyInstance) {
               },
             ],
           },
-          _sum: { amount: true },
+          select: { amount: true, expectedOpportunityValue: true },
         }),
       ]);
+      const closedWonTotal = closedWon.reduce((s, o) => s + oppValue(o), 0);
 
       months.push({
         period,
         label: d.toLocaleString("default", { month: "short", year: "2-digit" }),
         target: Number(target._sum.targetAmount || 0),
-        actual: Number(closedWon._sum.amount || 0),
+        actual: closedWonTotal,
       });
     }
 

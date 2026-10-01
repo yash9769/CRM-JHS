@@ -377,6 +377,14 @@ export default async function approvalRoutes(app: FastifyInstance) {
     }
 
     const updatedApproval = await prisma.$transaction(async (tx) => {
+      // Re-verify pending state inside the transaction -- closes the same
+      // TOCTOU race the /approve and /disapprove handlers guard against (two
+      // concurrent reviewers acting on the same approval at once).
+      const current = await tx.stageApproval.findUnique({ where: { id } });
+      if (!current || current.status !== "PENDING") {
+        throw new Error("This approval request has already been processed.");
+      }
+
       const updatedAppr = await tx.stageApproval.update({
         where: { id },
         data: {
@@ -413,7 +421,11 @@ export default async function approvalRoutes(app: FastifyInstance) {
       }
 
       return updatedAppr;
+    }).catch((err) => {
+      return reply.code(400).send({ error: err.message });
     });
+
+    if (!updatedApproval || "error" in updatedApproval) return;
 
     await logAudit({
       tenantId: req.authUser.tenantId,

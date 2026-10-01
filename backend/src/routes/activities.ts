@@ -19,6 +19,19 @@ const activitySchema = z.object({
   ownerId: z.string().uuid().optional(),
 });
 
+/** Parses a query-string date, returning null for "not provided" and throwing
+ * a 400-mappable error for a value that doesn't parse -- without this, an
+ * invalid dueBefore/dueAfter becomes `Invalid Date`, which Prisma rejects
+ * with an unhandled 500 instead of the project's standard {error} response. */
+function parseQueryDate(value: string | undefined, field: string): Date | undefined {
+  if (!value) return undefined;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) {
+    throw Object.assign(new Error(`Invalid ${field}`), { statusCode: 400 });
+  }
+  return d;
+}
+
 const noteSchema = z.object({
   body: z.string().min(1),
   accountId: z.string().uuid().optional().nullable(),
@@ -42,7 +55,7 @@ export default async function activityRoutes(app: FastifyInstance) {
       ...(q.ownerId ? { ownerId: q.ownerId } : {}),
       ...(q.type ? { type: q.type as any } : {}),
       ...(q.dueBefore || q.dueAfter
-        ? { dueDate: { ...(q.dueBefore ? { lte: new Date(q.dueBefore) } : {}), ...(q.dueAfter ? { gte: new Date(q.dueAfter) } : {}) } }
+        ? { dueDate: { ...(q.dueBefore ? { lte: parseQueryDate(q.dueBefore, "dueBefore") } : {}), ...(q.dueAfter ? { gte: parseQueryDate(q.dueAfter, "dueAfter") } : {}) } }
         : {}),
     };
     const data = await prisma.activity.findMany({

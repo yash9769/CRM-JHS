@@ -46,12 +46,20 @@ export default async function authRoutes(app: FastifyInstance) {
     { preHandler: app.rateLimit() },
     async (req, reply) => {
       const body = loginSchema.parse(req.body);
-      const user = await prisma.user.findFirst({ where: { email: body.email } });
-      if (!user || !user.active) {
-        return reply.code(401).send({ error: "Invalid credentials" });
+      // Email is only unique per-tenant (@@unique([tenantId, email])), not
+      // globally -- the same address can exist in more than one tenant. Try
+      // every matching row's password rather than trusting findFirst's
+      // arbitrary pick, so a shared email never misresolves into the wrong
+      // tenant's account (or locks a legitimate user out of their own).
+      const candidates = await prisma.user.findMany({ where: { email: body.email, active: true } });
+      let user: (typeof candidates)[number] | null = null;
+      for (const candidate of candidates) {
+        if (await argon2.verify(candidate.passwordHash, body.password)) {
+          user = candidate;
+          break;
+        }
       }
-      const valid = await argon2.verify(user.passwordHash, body.password);
-      if (!valid) {
+      if (!user) {
         return reply.code(401).send({ error: "Invalid credentials" });
       }
 

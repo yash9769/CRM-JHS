@@ -8,7 +8,7 @@ export function toCsv(rows: Record<string, any>[], columns: { key: string; label
     // fields (opportunity/quote names, descriptions, etc.) flow into these exports, so
     // prefix with a leading apostrophe to force plain-text interpretation.
     if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-    if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
     return s;
   };
   const header = columns.map((c) => escape(c.label)).join(",");

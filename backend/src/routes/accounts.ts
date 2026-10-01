@@ -76,11 +76,17 @@ function deriveDomainFromWebsite(website?: string | null): string | null {
   }
 }
 
-async function findDuplicateAccounts(tenantId: string, data: { name: string; domain?: string | null }) {
+// Duplicate detection is scoped to the accounts the caller can already see --
+// mirrors the RBAC-scoping fix applied to leads.ts's findDuplicateLeads, since
+// without it this returns id/name/domain/industry/accountType for accounts the
+// caller has no other way to read (GET /accounts/:id returns 403 for them),
+// turning duplicate-detection into a tenant-wide PII read.
+async function findDuplicateAccounts(user: any, data: { name: string; domain?: string | null }) {
   const or: any[] = [{ name: { equals: data.name, mode: "insensitive" as const } }];
   if (data.domain) or.push({ domain: { equals: data.domain, mode: "insensitive" as const } });
+  const rbacFilter = await getCreatedByFilter(user);
   return prisma.account.findMany({
-    where: { tenantId, OR: or },
+    where: { tenantId: user.tenantId, AND: [rbacFilter, { OR: or }] },
     take: 5,
     select: { id: true, name: true, domain: true, industry: true, accountType: true },
   });
@@ -160,7 +166,7 @@ export default async function accountRoutes(app: FastifyInstance) {
   // DUPLICATE CHECK
   app.post("/api/v1/accounts/check-duplicate", { preHandler: app.authenticate }, async (req) => {
     const body = accountSchema.pick({ name: true, domain: true }).parse(req.body);
-    const duplicates = await findDuplicateAccounts(req.authUser.tenantId, body);
+    const duplicates = await findDuplicateAccounts(req.authUser, body);
     return { duplicates };
   });
 
@@ -411,7 +417,7 @@ export default async function accountRoutes(app: FastifyInstance) {
     if (phones !== undefined) rest.phone = primaryPhoneString(phones);
     const force = (req.query as any)?.force === "true" || (req.body as any)?.force === true;
     if (!force) {
-      const duplicates = await findDuplicateAccounts(req.authUser.tenantId, rest);
+      const duplicates = await findDuplicateAccounts(req.authUser, rest);
       if (duplicates.length) return reply.code(409).send({ error: "Possible duplicate account", duplicates });
     }
     const account = await prisma.$transaction(async (tx) => {

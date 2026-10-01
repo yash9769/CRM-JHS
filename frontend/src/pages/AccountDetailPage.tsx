@@ -219,10 +219,14 @@ export default function AccountDetailPage() {
                 </tr></thead>
                 <tbody>
                   {account.opportunities.map((o) => {
-                    const proposalVal = o.expectedOpportunityValue !== null && o.expectedOpportunityValue !== undefined ? Number(o.expectedOpportunityValue) : Number(o.amount || 0);
-                    const costVal = o.bottomLineCost !== null && o.bottomLineCost !== undefined ? Number(o.bottomLineCost) : (o.actualOpportunityValue !== null && o.actualOpportunityValue !== undefined ? Number(o.actualOpportunityValue) : null);
-                    const marginVal = o.grossMargin !== null && o.grossMargin !== undefined ? Number(o.grossMargin) : (o.expectedMargin !== null && o.expectedMargin !== undefined ? Number(o.expectedMargin) : null);
-                    const marginPctStr = proposalVal > 0 && marginVal !== null ? ((marginVal / proposalVal) * 100).toFixed(1) + "%" : "—";
+                    // Server already spreads computeOpportunityFinancials() onto each
+                    // opportunity (backend/src/routes/accounts.ts) -- use those fields
+                    // directly rather than recomputing, so this matches the "Proposal
+                    // Value"/"Margin %" shown on the Opportunity detail/list pages.
+                    const proposalVal = o.actualOpportunityValue !== null && o.actualOpportunityValue !== undefined ? Number(o.actualOpportunityValue) : Number(o.amount || 0);
+                    const costVal = o.bottomLineCost !== null && o.bottomLineCost !== undefined ? Number(o.bottomLineCost) : null;
+                    const marginVal = o.marginValue !== null && o.marginValue !== undefined ? Number(o.marginValue) : null;
+                    const marginPctStr = o.marginPercentage !== null && o.marginPercentage !== undefined ? `${Number(o.marginPercentage).toFixed(1)}%` : "—";
                     return (
                       <tr key={o.id} className="border-b last:border-0 hover:bg-[var(--ink-50)] border-[var(--ink-100)]">
                         <td className="px-4 py-3"><Link to={`/opportunities/${o.id}`} className="font-medium hover:underline text-[var(--ledger-700)]">{o.name}</Link></td>
