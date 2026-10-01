@@ -101,9 +101,11 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
         const formData = new FormData();
         formData.append("file", file, file.name);
         if (stageApprovalId) formData.append("stageApprovalId", stageApprovalId);
-        await api.post(`/opportunities/${opportunity.id}/attachments`, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        // Don't set Content-Type manually -- axios/the browser needs to generate
+        // it itself from the FormData so it includes the multipart boundary; a
+        // hardcoded header here strips that boundary and the backend's multipart
+        // parser rejects the request outright.
+        await api.post(`/opportunities/${opportunity.id}/attachments`, formData);
       }
 
       onSuccess();
