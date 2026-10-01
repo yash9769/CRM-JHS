@@ -106,7 +106,7 @@ export function generateDashboardPdf(input: DashboardPdfInput): Promise<Buffer> 
       // Falls back to text-only header if the asset is unavailable at runtime.
     }
     const titleX = 104;
-    doc.fontSize(16).font("Helvetica-Bold").fillColor("#ffffff").text("Envista Cyber Defence CRM", titleX, 52);
+    doc.fontSize(16).font("Helvetica-Bold").fillColor("#ffffff").text("JHS CRM", titleX, 52);
     doc.fontSize(10).font("Helvetica").fillColor("#94a3b8").text("Executive Dashboard & Financial Summary Report", titleX, 72);
 
     // Meta Metadata on right side of Banner
@@ -190,7 +190,7 @@ export function generateDashboardPdf(input: DashboardPdfInput): Promise<Buffer> 
     // Document Footer
     doc.moveTo(40, 770).lineTo(555, 770).strokeColor("#cbd5e1").lineWidth(0.5).stroke();
     doc.fontSize(8).font("Helvetica").fillColor("#94a3b8").text(
-      "CONFIDENTIAL — Envista Cyber Defence CRM Executive Summary. Figures reflect role visibility permissions at time of generation.",
+      "CONFIDENTIAL — JHS CRM Executive Summary. Figures reflect role visibility permissions at time of generation.",
       40,
       778,
       { width: 515, align: "center" }

@@ -66,7 +66,7 @@ async function main() {
   console.log("✅ Cleared.");
 
   // ── Tenant
-  const tenant = await prisma.tenant.create({ data: { name: "Envista Cyber Defence" } });
+  const tenant = await prisma.tenant.create({ data: { name: "JHS CRM" } });
   console.log(`🏢 Tenant: ${tenant.name}`);
 
   const hash = await argon2.hash(PASS);

@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { authenticator } from "otplib";
 import QRCode from "qrcode";
 
-const ISSUER = process.env.TOTP_ISSUER || "Envista CRM";
+const ISSUER = process.env.TOTP_ISSUER || "JHS CRM";
 
 // TOTP secrets are as sensitive as passwords (anyone with the secret can generate
 // valid codes forever) so they're encrypted at rest with AES-256-GCM rather than

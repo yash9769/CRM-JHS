@@ -7,11 +7,11 @@ async function main() {
 
   // 1. Fetch Tenant
   const tenant = await prisma.tenant.findFirst({
-    where: { name: "Envista Cyber Defence" },
+    where: { name: "JHS CRM" },
   });
 
   if (!tenant) {
-    throw new Error("Tenant 'Envista Cyber Defence' not found!");
+    throw new Error("Tenant 'JHS CRM' not found!");
   }
   console.log(`Using Tenant: ${tenant.name} (${tenant.id})`);
 

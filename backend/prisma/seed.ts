@@ -48,7 +48,7 @@ async function main() {
 
   // 1. Create Tenant
   const tenant = await prisma.tenant.create({
-    data: { name: "Envista Cyber Defence" },
+    data: { name: "JHS CRM" },
   });
 
   console.log("Created Tenant:", tenant.name);

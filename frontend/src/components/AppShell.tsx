@@ -186,7 +186,7 @@ export default function AppShell() {
     <div className="flex flex-col h-full py-4 px-2">
       <div className="px-3 mb-6 flex items-center justify-between">
         <Link to="/" onClick={onItemClick} className="block">
-          <img src="/envista_logo.png" alt="Envista Cyber Defence" className="h-10 w-auto max-w-[180px] object-contain" />
+          <img src="/envista_logo.png" alt="JHS CRM" className="h-10 w-auto max-w-[180px] object-contain" />
         </Link>
         {onItemClick ? (
           <button onClick={onItemClick} className="text-[var(--ink-400)] hover:text-white p-2">

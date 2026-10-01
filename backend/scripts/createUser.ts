@@ -6,7 +6,7 @@
 // Usage:
 //   npx tsx scripts/createUser.ts \
 //     --email jane@company.com --firstName Jane --lastName Doe \
-//     --role PARTNER --tenant "Envista Cyber Defence"
+//     --role PARTNER --tenant "JHS CRM"
 //
 // --role is one of SUPER_ADMIN | SENIOR_PARTNER | PARTNER | MANAGER (default MANAGER).
 // --partnerEmail is required when --role MANAGER and the tenant has more than one
