@@ -1683,6 +1683,12 @@ export default async function opportunityRoutes(app: FastifyInstance) {
       const stage = await prisma.pipelineStage.findFirst({ where: { id: body.stageId, pipeline: { tenantId } } });
       if (!stage) return reply.code(400).send({ error: "Invalid stage" });
 
+      if (stage.isClosed && stage.isWon) {
+        return reply.code(400).send({
+          error: "Opportunities can't be bulk-moved to Closed Won — each one needs its own PO Number, PO Value, and supporting attachment. Close them individually from each opportunity's detail page.",
+        });
+      }
+
       if (stage.isClosed && !stage.isWon) {
         if (!body.lostReason || !body.lostReason.trim()) {
           return reply.code(400).send({ error: "A valid Closed Lost reason is required when moving opportunities to Closed Lost." });

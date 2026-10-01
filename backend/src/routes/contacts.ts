@@ -254,7 +254,15 @@ export default async function contactRoutes(app: FastifyInstance) {
         continue;
       }
 
-      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      // Mirrors the same rule enforced on single contact create/edit (see
+      // POST /contacts below) -- without this, CSV-imported contacts could
+      // end up with no email while every other entry point requires one.
+      if (!email) {
+        results.push({ row: i, status: "error", error: "Email address is required." });
+        continue;
+      }
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         results.push({ row: i, status: "error", error: `Invalid email address "${email}"` });
         continue;
       }

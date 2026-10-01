@@ -167,7 +167,7 @@ const ENTITY_CONFIGS: Record<
     fields: [
       { key: "firstName", label: "First Name", required: true, synonyms: ["first name", "firstname", "first", "given name"] },
       { key: "lastName", label: "Last Name", required: true, synonyms: ["last name", "lastname", "last", "surname"] },
-      { key: "email", label: "Email", synonyms: ["email", "email address", "e-mail"] },
+      { key: "email", label: "Email", required: true, synonyms: ["email", "email address", "e-mail"] },
       { key: "phone", label: "Phone", synonyms: ["phone", "mobile", "phone number", "cell"] },
       { key: "jobTitle", label: "Job Title", synonyms: ["job title", "title", "designation", "role"] },
       { key: "account", label: "Account / Company", synonyms: ["account", "company", "account name", "organization"] },

@@ -54,6 +54,8 @@ export default function OpportunitiesPage() {
   const [bulkOwnerId, setBulkOwnerId] = useState<string | null>(null);
   const [bulkOwnerLabel, setBulkOwnerLabel] = useState<string | null>(null);
   const [bulkStagePicker, setBulkStagePicker] = useState(false);
+  const [bulkLostReasonStage, setBulkLostReasonStage] = useState<{ id: string; name: string } | null>(null);
+  const [bulkLostReason, setBulkLostReason] = useState("");
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [deletionTarget, setDeletionTarget] = useState<{ id: string; name: string } | null>(null);
 
@@ -239,6 +241,11 @@ export default function OpportunitiesPage() {
       setSelected(new Set());
       setBulkOwnerPicker(false);
       setBulkStagePicker(false);
+      setBulkLostReasonStage(null);
+      setBulkLostReason("");
+    },
+    onError: (err: any) => {
+      alert(err?.response?.data?.error || "Failed to update selected opportunities");
     },
   });
 
@@ -738,15 +745,25 @@ export default function OpportunitiesPage() {
             Move {selected.size} opportunit{selected.size === 1 ? "y" : "ies"} to
           </div>
           <div className="space-y-1 max-h-48 overflow-y-auto">
-            {pipeline.stages.map((s) => (
+            {pipeline.stages.filter((s) => !(s.isClosed && s.isWon)).map((s) => (
               <button
                 key={s.id}
-                onClick={() => bulkMutation.mutate({ action: "changeStage", stageId: s.id })}
+                onClick={() => {
+                  if (s.isClosed && !s.isWon) {
+                    setBulkStagePicker(false);
+                    setBulkLostReasonStage({ id: s.id, name: s.name });
+                  } else {
+                    bulkMutation.mutate({ action: "changeStage", stageId: s.id });
+                  }
+                }}
                 className="w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-[var(--ink-50)] flex items-center justify-between font-medium text-[var(--ink-800)]"
               >
                 <span>{s.name}</span>
               </button>
             ))}
+          </div>
+          <div className="mt-2 pt-2 border-t border-[var(--ink-100)] text-[10px] text-[var(--ink-400)]">
+            Closed Won isn't available here — each opportunity needs its own PO Number, PO Value, and attachment, submitted individually from its detail page.
           </div>
           <div className="flex justify-end mt-2">
             <Button size="sm" variant="secondary" onClick={() => setBulkStagePicker(false)}>
@@ -754,6 +771,38 @@ export default function OpportunitiesPage() {
             </Button>
           </div>
         </div>
+      )}
+      {bulkLostReasonStage && (
+        <Modal title={`Move ${selected.size} opportunit${selected.size === 1 ? "y" : "ies"} to Closed Lost`} onClose={() => { setBulkLostReasonStage(null); setBulkLostReason(""); }} width="420px">
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold mb-1 text-[var(--ink-700)]">
+                Closed Lost Reason <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                autoFocus
+                required
+                value={bulkLostReason}
+                onChange={(e) => setBulkLostReason(e.target.value)}
+                placeholder="Why were these opportunities lost? This reason will be applied to all selected opportunities."
+                rows={3}
+                className={`${inputClass} resize-none`}
+                style={inputStyle}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => { setBulkLostReasonStage(null); setBulkLostReason(""); }} disabled={bulkMutation.isPending}>
+                Cancel
+              </Button>
+              <Button
+                disabled={!bulkLostReason.trim() || bulkMutation.isPending}
+                onClick={() => bulkMutation.mutate({ action: "changeStage", stageId: bulkLostReasonStage.id, lostReason: bulkLostReason.trim() })}
+              >
+                {bulkMutation.isPending ? "Saving…" : "Confirm Closed Lost"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
       {showBulkDeleteConfirm && (
         <Modal title="Delete Opportunities" onClose={() => setShowBulkDeleteConfirm(false)} width="480px">
