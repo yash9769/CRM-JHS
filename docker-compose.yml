@@ -40,6 +40,10 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
+      # The public https:// origin that serves this environment's frontend (e.g.
+      # https://crm.jhsassociates.in for production). The backend refuses to start
+      # without this in production -- see backend/src/app.ts.
+      CORS_ORIGIN: ${CORS_ORIGIN:?Set CORS_ORIGIN in .env — the public https:// origin that serves this frontend}
       # Passed as separate fields, not pre-assembled into a DATABASE_URL here — a
       # generated password (e.g. from `openssl rand -base64`) can contain "/" or "+",
       # which corrupts a connection-string URL if spliced in unencoded. The backend's

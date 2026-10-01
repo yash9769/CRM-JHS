@@ -24,6 +24,7 @@ jobs:
           REPO_URL: https://github.com/${{ github.repository }}.git
           POSTGRES_PASSWORD: ${{ secrets.PROD_POSTGRES_PASSWORD }}
           JWT_SECRET: ${{ secrets.PROD_JWT_SECRET }}
+          CORS_ORIGIN: ${{ secrets.PROD_CORS_ORIGIN }}
           FRONTEND_PORT: "8040"
           BACKEND_PORT: "8045"
           DB_TUNNEL_PORT: "15433"
@@ -33,7 +34,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          envs: REPO_URL,POSTGRES_PASSWORD,JWT_SECRET,FRONTEND_PORT,BACKEND_PORT,DB_TUNNEL_PORT,DEPLOY_BRANCH
+          envs: REPO_URL,POSTGRES_PASSWORD,JWT_SECRET,CORS_ORIGIN,FRONTEND_PORT,BACKEND_PORT,DB_TUNNEL_PORT,DEPLOY_BRANCH
           script: |
             set -e
             DIR=~/apps/crm-production
@@ -53,6 +54,7 @@ jobs:
             POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
             POSTGRES_DB=crm_prod
             JWT_SECRET=${JWT_SECRET}
+            CORS_ORIGIN=${CORS_ORIGIN}
             FRONTEND_PORT=${FRONTEND_PORT}
             BACKEND_PORT=${BACKEND_PORT}
             DB_TUNNEL_PORT=${DB_TUNNEL_PORT}
@@ -62,6 +64,10 @@ jobs:
             fi
 
             grep -q '^DEPLOY_BRANCH=' .env || echo "DEPLOY_BRANCH=${DEPLOY_BRANCH}" >> .env
+            # One-time fixup for a directory that predates CORS_ORIGIN being required --
+            # without this, an existing .env from before this change has no CORS_ORIGIN
+            # line and the backend container refuses to start (see docker-compose.yml).
+            grep -q '^CORS_ORIGIN=' .env || echo "CORS_ORIGIN=${CORS_ORIGIN}" >> .env
 
             chmod +x deploy.sh
             ./deploy.sh
