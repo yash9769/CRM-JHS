@@ -116,7 +116,6 @@ export default function SettingsPage() {
               { id: "opportunities" as const, name: "Opportunities", exportPath: "/opportunities/export", file: "opportunities.csv", desc: "Pipeline opportunities with stages, value, forecast categories, and owners." },
               { id: "accounts" as const, name: "Accounts", exportPath: "/accounts/export", file: "accounts.csv", desc: "Company profiles, domains, ARR, and owner assignments." },
               { id: "contacts" as const, name: "Contacts", exportPath: "/contacts/export", file: "contacts.csv", desc: "People, email, phone, job titles, and account links." },
-              { id: "leads" as const, name: "Leads", exportPath: "/leads/export", file: "leads.csv", desc: "Prospects, lead sources, scores, and qualification.", noImport: true },
             ].map((item) => (
               <div key={item.id} className="p-3.5 rounded-lg border border-[var(--ink-100)] bg-[var(--ink-50)] flex flex-col justify-between">
                 <div>
@@ -124,16 +123,14 @@ export default function SettingsPage() {
                   <p className="text-xs text-[var(--ink-500)] mt-0.5">{item.desc}</p>
                 </div>
                 <div className="flex items-center gap-2 mt-3 pt-2 border-t border-[var(--ink-100)]">
-                  {!item.noImport && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => setImportEntity(item.id)}
-                      className="text-xs"
-                    >
-                      <UploadCloud size={13} className="mr-1" /> Import
-                    </Button>
-                  )}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setImportEntity(item.id)}
+                    className="text-xs"
+                  >
+                    <UploadCloud size={13} className="mr-1" /> Import
+                  </Button>
                   {me?.orgRole !== "MANAGER" && (
                     <Button
                       size="sm"
