@@ -186,7 +186,12 @@ export default function AppShell() {
     <div className="flex flex-col h-full py-4 px-2">
       <div className="px-3 mb-6 flex items-center justify-between">
         <Link to="/" onClick={onItemClick} className="block">
-          <img src="/envista_logo.png" alt="JHS CRM" className="h-10 w-auto max-w-[180px] object-contain" />
+          {/* Logo artwork has an opaque white background -- wrap it in a
+              white pill so that reads as an intentional card against the
+              dark sidebar instead of a stray white box. */}
+          <div className="inline-flex items-center bg-white rounded-lg px-2.5 py-1.5">
+            <img src="/jhs_logo.png" alt="JHS CRM" className="h-7 w-auto max-w-[140px] object-contain" />
+          </div>
         </Link>
         {onItemClick ? (
           <button onClick={onItemClick} className="text-[var(--ink-400)] hover:text-white p-2">

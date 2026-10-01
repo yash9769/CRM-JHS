@@ -58,7 +58,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--ink-950)" }}>
       <div className="w-full max-w-sm">
         <div className="flex justify-center mb-8">
-          <img src="/envista_logo.png" alt="JHS CRM" className="h-16 md:h-20 max-w-[280px] object-contain drop-shadow-md" />
+          <div className="inline-flex items-center bg-white rounded-xl px-5 py-3 shadow-2xl">
+            <img src="/jhs_logo.png" alt="JHS CRM" className="h-12 md:h-14 max-w-[220px] object-contain" />
+          </div>
         </div>
 
         <div className="bg-white rounded-xl p-7 shadow-2xl">

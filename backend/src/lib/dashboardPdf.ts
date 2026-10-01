@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const LOGO_PATH = path.join(__dirname, "..", "assets", "envista_logomark.png");
+const LOGO_PATH = path.join(__dirname, "..", "assets", "jhs_logo.png");
 
 interface DashboardPdfInput {
   tenantName: string;
@@ -101,7 +101,11 @@ export function generateDashboardPdf(input: DashboardPdfInput): Promise<Buffer> 
 
     // Logo mark + Title & Subtitle inside Header Banner
     try {
-      doc.image(LOGO_PATH, 58, 50, { height: 36 });
+      // The logo artwork has an opaque white background -- draw a white
+      // rounded backing plate first so it reads as an intentional badge
+      // against the dark banner instead of a stray white box.
+      doc.roundedRect(54, 48, 40, 40, 4).fill("#ffffff");
+      doc.image(LOGO_PATH, 58, 52, { height: 32 });
     } catch {
       // Falls back to text-only header if the asset is unavailable at runtime.
     }
