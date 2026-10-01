@@ -1274,7 +1274,13 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     const stageApprovalId = (file.fields?.stageApprovalId as any)?.value || null;
     const fileBuffer = await file.toBuffer();
 
-    const { storageKey } = await storageProvider.uploadFile(fileBuffer, originalFilename, file.mimetype);
+    let storageKey: string;
+    try {
+      storageKey = (await storageProvider.uploadFile(fileBuffer, originalFilename, file.mimetype)).storageKey;
+    } catch (err: any) {
+      req.log.error(err);
+      return reply.code(502).send({ error: `Failed to upload attachment to object storage: ${err.message || "unknown error"}` });
+    }
 
     const attachment = await prisma.opportunityAttachment.create({
       data: {
