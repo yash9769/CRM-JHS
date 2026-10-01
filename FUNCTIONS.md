@@ -24,6 +24,7 @@ A comprehensive registry of every function, class, component, and API route acro
 | `toCsv` | `backend/src/lib/csv.ts` | Converts JSON objects array into RFC-compliant CSV string | `rows: Record<string, any>[], columns: { key: string; label: string }[]` | `string` |
 | `generateQuotePdf` | `backend/src/lib/quotePdf.ts` | Renders a styled, professional sales quote PDF in memory | `input: QuotePdfInput` | `Promise<Buffer>` |
 | `prisma` | `backend/src/lib/prisma.ts` | Global Prisma ORM client singleton instance | None | `PrismaClient` |
+| `storageProvider` | `backend/src/lib/storage.ts` | S3-compatible object storage client (works with AWS S3 or any S3-compatible provider, e.g. BharathCloud B3, via `S3_ENDPOINT`). Falls back to metadata-only "staged" keys when `S3_BUCKET`/`S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY` aren't set | `uploadFile(buffer, filename, mimeType)`, `getDownloadUrl(storageKey)`, `deleteFile(storageKey)` | `Promise<...>` |
 | `PHONE_COUNTRIES` / `isValidLocalNumber` | `backend/src/lib/phoneCountries.ts` | Curated country-code list (India default) + 10-digit local-number validator | `number: string` | `boolean` |
 | `emailListSchema` / `phoneListSchema` | `backend/src/lib/multiValueFields.ts` | Zod schemas for repeatable email/phone entries (max 10 each) used on Account & Contact | — | `ZodSchema` |
 | `primaryEmail` / `primaryPhoneString` / `normalizePrimary` | `backend/src/lib/multiValueFields.ts` | Resolves the legacy singular `email`/`phone` scalar mirror from a multi-value array's primary entry | `entries: EmailEntry[] \| PhoneEntry[]` | `string \| null` / `EmailEntry[] \| PhoneEntry[]` |
@@ -105,6 +106,9 @@ A comprehensive registry of every function, class, component, and API route acro
 | `POST /api/v1/opportunities/:id/convert`| `backend/src/routes/opportunities.ts` | Converts opportunity to deal preserving relationships and financials | `{ dealPipelineId?, dealStageId?, closeDate? }` | `{ deal: Deal }` |
 | `POST /api/v1/opportunities/:id/archive`| `backend/src/routes/opportunities.ts` | Archives an opportunity | None | `{ success: true }` |
 | `DELETE /api/v1/opportunities/:id` | `backend/src/routes/opportunities.ts` | Deletes an opportunity | None | `{ success: true }` |
+| `POST /api/v1/opportunities/:id/attachments` | `backend/src/routes/opportunities.ts` | Uploads a PO/LOE/client-confirmation file (multipart) for Closed Won and stores it via `storageProvider` | `multipart/form-data` (`file`, `stageApprovalId?`) | `{ data: OpportunityAttachment }` (201) |
+| `GET /api/v1/opportunities/:id/attachments/:attachmentId/download` | `backend/src/routes/opportunities.ts` | Redirects to a time-limited signed download URL for an attachment | None | `302` redirect, or `404` if storage isn't configured / key is staged-only |
+| `DELETE /api/v1/opportunities/:id/attachments/:attachmentId` | `backend/src/routes/opportunities.ts` | Deletes attachment metadata and the underlying stored object | None | `204` |
 | `GET /api/v1/deals` | `backend/src/routes/deals.ts` | Lists deals with line items, accounts, primary contact, stages | `?page&pageSize&stageId&ownerId&search&won` | `{ data: Deal[], pagination }` |
 | `GET /api/v1/deals/export` | `backend/src/routes/deals.ts` | Exports filtered deals to CSV | `?search&stageId&pipelineId&ownerId&won` | `text/csv` |
 | `POST /api/v1/deals/import` | `backend/src/routes/deals.ts` | Bulk imports deals with relationship resolution and stage validation | `{ rows, mapping, commit, createMissingAccount, createMissingContact, duplicateStrategy }` | `{ summary, results }` |

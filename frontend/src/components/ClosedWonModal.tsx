@@ -30,7 +30,7 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
       : String(opportunity.amount || "")
   );
   const [remarks, setRemarks] = useState("");
-  const [attachments, setAttachments] = useState<{ filename: string; size: number; mimeType: string }[]>([]);
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
     const files = e.target.files;
     if (!files || !files.length) return;
 
-    const newFiles: { filename: string; size: number; mimeType: string }[] = [];
+    const newFiles: File[] = [];
     const rejected: string[] = [];
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
@@ -47,11 +47,7 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
         rejected.push(f.name);
         continue;
       }
-      newFiles.push({
-        filename: f.name,
-        size: f.size,
-        mimeType: f.type || "application/octet-stream",
-      });
+      newFiles.push(f);
     }
     if (rejected.length) {
       setUploadNotice(null);
@@ -95,18 +91,18 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
         poNumber: poNumber.trim(),
         poValue: numPoValue,
         actualOpportunityValue: numPoValue,
-        loeValue: attachments[0]?.filename || "LOE Attached",
+        loeValue: attachments[0]?.name || "LOE Attached",
         remarks: remarks.trim() || undefined,
       });
 
       const stageApprovalId = patchRes.data?.approval?.id || null;
 
-      for (const att of attachments) {
-        await api.post(`/opportunities/${opportunity.id}/attachments`, {
-          originalFilename: att.filename,
-          mimeType: att.mimeType,
-          size: att.size,
-          stageApprovalId: stageApprovalId,
+      for (const file of attachments) {
+        const formData = new FormData();
+        formData.append("file", file, file.name);
+        if (stageApprovalId) formData.append("stageApprovalId", stageApprovalId);
+        await api.post(`/opportunities/${opportunity.id}/attachments`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
         });
       }
 
@@ -175,7 +171,7 @@ export function ClosedWonModal({ opportunity, targetStageId, onClose, onSuccess 
                 <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-emerald-50/80 border border-emerald-200 text-xs">
                   <div className="flex items-center gap-1.5 truncate">
                     <FileCheck size={14} className="text-emerald-600 shrink-0" />
-                    <span className="font-medium truncate text-emerald-950">{att.filename}</span>
+                    <span className="font-medium truncate text-emerald-950">{att.name}</span>
                     <span className="text-[10px] text-emerald-700">({Math.round(att.size / 1024)} KB)</span>
                   </div>
                   <button

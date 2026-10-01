@@ -29,12 +29,18 @@ jobs:
           BACKEND_PORT: "8035"
           DB_TUNNEL_PORT: "15432"
           DEPLOY_BRANCH: "staging"
+          S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          S3_REGION: ${{ secrets.S3_REGION }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          S3_FORCE_PATH_STYLE: ${{ secrets.S3_FORCE_PATH_STYLE }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          envs: REPO_URL,POSTGRES_PASSWORD,JWT_SECRET,CORS_ORIGIN,FRONTEND_PORT,BACKEND_PORT,DB_TUNNEL_PORT,DEPLOY_BRANCH
+          envs: REPO_URL,POSTGRES_PASSWORD,JWT_SECRET,CORS_ORIGIN,FRONTEND_PORT,BACKEND_PORT,DB_TUNNEL_PORT,DEPLOY_BRANCH,S3_ENDPOINT,S3_REGION,S3_BUCKET,S3_ACCESS_KEY_ID,S3_SECRET_ACCESS_KEY,S3_FORCE_PATH_STYLE
           script: |
             set -e
             DIR=~/apps/crm-staging
@@ -59,6 +65,12 @@ jobs:
             BACKEND_PORT=${BACKEND_PORT}
             DB_TUNNEL_PORT=${DB_TUNNEL_PORT}
             DEPLOY_BRANCH=${DEPLOY_BRANCH}
+            S3_ENDPOINT=${S3_ENDPOINT}
+            S3_REGION=${S3_REGION}
+            S3_BUCKET=${S3_BUCKET}
+            S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
+            S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+            S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE}
             ENVEOF
               chmod 600 .env
             fi
@@ -70,6 +82,15 @@ jobs:
             # without this, an existing .env from before this change has no CORS_ORIGIN
             # line and the backend container refuses to start (see docker-compose.yml).
             grep -q '^CORS_ORIGIN=' .env || echo "CORS_ORIGIN=${CORS_ORIGIN}" >> .env
+            # One-time fixup for a directory that predates S3 attachment storage support --
+            # these are optional (opportunity attachments just stay metadata-only without
+            # them), but an existing .env needs the lines added for the secrets to take effect.
+            grep -q '^S3_ENDPOINT=' .env || echo "S3_ENDPOINT=${S3_ENDPOINT}" >> .env
+            grep -q '^S3_REGION=' .env || echo "S3_REGION=${S3_REGION}" >> .env
+            grep -q '^S3_BUCKET=' .env || echo "S3_BUCKET=${S3_BUCKET}" >> .env
+            grep -q '^S3_ACCESS_KEY_ID=' .env || echo "S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}" >> .env
+            grep -q '^S3_SECRET_ACCESS_KEY=' .env || echo "S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}" >> .env
+            grep -q '^S3_FORCE_PATH_STYLE=' .env || echo "S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE}" >> .env
 
             chmod +x deploy.sh
             ./deploy.sh

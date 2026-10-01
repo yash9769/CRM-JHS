@@ -115,6 +115,21 @@ export default function OpportunityDetailPage() {
     onError: (err: any) => alert(err?.response?.data?.error || "Failed to revoke deletion request"),
   });
 
+  async function downloadAttachment(attachmentId: string, filename: string) {
+    try {
+      const res = await api.get(`/opportunities/${id}/attachments/${attachmentId}/download`, { responseType: "blob" });
+      const url = window.URL.createObjectURL(res.data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err?.response?.data?.error || "Failed to download attachment");
+    }
+  }
 
 
   if (isLoading || !opp) {
@@ -668,6 +683,14 @@ export default function OpportunityDetailPage() {
                           Uploaded by {att.uploadedBy ? `${att.uploadedBy.firstName} ${att.uploadedBy.lastName}` : "User"} on {formatDate(att.createdAt)} ({Math.round(att.size / 1024)} KB)
                         </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => downloadAttachment(att.id, att.originalFilename)}
+                        className="p-1.5 rounded hover:bg-[var(--ink-100)] text-[var(--ink-500)] hover:text-[var(--ledger-700)] transition-colors shrink-0"
+                        title="Download"
+                      >
+                        <Download size={14} />
+                      </button>
                     </div>
                   ))}
                 </div>

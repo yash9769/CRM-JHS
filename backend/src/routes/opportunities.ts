@@ -6,6 +6,7 @@ import { toCsv } from "../lib/csv.js";
 import { getCreatedByFilter, requireCanAccess, requireExportPermission, getVisibleUserIds } from "../lib/rbac.js";
 import { computeOpportunityFinancials } from "../lib/financial.js";
 import { phoneSchema, nameSchema } from "../lib/validators.js";
+import { storageProvider } from "../lib/storage.js";
 
 export function isApprovalRequiredStage(stageName: string, userRole: string = "MANAGER"): boolean {
   if (!stageName) return false;
@@ -1254,40 +1255,64 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     return formatted;
   });
 
-  // ATTACHMENTS — Metadata endpoint for Opportunity attachments
+  // ATTACHMENTS — Opportunity attachments (PO / LOE / client confirmation docs)
   const ALLOWED_ATTACHMENT_EXTENSIONS = [".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png", ".eml", ".msg"];
   app.post("/api/v1/opportunities/:id/attachments", { preHandler: app.authenticate }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const attachSchema = z.object({
-      originalFilename: z.string().min(1).refine(
-        (name) => ALLOWED_ATTACHMENT_EXTENSIONS.some((ext) => name.toLowerCase().endsWith(ext)),
-        { message: "Only PDF, DOCX, image, and email confirmation files are accepted" }
-      ),
-      mimeType: z.string().min(1),
-      size: z.number().int().positive(),
-      storageKey: z.string().optional().nullable(),
-      stageApprovalId: z.string().uuid().optional().nullable(),
-    });
-    const body = attachSchema.parse(req.body);
     const opp = await prisma.opportunity.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
     if (!opp) return reply.code(404).send({ error: "Opportunity not found" });
     await requireCanAccess(req.authUser, opp);
+
+    const file = await req.file();
+    if (!file) return reply.code(400).send({ error: "No file uploaded" });
+
+    const originalFilename = file.filename;
+    if (!ALLOWED_ATTACHMENT_EXTENSIONS.some((ext) => originalFilename.toLowerCase().endsWith(ext))) {
+      return reply.code(400).send({ error: "Only PDF, DOCX, image, and email confirmation files are accepted" });
+    }
+
+    const stageApprovalId = (file.fields?.stageApprovalId as any)?.value || null;
+    const fileBuffer = await file.toBuffer();
+
+    const { storageKey } = await storageProvider.uploadFile(fileBuffer, originalFilename, file.mimetype);
 
     const attachment = await prisma.opportunityAttachment.create({
       data: {
         tenantId: req.authUser.tenantId,
         opportunityId: id,
-        stageApprovalId: body.stageApprovalId || null,
-        originalFilename: body.originalFilename,
-        mimeType: body.mimeType,
-        size: body.size,
-        storageKey: body.storageKey || `staged/${Date.now()}-${body.originalFilename}`,
+        stageApprovalId: stageApprovalId || null,
+        originalFilename,
+        mimeType: file.mimetype,
+        size: fileBuffer.length,
+        storageKey,
         uploadedById: req.authUser.id,
       },
       include: { uploadedBy: { select: { id: true, firstName: true, lastName: true } } },
     });
 
     return reply.code(201).send({ data: attachment });
+  });
+
+  app.get("/api/v1/opportunities/:id/attachments/:attachmentId/download", { preHandler: app.authenticate }, async (req, reply) => {
+    const { id, attachmentId } = req.params as { id: string; attachmentId: string };
+    const opp = await prisma.opportunity.findFirst({ where: { id, tenantId: req.authUser.tenantId } });
+    if (!opp) return reply.code(404).send({ error: "Opportunity not found" });
+    await requireCanAccess(req.authUser, opp, "read");
+
+    const attachment = await prisma.opportunityAttachment.findFirst({
+      where: { id: attachmentId, opportunityId: id, tenantId: req.authUser.tenantId },
+    });
+    if (!attachment) return reply.code(404).send({ error: "Attachment not found" });
+
+    if (!attachment.storageKey) {
+      return reply.code(404).send({ error: "This attachment is not available for download." });
+    }
+    try {
+      const url = await storageProvider.getDownloadUrl(attachment.storageKey);
+      return reply.redirect(url);
+    } catch (err: any) {
+      return reply.code(404).send({ error: err.message || "This attachment is not available for download." });
+    }
   });
 
   app.delete("/api/v1/opportunities/:id/attachments/:attachmentId", { preHandler: app.authenticate }, async (req, reply) => {
@@ -1302,6 +1327,7 @@ export default async function opportunityRoutes(app: FastifyInstance) {
     if (!attachment) return reply.code(404).send({ error: "Attachment not found" });
 
     await prisma.opportunityAttachment.delete({ where: { id: attachmentId } });
+    if (attachment.storageKey) await storageProvider.deleteFile(attachment.storageKey);
     return reply.code(204).send();
   });
 

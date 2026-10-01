@@ -2,6 +2,7 @@ import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
+import multipart from "@fastify/multipart";
 import { ZodError } from "zod";
 import { registerAuth } from "./plugins/auth.js";
 
@@ -48,6 +49,10 @@ export async function buildApp(opts = {}) {
     max: process.env.NODE_ENV === "test" ? 10000 : 100,
     timeWindow: "1 minute",
     allowList: process.env.NODE_ENV === "production" ? [] : ["127.0.0.1", "::1", "localhost"],
+  });
+
+  await app.register(multipart, {
+    limits: { fileSize: 20 * 1024 * 1024 }, // 20MB — matches the PO/LOE attachment use case
   });
 
   await registerAuth(app);
