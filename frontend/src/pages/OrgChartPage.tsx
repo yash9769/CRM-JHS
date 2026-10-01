@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
@@ -832,6 +832,20 @@ function InteractiveZoomCanvas({
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const seniorSectionRef = useRef<HTMLDivElement>(null);
+
+  // The Senior Partners row is usually much narrower than the Managers row
+  // (which, being the widest, determines the whole canvas's rendered width),
+  // so centering each row independently within that width can land the
+  // Senior row's cards outside the viewport's default (scrolled-to-0)
+  // window -- confirmed live: at scrollLeft 0 the Senior cards rendered
+  // ~230px past the right edge of the visible area, with no CSS clipping
+  // involved at all. Scroll it into view explicitly on load/data-change so
+  // the top of the hierarchy is what a viewer actually sees first.
+  useEffect(() => {
+    seniorSectionRef.current?.scrollIntoView({ block: "start", inline: "center" });
+  }, [seniorPartners.length]);
 
   const zoomIn = () => setScale((s) => Math.min(s + 0.15, 2.0));
   const zoomOut = () => setScale((s) => Math.max(s - 0.15, 0.3));
@@ -911,12 +925,13 @@ function InteractiveZoomCanvas({
 
       {/* Interactive Drag Canvas Viewport */}
       <div
+        ref={viewportRef}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
-        className={`w-full h-full p-12 overflow-auto flex items-center justify-center ${
+        className={`w-full h-full p-12 overflow-auto ${
           isDragging ? "cursor-grabbing" : "cursor-grab"
         }`}
       >
@@ -928,7 +943,7 @@ function InteractiveZoomCanvas({
         >
           {/* Senior Partners Level (Horizontal Row) */}
           {seniorPartners.length > 0 && (
-            <div className="flex flex-col items-center">
+            <div ref={seniorSectionRef} className="flex flex-col items-center">
               <div className="text-[10px] uppercase font-bold tracking-widest px-3.5 py-1 rounded-full bg-slate-900 text-slate-100 mb-4 shadow-sm flex items-center gap-1.5">
                 <Crown size={12} className="text-amber-400" /> Senior Executive{seniorPartners.length > 1 ? `s (${seniorPartners.length})` : ""}
               </div>
