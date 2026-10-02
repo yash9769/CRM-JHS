@@ -63,6 +63,11 @@ services:
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
       S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-}
+      # Attachments are saved here whenever object storage isn't configured or an
+      # upload to it fails -- a named volume so they survive container rebuilds.
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - crm_uploads:/app/uploads
     ports:
       - "${BACKEND_PORT:?Set BACKEND_PORT in .env — 8035 for staging, 8045 for production}:4000"
 
@@ -78,3 +83,4 @@ services:
 
 volumes:
   crm_pgdata:
+  crm_uploads:

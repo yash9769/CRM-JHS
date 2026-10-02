@@ -7,6 +7,7 @@ import { getCreatedByFilter, requireCanAccess, requireExportPermission, getVisib
 import { computeOpportunityFinancials } from "../lib/financial.js";
 import { phoneSchema, nameSchema } from "../lib/validators.js";
 import { storageProvider } from "../lib/storage.js";
+import { readFile } from "node:fs/promises";
 
 export function isApprovalRequiredStage(stageName: string, userRole: string = "MANAGER"): boolean {
   if (!stageName) return false;
@@ -1312,6 +1313,18 @@ export default async function opportunityRoutes(app: FastifyInstance) {
 
     if (!attachment.storageKey) {
       return reply.code(404).send({ error: "This attachment is not available for download." });
+    }
+    if (storageProvider.isLocalKey(attachment.storageKey)) {
+      try {
+        const data = await readFile(storageProvider.localFilePath(attachment.storageKey));
+        const safeFilename = attachment.originalFilename.replace(/["\r\n]/g, "_");
+        return reply
+          .header("Content-Type", attachment.mimeType || "application/octet-stream")
+          .header("Content-Disposition", `attachment; filename="${safeFilename}"`)
+          .send(data);
+      } catch {
+        return reply.code(404).send({ error: "This attachment's file could not be found on the server." });
+      }
     }
     try {
       const url = await storageProvider.getDownloadUrl(attachment.storageKey);

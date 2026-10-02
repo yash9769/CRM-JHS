@@ -13,3 +13,6 @@ coverage
 .DS_Store
 *.swp
 *.swo
+
+# Locally-stored attachment uploads (see backend/src/lib/storage.ts)
+backend/uploads
