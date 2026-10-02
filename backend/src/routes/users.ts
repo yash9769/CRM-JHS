@@ -80,8 +80,12 @@ export default async function userRoutes(app: FastifyInstance) {
 
     if (actor.orgRole === "PARTNER") {
       const actorUser = allUsers.find((u) => u.id === actor.id);
-      const parentSpId = actorUser?.createdById || actorUser?.partnerId;
-      const parentSp = parentSpId ? allUsers.find((u) => u.id === parentSpId && u.orgRole === "SENIOR_PARTNER") : null;
+      // partnerId is who the Partner reports to; createdById is only a fallback
+      // (it can point at whoever provisioned the account, e.g. a Super Admin).
+      const parentSp =
+        [actorUser?.partnerId, actorUser?.createdById]
+          .map((id) => (id ? allUsers.find((u) => u.id === id && u.orgRole === "SENIOR_PARTNER") : undefined))
+          .find(Boolean) || null;
       const myManagers = allUsers.filter((u) => u.orgRole === "MANAGER" && u.partnerId === actor.id);
 
       return {
