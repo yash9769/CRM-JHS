@@ -700,6 +700,13 @@ function EditUserModal({
       setError(e?.response?.data?.details?.[0]?.message || e?.response?.data?.error || "Could not reset password"),
   });
 
+  const [totpCleared, setTotpCleared] = useState(false);
+  const resetTotpMutation = useMutation({
+    mutationFn: () => api.post(`/users/${user.id}/reset-2fa`),
+    onSuccess: () => setTotpCleared(true),
+    onError: (e: any) => setError(e?.response?.data?.error || "Could not reset two-factor authentication"),
+  });
+
   function runReset(password?: string) {
     if (password !== undefined && password.length < 8) {
       setError("Password must be at least 8 characters.");
@@ -849,6 +856,27 @@ function EditUserModal({
                     Or generate a random one
                   </button>
                 </div>
+              )}
+
+              <label className="block text-xs font-medium mt-4 mb-1 text-[var(--ink-600)]">Two-factor authentication</label>
+              {totpCleared ? (
+                <p className="text-xs px-3 py-2 rounded-lg text-emerald-800 bg-emerald-50 border border-emerald-200">
+                  2FA reset. {user.firstName} will be shown a new QR code to scan at their next sign-in.
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  disabled={resetTotpMutation.isPending}
+                  onClick={() => {
+                    if (confirm(`Reset ${user.firstName} ${user.lastName}'s 2FA? Their current authenticator codes will stop working, and they'll set it up again at next sign-in.`)) {
+                      setError("");
+                      resetTotpMutation.mutate();
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[var(--ink-200)] hover:bg-[var(--ink-50)] disabled:opacity-50"
+                >
+                  {resetTotpMutation.isPending ? "Resetting…" : "Reset 2FA"}
+                </button>
               )}
             </div>
           )}

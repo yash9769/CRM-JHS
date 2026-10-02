@@ -284,6 +284,39 @@ export default async function userRoutes(app: FastifyInstance) {
     return { password };
   });
 
+  // POST /users/:id/reset-2fa — Super Admin clears a user's authenticator
+  // enrollment (e.g. it was set up on someone else's phone, or the phone was
+  // lost). Their next sign-in shows a fresh QR code to enroll again.
+  app.post("/api/v1/users/:id/reset-2fa", { preHandler: [app.authenticate] }, async (req: any, reply) => {
+    const actor = req.authUser;
+    const targetId = req.params.id;
+
+    if (actor.orgRole !== "SUPER_ADMIN") {
+      return reply.code(403).send({ error: "Only Super Admins can reset two-factor authentication" });
+    }
+    if (targetId === actor.id) {
+      return reply.code(400).send({ error: "You can't reset your own two-factor authentication from here" });
+    }
+
+    const target = await prisma.user.findFirst({ where: { id: targetId, tenantId: actor.tenantId } });
+    if (!target) return reply.code(404).send({ error: "User not found" });
+
+    await prisma.user.update({
+      where: { id: targetId },
+      data: { totpSecret: null, totpEnabled: false, totpVerifiedAt: null },
+    });
+    await logAudit({
+      tenantId: actor.tenantId,
+      userId: actor.id,
+      objectType: "USER",
+      recordId: targetId,
+      action: "TOTP_RESET",
+      newValues: { email: target.email },
+    });
+
+    return { success: true };
+  });
+
   // DELETE /users/:id — remove user
   app.delete("/api/v1/users/:id", { preHandler: [app.authenticate] }, async (req: any, reply) => {
     const actor = req.authUser;
