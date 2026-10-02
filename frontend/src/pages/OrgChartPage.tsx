@@ -1078,9 +1078,15 @@ function InteractiveZoomCanvas({
             </div>
           )}
 
-          {/* Unassigned Managers */}
+          {/* Unassigned Managers -- includes managers with no partnerId at all, AND
+              managers whose partnerId doesn't match anyone in `partners` (e.g. it
+              points to a Super Admin or a user who's since changed role/been
+              removed). Without the second check, such a manager renders nowhere:
+              not nested under a partner card (no matching partner to nest under)
+              and not caught by a "no partnerId" check either. */}
           {(() => {
-            const orphans = managers.filter((m: any) => !m.partnerId);
+            const partnerIds = new Set(partners.map((p: any) => p.id));
+            const orphans = managers.filter((m: any) => !m.partnerId || !partnerIds.has(m.partnerId));
             if (!orphans.length) return null;
             return (
               <div className="mt-12 pt-8 border-t border-[var(--ink-200)] flex flex-col items-center min-w-max">
