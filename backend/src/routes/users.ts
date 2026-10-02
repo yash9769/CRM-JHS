@@ -237,10 +237,11 @@ export default async function userRoutes(app: FastifyInstance) {
     return updated;
   });
 
-  // POST /users/:id/reset-password — Super Admin sets a new random password for
-  // a user who's locked out. Passwords are argon2-hashed and unrecoverable, so a
-  // reset is the only way back in. The new password is returned once, for the
-  // admin to hand over; it is never stored or logged in plaintext.
+  // POST /users/:id/reset-password — Super Admin sets a new password for a user
+  // who's locked out: the one they type, or a random one if they leave it blank.
+  // Passwords are argon2-hashed and unrecoverable, so a reset is the only way
+  // back in. The password is returned once for the admin to hand over; it is
+  // never stored or logged in plaintext.
   app.post("/api/v1/users/:id/reset-password", { preHandler: [app.authenticate] }, async (req: any, reply) => {
     const actor = req.authUser;
     const targetId = req.params.id;
@@ -255,9 +256,15 @@ export default async function userRoutes(app: FastifyInstance) {
     const target = await prisma.user.findFirst({ where: { id: targetId, tenantId: actor.tenantId } });
     if (!target) return reply.code(404).send({ error: "User not found" });
 
+    const body = z
+      .object({
+        password: z.string().min(8, "Password must be at least 8 characters").max(128, "Password must be at most 128 characters").optional(),
+      })
+      .parse(req.body ?? {});
+
     const crypto = await import("node:crypto");
     const argon2 = await import("argon2");
-    const password = crypto.randomBytes(15).toString("base64url");
+    const password = body.password ?? crypto.randomBytes(15).toString("base64url");
     const passwordHash = await argon2.hash(password);
 
     await prisma.user.update({ where: { id: targetId }, data: { passwordHash } });

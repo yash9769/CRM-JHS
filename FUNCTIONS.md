@@ -48,7 +48,7 @@ A comprehensive registry of every function, class, component, and API route acro
 | `POST /api/v1/users/invite` | `backend/src/routes/users.ts` | Invites/creates a new team member with role | `{ email, firstName, lastName, role, password? }` | `{ data: User }` |
 | `PATCH /api/v1/users/:id` | `backend/src/routes/users.ts` | Updates a team member's role or status | `{ firstName?, lastName?, role?, active? }` | `{ data: User }` |
 | `DELETE /api/v1/users/:id` | `backend/src/routes/users.ts` | Deactivates or removes a workspace member | None | `{ success: true }` |
-| `POST /api/v1/users/:id/reset-password` | `backend/src/routes/users.ts` | SUPER_ADMIN-only: sets a new random password for a user (not self), audit-logged as `PASSWORD_RESET`; surfaced as "Reset password" in the Org Chart Edit dialog | None | `{ password }` (shown once) |
+| `POST /api/v1/users/:id/reset-password` | `backend/src/routes/users.ts` | SUPER_ADMIN-only: sets a user's password (not self) to the one supplied, or a random one if omitted; audit-logged as `PASSWORD_RESET`; surfaced as "Set password" / "Or generate a random one" in the Org Chart Edit dialog | `{ password? }` (min 8, max 128) | `{ password }` (shown once) |
 | `GET /api/v1/users/stats` | `backend/src/routes/users.ts` | Returns workspace user count breakdown by role | None | `{ total, byRole: Record<string, number> }` |
 | `GET /api/v1/tenants` | `backend/src/routes/tenants.ts` | `SUPER_ADMIN`-only: lists every tenant (id, name, user count) to power the frontend's tenant switcher | Bearer Auth Header | `{ data: { id, name, _count: { users } }[] }` (403 for non-Super-Admins) |
 

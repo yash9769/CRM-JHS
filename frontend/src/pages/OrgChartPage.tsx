@@ -689,13 +689,27 @@ function EditUserModal({
   });
   const [error, setError] = useState("");
   const [newPassword, setNewPassword] = useState<string | null>(null);
+  const [customPassword, setCustomPassword] = useState("");
   const [copied, setCopied] = useState(false);
 
   const resetMutation = useMutation({
-    mutationFn: async () => (await api.post(`/users/${user.id}/reset-password`)).data as { password: string },
-    onSuccess: (data) => setNewPassword(data.password),
-    onError: (e: any) => setError(e?.response?.data?.error || "Could not reset password"),
+    mutationFn: async (password?: string) =>
+      (await api.post(`/users/${user.id}/reset-password`, password ? { password } : {})).data as { password: string },
+    onSuccess: (data) => { setNewPassword(data.password); setCustomPassword(""); },
+    onError: (e: any) =>
+      setError(e?.response?.data?.details?.[0]?.message || e?.response?.data?.error || "Could not reset password"),
   });
+
+  function runReset(password?: string) {
+    if (password !== undefined && password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (confirm(`Reset ${user.firstName} ${user.lastName}'s password? Their current password will stop working immediately.`)) {
+      setError("");
+      resetMutation.mutate(password);
+    }
+  }
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -802,19 +816,39 @@ function EditUserModal({
                   </p>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  disabled={resetMutation.isPending}
-                  onClick={() => {
-                    if (confirm(`Reset ${user.firstName} ${user.lastName}'s password? Their current password will stop working immediately.`)) {
-                      setError("");
-                      resetMutation.mutate();
-                    }
-                  }}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[var(--ink-200)] hover:bg-[var(--ink-50)]"
-                >
-                  {resetMutation.isPending ? "Resetting…" : "Reset password"}
-                </button>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      placeholder="New password (min 8 characters)"
+                      value={customPassword}
+                      onChange={(e) => setCustomPassword(e.target.value)}
+                      onKeyDown={(e) => {
+                        // Enter here would otherwise submit the surrounding Edit form.
+                        if (e.key === "Enter") { e.preventDefault(); if (customPassword) runReset(customPassword); }
+                      }}
+                      className={inputCls}
+                      style={inputStyle}
+                    />
+                    <button
+                      type="button"
+                      disabled={resetMutation.isPending || !customPassword}
+                      onClick={() => runReset(customPassword)}
+                      className="shrink-0 px-3 py-2 rounded-lg text-xs font-medium border border-[var(--ink-200)] hover:bg-[var(--ink-50)] disabled:opacity-50"
+                    >
+                      {resetMutation.isPending ? "Saving…" : "Set password"}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={resetMutation.isPending}
+                    onClick={() => runReset()}
+                    className="text-xs font-medium hover:underline text-[var(--ledger-700)]"
+                  >
+                    Or generate a random one
+                  </button>
+                </div>
               )}
             </div>
           )}
