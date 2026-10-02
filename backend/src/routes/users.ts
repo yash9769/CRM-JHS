@@ -105,11 +105,12 @@ export default async function userRoutes(app: FastifyInstance) {
       };
     }
 
+    const superAdmins = allUsers.filter((u) => u.orgRole === "SUPER_ADMIN");
     const seniorPartners = allUsers.filter((u) => u.orgRole === "SENIOR_PARTNER");
     const partners = allUsers.filter((u) => u.orgRole === "PARTNER");
     const managers = allUsers.filter((u) => u.orgRole === "MANAGER");
 
-    return { seniorPartner: seniorPartners[0] || null, seniorPartners, partners, managers };
+    return { seniorPartner: seniorPartners[0] || null, superAdmins, seniorPartners, partners, managers };
   });
 
   // POST /users — create a new user

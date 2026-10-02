@@ -796,6 +796,7 @@ function EditUserModal({
 
 // ── Interactive Canvas Component with Zoom & Pan ───────────────────────────
 function InteractiveZoomCanvas({
+  superAdmins,
   seniorPartners,
   partners,
   managers,
@@ -809,6 +810,7 @@ function InteractiveZoomCanvas({
   setDeleteError,
   setBirdEyeUser,
 }: {
+  superAdmins: any[];
   seniorPartners: any[];
   partners: any[];
   managers: any[];
@@ -834,6 +836,8 @@ function InteractiveZoomCanvas({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const viewportRef = useRef<HTMLDivElement>(null);
   const seniorSectionRef = useRef<HTMLDivElement>(null);
+  const superAdminSectionRef = useRef<HTMLDivElement>(null);
+  const topSectionRef = superAdmins.length > 0 ? superAdminSectionRef : seniorSectionRef;
 
   // The Senior Partners row is usually much narrower than the Managers row
   // (which, being the widest, determines the whole canvas's rendered width),
@@ -844,8 +848,8 @@ function InteractiveZoomCanvas({
   // involved at all. Scroll it into view explicitly on load/data-change so
   // the top of the hierarchy is what a viewer actually sees first.
   useEffect(() => {
-    seniorSectionRef.current?.scrollIntoView({ block: "start", inline: "center" });
-  }, [seniorPartners.length]);
+    topSectionRef.current?.scrollIntoView({ block: "start", inline: "center" });
+  }, [superAdmins.length, seniorPartners.length]);
 
   const zoomIn = () => setScale((s) => Math.min(s + 0.15, 2.0));
   const zoomOut = () => setScale((s) => Math.max(s - 0.15, 0.3));
@@ -941,9 +945,38 @@ function InteractiveZoomCanvas({
             transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
           }}
         >
+          {/* Super Admins Level (Horizontal Row) -- platform-wide, cross-tenant role, shown above everyone else */}
+          {superAdmins.length > 0 && (
+            <div ref={superAdminSectionRef} className="flex flex-col items-center">
+              <div className="text-[10px] uppercase font-bold tracking-widest px-3.5 py-1 rounded-full bg-purple-900 text-purple-100 mb-4 shadow-sm flex items-center gap-1.5">
+                <Sparkles size={12} className="text-purple-300" /> Super Admin{superAdmins.length > 1 ? `s (${superAdmins.length})` : ""}
+              </div>
+              <div className="flex flex-nowrap items-center justify-center gap-12 min-w-max">
+                {superAdmins.map((sa: any) => (
+                  <EnhancedUserCard
+                    key={sa.id}
+                    user={sa}
+                    canEdit={false}
+                    isSelf={sa.id === meId}
+                    onEdit={(u) => setEditUser(u)}
+                    onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
+                    onSelect={(u) => setBirdEyeUser(u)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Vertical Stem from Super Admin down to Senior Executives */}
+          {superAdmins.length > 0 && seniorPartners.length > 0 && (
+            <div className="flex flex-col items-center my-3">
+              <div className="w-0.5 h-8 bg-slate-800" />
+            </div>
+          )}
+
           {/* Senior Partners Level (Horizontal Row) */}
           {seniorPartners.length > 0 && (
-            <div ref={seniorSectionRef} className="flex flex-col items-center">
+            <div ref={superAdmins.length === 0 ? seniorSectionRef : undefined} className="flex flex-col items-center">
               <div className="text-[10px] uppercase font-bold tracking-widest px-3.5 py-1 rounded-full bg-slate-900 text-slate-100 mb-4 shadow-sm flex items-center gap-1.5">
                 <Crown size={12} className="text-amber-400" /> Senior Executive{seniorPartners.length > 1 ? `s (${seniorPartners.length})` : ""}
               </div>
@@ -1114,6 +1147,7 @@ export default function OrgChartPage() {
     onError: (e: any) => setDeleteError(e?.response?.data?.error || "Could not remove user"),
   });
 
+  const superAdmins: any[] = data?.superAdmins || [];
   const seniorPartners: any[] = data?.seniorPartners || (data?.seniorPartner ? [data.seniorPartner] : []);
   const seniorPartner = seniorPartners[0];
   const partners: any[] = data?.partners || [];
@@ -1128,6 +1162,12 @@ export default function OrgChartPage() {
   };
 
   // Filtered members list for search/grid/tree view
+  const filteredSuperAdmins = useMemo(() => superAdmins.filter((u) => {
+    const matchesSearch = !searchQuery || `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesRole = roleFilter === "ALL" || u.orgRole === roleFilter;
+    return matchesSearch && matchesRole;
+  }), [superAdmins, searchQuery, roleFilter]);
+
   const filteredSeniorPartners = useMemo(() => seniorPartners.filter((u) => {
     const matchesSearch = !searchQuery || `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRole = roleFilter === "ALL" || u.orgRole === roleFilter;
@@ -1148,11 +1188,12 @@ export default function OrgChartPage() {
 
   const filteredUsers = useMemo(() => {
     const allUsers: any[] = [];
+    allUsers.push(...filteredSuperAdmins);
     allUsers.push(...filteredSeniorPartners);
     allUsers.push(...filteredPartners);
     allUsers.push(...filteredManagers);
     return allUsers;
-  }, [filteredSeniorPartners, filteredPartners, filteredManagers]);
+  }, [filteredSuperAdmins, filteredSeniorPartners, filteredPartners, filteredManagers]);
 
   if (isLoading) {
     return (
@@ -1199,6 +1240,7 @@ export default function OrgChartPage() {
             className="px-3 py-2 rounded-xl border text-xs outline-none border-[var(--ink-200)] bg-white font-medium"
           >
             <option value="ALL">All Roles</option>
+            <option value="SUPER_ADMIN">Super Admin</option>
             <option value="SENIOR_PARTNER">Senior Partner</option>
             <option value="PARTNER">Partner</option>
             <option value="MANAGER">Manager</option>
@@ -1316,6 +1358,7 @@ export default function OrgChartPage() {
       ) : (
         /* HIERARCHY TREE VIEW WITH INTERACTIVE ZOOM & PAN CANVAS */
         <InteractiveZoomCanvas
+          superAdmins={filteredSuperAdmins}
           seniorPartners={filteredSeniorPartners}
           partners={filteredPartners}
           managers={filteredManagers}
