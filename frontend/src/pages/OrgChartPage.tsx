@@ -951,18 +951,40 @@ function InteractiveZoomCanvas({
               <div className="text-[10px] uppercase font-bold tracking-widest px-3.5 py-1 rounded-full bg-purple-900 text-purple-100 mb-4 shadow-sm flex items-center gap-1.5">
                 <Sparkles size={12} className="text-purple-300" /> Super Admin{superAdmins.length > 1 ? `s (${superAdmins.length})` : ""}
               </div>
-              <div className="flex flex-nowrap items-center justify-center gap-12 min-w-max">
-                {superAdmins.map((sa: any) => (
-                  <EnhancedUserCard
-                    key={sa.id}
-                    user={sa}
-                    canEdit={false}
-                    isSelf={sa.id === meId}
-                    onEdit={(u) => setEditUser(u)}
-                    onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
-                    onSelect={(u) => setBirdEyeUser(u)}
-                  />
-                ))}
+              <div className="flex flex-nowrap items-start justify-center gap-12 min-w-max">
+                {superAdmins.map((sa: any) => {
+                  const saManagers = managers.filter((m: any) => m.partnerId === sa.id);
+                  return (
+                    <div key={sa.id} className="flex flex-col items-center min-w-max">
+                      <EnhancedUserCard
+                        user={sa}
+                        canEdit={false}
+                        isSelf={sa.id === meId}
+                        onEdit={(u) => setEditUser(u)}
+                        onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
+                        onSelect={(u) => setBirdEyeUser(u)}
+                      />
+                      {saManagers.length > 0 && (
+                        <div className="flex flex-col items-center mt-3 min-w-max">
+                          <div className="w-0.5 h-6 bg-purple-500" />
+                          <div className="flex flex-nowrap items-start justify-center gap-6 min-w-max">
+                            {saManagers.map((mgr: any) => (
+                              <EnhancedUserCard
+                                key={mgr.id}
+                                user={mgr}
+                                canEdit={canEdit}
+                                isSelf={mgr.id === meId}
+                                onEdit={(u) => setEditUser(u)}
+                                onDelete={(u) => { setDeleteTarget(u); setDeleteError(""); }}
+                                onSelect={(u) => setBirdEyeUser(u)}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1085,7 +1107,7 @@ function InteractiveZoomCanvas({
               not nested under a partner card (no matching partner to nest under)
               and not caught by a "no partnerId" check either. */}
           {(() => {
-            const partnerIds = new Set(partners.map((p: any) => p.id));
+            const partnerIds = new Set([...partners, ...superAdmins].map((p: any) => p.id));
             const orphans = managers.filter((m: any) => !m.partnerId || !partnerIds.has(m.partnerId));
             if (!orphans.length) return null;
             return (
