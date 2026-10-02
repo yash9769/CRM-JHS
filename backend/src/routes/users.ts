@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
+import { logAudit } from "../lib/audit.js";
 import { canManageUser, getVisibleUserIds } from "../lib/rbac.js";
 import { computeOpportunityFinancials } from "../lib/financial.js";
 import { formatOppWithFinancials } from "./opportunities.js";
@@ -234,6 +235,42 @@ export default async function userRoutes(app: FastifyInstance) {
       select: userSelect,
     });
     return updated;
+  });
+
+  // POST /users/:id/reset-password — Super Admin sets a new random password for
+  // a user who's locked out. Passwords are argon2-hashed and unrecoverable, so a
+  // reset is the only way back in. The new password is returned once, for the
+  // admin to hand over; it is never stored or logged in plaintext.
+  app.post("/api/v1/users/:id/reset-password", { preHandler: [app.authenticate] }, async (req: any, reply) => {
+    const actor = req.authUser;
+    const targetId = req.params.id;
+
+    if (actor.orgRole !== "SUPER_ADMIN") {
+      return reply.code(403).send({ error: "Only Super Admins can reset passwords" });
+    }
+    if (targetId === actor.id) {
+      return reply.code(400).send({ error: "You can't reset your own password from here" });
+    }
+
+    const target = await prisma.user.findFirst({ where: { id: targetId, tenantId: actor.tenantId } });
+    if (!target) return reply.code(404).send({ error: "User not found" });
+
+    const crypto = await import("node:crypto");
+    const argon2 = await import("argon2");
+    const password = crypto.randomBytes(15).toString("base64url");
+    const passwordHash = await argon2.hash(password);
+
+    await prisma.user.update({ where: { id: targetId }, data: { passwordHash } });
+    await logAudit({
+      tenantId: actor.tenantId,
+      userId: actor.id,
+      objectType: "USER",
+      recordId: targetId,
+      action: "PASSWORD_RESET",
+      newValues: { email: target.email },
+    });
+
+    return { password };
   });
 
   // DELETE /users/:id — remove user

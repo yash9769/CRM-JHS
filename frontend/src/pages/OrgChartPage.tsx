@@ -688,6 +688,14 @@ function EditUserModal({
     partnerId: user.partnerId || "",
   });
   const [error, setError] = useState("");
+  const [newPassword, setNewPassword] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const resetMutation = useMutation({
+    mutationFn: async () => (await api.post(`/users/${user.id}/reset-password`)).data as { password: string },
+    onSuccess: (data) => setNewPassword(data.password),
+    onError: (e: any) => setError(e?.response?.data?.error || "Could not reset password"),
+  });
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -771,6 +779,43 @@ function EditUserModal({
                   <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {actorOrgRole === "SUPER_ADMIN" && (
+            <div className="pt-3 border-t border-[var(--ink-100)]">
+              <label className="block text-xs font-medium mb-1 text-[var(--ink-600)]">Password</label>
+              {newPassword ? (
+                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 px-2 py-1 rounded bg-white border border-amber-200 text-sm font-mono break-all">{newPassword}</code>
+                    <button
+                      type="button"
+                      onClick={() => { navigator.clipboard?.writeText(newPassword); setCopied(true); }}
+                      className="px-3 py-1 rounded-lg text-xs font-medium border border-amber-300 hover:bg-amber-100"
+                    >
+                      {copied ? "Copied" : "Copy"}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-amber-800">
+                    Shown only once. Share it with {user.firstName} privately; their old password no longer works.
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={resetMutation.isPending}
+                  onClick={() => {
+                    if (confirm(`Reset ${user.firstName} ${user.lastName}'s password? Their current password will stop working immediately.`)) {
+                      setError("");
+                      resetMutation.mutate();
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[var(--ink-200)] hover:bg-[var(--ink-50)]"
+                >
+                  {resetMutation.isPending ? "Resetting…" : "Reset password"}
+                </button>
+              )}
             </div>
           )}
 
