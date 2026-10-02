@@ -12,6 +12,7 @@ import {
   verifyTotpCode,
 } from "../lib/totp.js";
 import { signFlowToken, verifyFlowToken } from "../lib/authFlowToken.js";
+import { logAudit } from "../lib/audit.js";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -22,6 +23,16 @@ const totpCodeSchema = z.object({
   token: z.string().min(1),
   code: z.string().regex(/^\d{6}$/, "Enter the 6-digit code from your authenticator app"),
 });
+
+const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1).optional(),
+    totpCode: z.string().regex(/^\d{6}$/, "Enter the 6-digit code from your authenticator app").optional(),
+    newPassword: z.string().min(8, "New password must be at least 8 characters").max(128, "New password must be at most 128 characters"),
+  })
+  .refine((b) => !!b.currentPassword !== !!b.totpCode, {
+    message: "Provide either your current password or an authenticator code",
+  });
 
 export default async function authRoutes(app: FastifyInstance) {
   // Accounts are created exclusively by an admin running `backend/scripts/createUser.ts`
@@ -168,6 +179,58 @@ export default async function authRoutes(app: FastifyInstance) {
           partnerId: user.partnerId,
         },
       });
+    }
+  );
+
+  // A signed-in user changes their own password, proving it's them with either
+  // their current password or -- if they've forgotten it -- a code from the
+  // authenticator app enrolled at first login. Wrong answers return 400, not
+  // 401: the frontend treats any 401 as "session expired" and logs the user out.
+  // Rate-limited per user (not per IP) so a hijacked session can't brute-force
+  // the 6-digit code.
+  app.post(
+    "/api/v1/auth/change-password",
+    {
+      preHandler: [
+        app.authenticate,
+        app.rateLimit({ max: 5, timeWindow: "15 minutes", keyGenerator: (req) => req.authUser?.id ?? req.ip }),
+      ],
+    },
+    async (req, reply) => {
+      const body = changePasswordSchema.parse(req.body);
+      const user = await prisma.user.findFirst({
+        where: { id: req.authUser.id, tenantId: req.authUser.homeTenantId, active: true },
+      });
+      if (!user) return reply.code(401).send({ error: "Unauthorized" });
+
+      if (body.currentPassword) {
+        if (!(await argon2.verify(user.passwordHash, body.currentPassword))) {
+          return reply.code(400).send({ error: "Current password is incorrect" });
+        }
+      } else {
+        if (!user.totpEnabled || !user.totpSecret) {
+          return reply.code(400).send({ error: "Two-factor authentication isn't set up on this account — use your current password instead." });
+        }
+        if (!verifyTotpCode(decryptTotpSecret(user.totpSecret), body.totpCode!)) {
+          return reply.code(400).send({ error: "Incorrect code — check your authenticator app and try again." });
+        }
+      }
+
+      if (await argon2.verify(user.passwordHash, body.newPassword)) {
+        return reply.code(400).send({ error: "New password must be different from your current password" });
+      }
+
+      await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await argon2.hash(body.newPassword) } });
+      await logAudit({
+        tenantId: user.tenantId,
+        userId: user.id,
+        objectType: "USER",
+        recordId: user.id,
+        action: "PASSWORD_CHANGED",
+        newValues: { method: body.currentPassword ? "current_password" : "authenticator_code" },
+      });
+
+      return { success: true };
     }
   );
 

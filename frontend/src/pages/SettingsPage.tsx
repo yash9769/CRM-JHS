@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { useAuth, roleLabel, canManageUsers } from "../hooks/useAuth";
 import { PageHeader, Card, Button, Badge } from "../components/ui";
 import { CsvImportModal, type ImportEntityType } from "../components/CsvImportModal";
+import { ChangePasswordCard } from "../components/ChangePasswordCard";
 import { downloadCsvExport } from "../lib/exportCsv";
 import { initials, formatCurrency } from "../lib/format";
 import { Shield, UploadCloud, Download, GitBranch } from "lucide-react";
@@ -41,6 +42,8 @@ export default function SettingsPage() {
             <div><dt className="text-xs text-[var(--ink-400)]">Your role</dt><dd className="mt-0.5"><Badge tone={roleTone[me?.orgRole || "MANAGER"]}>{roleLabel(me?.orgRole)}</Badge></dd></div>
           </dl>
         </Card>
+
+        <ChangePasswordCard />
 
         {/* Team */}
         <div>

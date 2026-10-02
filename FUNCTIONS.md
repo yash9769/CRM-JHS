@@ -40,6 +40,7 @@ A comprehensive registry of every function, class, component, and API route acro
 | Method & Endpoint | File Path | Purpose | Request Body / Query | Return Type |
 | :--- | :--- | :--- | :--- | :--- |
 | `POST /api/v1/auth/login` | `backend/src/routes/auth.ts` | Authenticates user credentials via Argon2. No public self-registration exists — see `backend/scripts/createUser.ts`. Returns a session token directly if TOTP was verified within the last 7 days; otherwise returns a setup/challenge step instead of a token | `{ email, password }` | `{ token, user }` **or** `{ requiresTotpSetup, setupToken, secret, otpauthUrl, qrCodeDataUrl }` **or** `{ requiresTotpChallenge, challengeToken }` (200) |
+| `POST /api/v1/auth/change-password` | `backend/src/routes/auth.ts` | Signed-in user changes their own password, proving identity with either `currentPassword` or a 6-digit `totpCode`; rate-limited to 5 attempts per user per 15 min, rejects reuse of the current password, audit-logged as `PASSWORD_CHANGED`. Wrong answers return 400 (never 401, which the frontend treats as session expiry) | `{ currentPassword?, totpCode?, newPassword }` (exactly one of the first two) | `{ success: true }` |
 | `POST /api/v1/auth/totp/setup-verify` | `backend/src/routes/auth.ts` | Completes first-time TOTP enrollment: verifies the 6-digit code against the pending secret, enables TOTP, issues a session | `{ token: setupToken, code }` | `{ token, user }` (200) |
 | `POST /api/v1/auth/totp/challenge-verify` | `backend/src/routes/auth.ts` | Re-verifies TOTP after the 7-day window has elapsed and issues a new session | `{ token: challengeToken, code }` | `{ token, user }` (200) |
 | `GET /api/v1/auth/me` | `backend/src/routes/auth.ts` | Retrieves current authenticated session user and tenant | Bearer Auth Header | `{ user, tenant }` |
@@ -206,6 +207,7 @@ A comprehensive registry of every function, class, component, and API route acro
 | Component Name | File Path | One-Line Purpose | Key Props |
 | :--- | :--- | :--- | :--- |
 | `AppShell` | `frontend/src/components/AppShell.tsx` | Master CRM application layout (Sidebar, Navbar, Global Search, Notifications); renders `TenantSwitcher` in the sidebar footer in place of the static tenant name when `user.orgRole === "SUPER_ADMIN"` | None (Outlet layout) |
+| `ChangePasswordCard` | `frontend/src/components/ChangePasswordCard.tsx` | Settings card letting any signed-in user change their own password, proving identity with their current password or (via "Forgot your current password?") a 6-digit authenticator code; calls `POST /auth/change-password` | None |
 | `TenantSwitcher` | `frontend/src/components/TenantSwitcher.tsx` | `SUPER_ADMIN`-only dropdown listing every tenant; selecting one sets `x-active-tenant-id` and invalidates all queries so the whole app re-fetches as that tenant | `currentTenantName?: string` |
 | `PageHeader` | `frontend/src/components/ui.tsx` | Standard header with title, subtitle, and action buttons | `title, subtitle?, actions?, breadcrumb?` |
 | `Card` | `frontend/src/components/ui.tsx` | Surface card container with consistent border & background | `children, className?` |
@@ -267,5 +269,5 @@ A comprehensive registry of every function, class, component, and API route acro
 | `ForecastingPage` | `frontend/src/pages/ForecastingPage.tsx` | `/forecasting` | Rep quotas, monthly pipeline attainment & rolling trend chart |
 | `ReportsPage` | `frontend/src/pages/ReportsPage.tsx` | `/reports` | Analytics reports (Pipeline health, Win/Loss, Funnel) |
 | `SearchPage` | `frontend/src/pages/SearchPage.tsx` | `/search` | Global cross-entity search result listings |
-| `SettingsPage` | `frontend/src/pages/SettingsPage.tsx` | `/settings` | Team management, role assignment, and custom properties |
+| `SettingsPage` | `frontend/src/pages/SettingsPage.tsx` | `/settings` | Team management, role assignment, custom properties, and changing your own password (`ChangePasswordCard`) |
 | `LoginPage` | `frontend/src/pages/LoginPage.tsx` | `/login` | Sign-in form, plus first-time TOTP enrollment (QR code) and the 7-day TOTP re-challenge step. No self-registration — accounts are created only via `backend/scripts/createUser.ts` |
