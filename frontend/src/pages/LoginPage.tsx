@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth, type LoginResult } from "../hooks/useAuth";
 import { inputClass, inputStyle } from "../components/ui";
 import { ShieldCheck } from "lucide-react";
+import { PasswordInput } from "../components/PasswordInput";
 
 export default function LoginPage() {
   const { login, completeTotpSetup, completeTotpChallenge } = useAuth();
@@ -82,7 +83,7 @@ export default function LoginPage() {
                 </label>
                 <label className="block mb-5">
                   <div className="text-xs font-medium mb-1.5" style={{ color: "var(--ink-600)" }}>Password</div>
-                  <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} style={inputStyle} placeholder="••••••••" />
+                  <PasswordInput required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
                 </label>
                 <button
                   type="submit"

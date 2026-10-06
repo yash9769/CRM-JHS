@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { Card, Button, inputClass, inputStyle } from "./ui";
+import { PasswordInput } from "./PasswordInput";
 import { KeyRound } from "lucide-react";
 
 type Mode = "password" | "authenticator";
@@ -82,8 +83,8 @@ export function ChangePasswordCard() {
         {mode === "password" ? (
           <div>
             <label className="block text-xs font-medium mb-1 text-[var(--ink-600)]">Current password</label>
-            <input
-              type="password"
+            <PasswordInput
+              
               autoComplete="current-password"
               required
               value={currentPassword}
@@ -111,8 +112,8 @@ export function ChangePasswordCard() {
 
         <div>
           <label className="block text-xs font-medium mb-1 text-[var(--ink-600)]">New password</label>
-          <input
-            type="password"
+          <PasswordInput
+            
             autoComplete="new-password"
             required
             minLength={8}
@@ -126,8 +127,8 @@ export function ChangePasswordCard() {
 
         <div>
           <label className="block text-xs font-medium mb-1 text-[var(--ink-600)]">Confirm new password</label>
-          <input
-            type="password"
+          <PasswordInput
+            
             autoComplete="new-password"
             required
             value={confirmPassword}

@@ -5,6 +5,7 @@ import { api } from "../lib/api";
 import { useAuth, roleLabel, canManageUsers } from "../hooks/useAuth";
 import { formatCurrency } from "../lib/format";
 import { StageBadge } from "../components/ui";
+import { PasswordInput } from "../components/PasswordInput";
 import {
   UserPlus, Trash2, Edit2, X, Users,
   Eye, Trophy, TrendingUp, Target, Building2,
@@ -644,7 +645,7 @@ function AddUserModal({
 
           <div>
             <label className="block text-xs font-medium mb-1 text-[var(--ink-600)]">Temporary password</label>
-            <input required type="password" minLength={8} className={inputCls} style={inputStyle} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+            <PasswordInput required minLength={8} autoComplete="new-password" className={inputCls} style={inputStyle} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           </div>
 
           {error && <p className="text-xs text-rose-600">{error}</p>}

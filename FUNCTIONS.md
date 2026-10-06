@@ -208,6 +208,7 @@ A comprehensive registry of every function, class, component, and API route acro
 | Component Name | File Path | One-Line Purpose | Key Props |
 | :--- | :--- | :--- | :--- |
 | `AppShell` | `frontend/src/components/AppShell.tsx` | Master CRM application layout (Sidebar, Navbar, Global Search, Notifications); renders `TenantSwitcher` in the sidebar footer in place of the static tenant name when `user.orgRole === "SUPER_ADMIN"` | None (Outlet layout) |
+| `PasswordInput` | `frontend/src/components/PasswordInput.tsx` | Drop-in replacement for `<input type="password">` with a show/hide (eye) toggle; used by the login form, Change password card, and Org Chart Add Member dialog | Any `<input>` prop except `type` |
 | `ChangePasswordCard` | `frontend/src/components/ChangePasswordCard.tsx` | Settings card letting any signed-in user change their own password, proving identity with their current password or (via "Forgot your current password?") a 6-digit authenticator code; calls `POST /auth/change-password` | None |
 | `TenantSwitcher` | `frontend/src/components/TenantSwitcher.tsx` | `SUPER_ADMIN`-only dropdown listing every tenant; selecting one sets `x-active-tenant-id` and invalidates all queries so the whole app re-fetches as that tenant | `currentTenantName?: string` |
 | `PageHeader` | `frontend/src/components/ui.tsx` | Standard header with title, subtitle, and action buttons | `title, subtitle?, actions?, breadcrumb?` |
