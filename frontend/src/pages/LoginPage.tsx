@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth, type LoginResult } from "../hooks/useAuth";
+import { api } from "../lib/api";
 import { inputClass, inputStyle } from "../components/ui";
 import { PasswordInput } from "../components/PasswordInput";
-import { AlertCircle, ArrowLeft, ArrowRight, Check, Loader2, Lock, Mail, ShieldCheck, TrendingUp, Users } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle2, KeyRound, Loader2, Lock, Mail, ShieldCheck, TrendingUp, Users } from "lucide-react";
 
 const PIPELINE_STAGES = [
   { name: "Lead" },
@@ -103,6 +104,19 @@ function ErrorAlert({ children }: { children: ReactNode }) {
   );
 }
 
+function NoticeAlert({ children }: { children: ReactNode }) {
+  return (
+    <div
+      role="status"
+      className="mb-5 flex items-start gap-2.5 rounded-lg border px-3.5 py-3 text-sm"
+      style={{ background: "var(--ledger-50)", color: "var(--ledger-700)", borderColor: "rgba(15,107,78,0.2)" }}
+    >
+      <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+      <span>{children}</span>
+    </div>
+  );
+}
+
 function SubmitButton({ loading, disabled, idle, busy }: { loading: boolean; disabled?: boolean; idle: string; busy: string }) {
   return (
     <button
@@ -147,6 +161,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<LoginResult>({ status: "authenticated" });
   const [started, setStarted] = useState(false);
+  const [view, setView] = useState<"signin" | "forgot">("signin");
+  const [notice, setNotice] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   async function handleCredentialsSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -188,9 +206,43 @@ export default function LoginPage() {
   function backToSignIn() {
     setStep({ status: "authenticated" });
     setStarted(false);
+    setView("signin");
     setCode("");
     setPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
     setError("");
+    setNotice("");
+  }
+
+  function openForgot() {
+    setView("forgot");
+    setCode("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setError("");
+    setNotice("");
+  }
+
+  async function handleForgotSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (newPassword.length < 8) return setError("New password must be at least 8 characters.");
+    if (newPassword !== confirmPassword) return setError("The two passwords don't match.");
+    setLoading(true);
+    try {
+      await api.post("/auth/forgot-password", { email, totpCode: code, newPassword });
+      backToSignIn();
+      setNotice("Password updated. Sign in with your new password.");
+    } catch (err: any) {
+      setError(
+        err?.response?.status === 429
+          ? "Too many attempts. Please wait 15 minutes and try again."
+          : err?.response?.data?.error || "Could not reset your password. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   const showTotp = started && (step.status === "totp_setup" || step.status === "totp_challenge");
@@ -218,11 +270,60 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {!showTotp ? (
+          {view === "forgot" && !showTotp ? (
+            <>
+              <div
+                className="mb-4 grid h-10 w-10 place-items-center rounded-xl"
+                style={{ background: "var(--ledger-50)", color: "var(--ledger-600)" }}
+              >
+                <KeyRound size={20} />
+              </div>
+              <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "var(--ink-900)" }}>Reset your password</h1>
+              <p className="mb-6 mt-1.5 text-sm" style={{ color: "var(--ink-500)" }}>
+                Enter your email and the current 6-digit code from your authenticator app, then choose a new password.
+              </p>
+
+              {error && <ErrorAlert>{error}</ErrorAlert>}
+
+              <form onSubmit={handleForgotSubmit}>
+                <label className="mb-4 block">
+                  <div className="mb-1.5 text-xs font-medium" style={{ color: "var(--ink-600)" }}>Email</div>
+                  <div className="relative">
+                    <Mail size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-400)]" />
+                    <input
+                      type="email" required autoComplete="username" value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className={`${inputClass} pl-10`} style={inputStyle} placeholder="you@company.com"
+                    />
+                  </div>
+                </label>
+                <CodeInput code={code} setCode={setCode} />
+                <label className="mb-4 block">
+                  <div className="mb-1.5 text-xs font-medium" style={{ color: "var(--ink-600)" }}>New password</div>
+                  <PasswordInput
+                    required minLength={8} maxLength={128} autoComplete="new-password" value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 8 characters"
+                    icon={<Lock size={16} />}
+                  />
+                </label>
+                <label className="mb-6 block">
+                  <div className="mb-1.5 text-xs font-medium" style={{ color: "var(--ink-600)" }}>Confirm new password</div>
+                  <PasswordInput
+                    required autoComplete="new-password" value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter new password"
+                    icon={<Lock size={16} />}
+                  />
+                </label>
+                <SubmitButton loading={loading} disabled={code.length !== 6} idle="Reset password" busy="Resetting…" />
+              </form>
+              {backLink}
+            </>
+          ) : !showTotp ? (
             <>
               <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "var(--ink-900)" }}>Welcome back</h1>
               <p className="mb-7 mt-1.5 text-sm" style={{ color: "var(--ink-500)" }}>Sign in to your JHS CRM workspace.</p>
 
+              {notice && <NoticeAlert>{notice}</NoticeAlert>}
               {error && <ErrorAlert>{error}</ErrorAlert>}
 
               <form onSubmit={handleCredentialsSubmit}>
@@ -237,21 +338,25 @@ export default function LoginPage() {
                     />
                   </div>
                 </label>
-                <label className="mb-6 block">
-                  <div className="mb-1.5 text-xs font-medium" style={{ color: "var(--ink-600)" }}>Password</div>
+                <div className="mb-6">
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <label htmlFor="login-password" className="text-xs font-medium" style={{ color: "var(--ink-600)" }}>Password</label>
+                    <button
+                      type="button" onClick={openForgot}
+                      className="text-xs font-medium hover:underline" style={{ color: "var(--ledger-700)" }}
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
                   <PasswordInput
-                    required autoComplete="current-password" value={password}
+                    id="login-password" required autoComplete="current-password" value={password}
                     onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
                     icon={<Lock size={16} />}
                   />
-                </label>
+                </div>
                 <SubmitButton loading={loading} idle="Sign in" busy="Signing in…" />
               </form>
 
-              <div className="mt-8 border-t pt-5 text-xs leading-relaxed" style={{ borderColor: "var(--ink-100)", color: "var(--ink-500)" }}>
-                <p>Forgot your password? Ask your administrator to reset it.</p>
-                <p className="mt-1">Accounts are created by your administrator.</p>
-              </div>
             </>
           ) : step.status === "totp_setup" ? (
             <>

@@ -25,6 +25,12 @@ const totpCodeSchema = z.object({
   code: z.string().regex(/^\d{6}$/, "Enter the 6-digit code from your authenticator app"),
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+  totpCode: z.string().regex(/^\d{6}$/, "Enter the 6-digit code from your authenticator app"),
+  newPassword: z.string().min(8, "New password must be at least 8 characters").max(128, "New password must be at most 128 characters"),
+});
+
 const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1).optional(),
@@ -180,6 +186,70 @@ export default async function authRoutes(app: FastifyInstance) {
           partnerId: user.partnerId,
         },
       });
+    }
+  );
+
+  // Signed-out "Forgot password": the user proves who they are with the 6-digit
+  // code from the authenticator app they enrolled at first login, then sets a new
+  // password. An authenticator code is the only proof available without email, so
+  // this is guarded heavily: attempts are limited per email address (not per IP --
+  // behind the proxy every user shares one IP), and an account is locked out of
+  // resetting after RESET_FAILURE_LIMIT wrong codes in 24h, counted in the audit
+  // log so the lockout survives restarts. Every failure -- unknown email, no 2FA
+  // enrolled, wrong code, locked out -- returns the same message, so this can't be
+  // used to find out which emails have accounts.
+  const RESET_FAILURE_LIMIT = 10;
+  const RESET_FAILED_MESSAGE = "That email and code don't match. Check the 6-digit code in your authenticator app and try again.";
+  app.post(
+    "/api/v1/auth/forgot-password",
+    {
+      preHandler: [
+        app.rateLimit({
+          max: 5,
+          timeWindow: "15 minutes",
+          keyGenerator: (req) => `forgot-password:${String((req.body as any)?.email ?? "").trim().toLowerCase()}`,
+        }),
+        app.rateLimit({ max: 60, timeWindow: "15 minutes", keyGenerator: () => "forgot-password:all" }),
+      ],
+    },
+    async (req, reply) => {
+      const body = forgotPasswordSchema.parse(req.body);
+      const candidates = await prisma.user.findMany({ where: { email: body.email, active: true } });
+      const enrolled = candidates.filter((u) => u.totpEnabled && u.totpSecret);
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+      let target: (typeof enrolled)[number] | null = null;
+      const countable: typeof enrolled = []; // wrong-code attempts that should add to the lockout count
+      for (const candidate of enrolled) {
+        const failures = await prisma.auditLog.count({
+          where: { tenantId: candidate.tenantId, objectType: "USER", recordId: candidate.id, action: "PASSWORD_RESET_FAILED", createdAt: { gte: since } },
+        });
+        if (failures >= RESET_FAILURE_LIMIT) continue;
+        if (verifyTotpCode(decryptTotpSecret(candidate.totpSecret!), body.totpCode)) {
+          target = candidate;
+          break;
+        }
+        countable.push(candidate);
+      }
+
+      if (!target) {
+        for (const candidate of countable) {
+          await logAudit({ tenantId: candidate.tenantId, userId: candidate.id, objectType: "USER", recordId: candidate.id, action: "PASSWORD_RESET_FAILED" });
+        }
+        return reply.code(400).send({ error: RESET_FAILED_MESSAGE });
+      }
+
+      await prisma.user.update({ where: { id: target.id }, data: { passwordHash: await argon2.hash(body.newPassword) } });
+      await logAudit({
+        tenantId: target.tenantId,
+        userId: target.id,
+        objectType: "USER",
+        recordId: target.id,
+        action: "PASSWORD_RESET_SELF",
+        newValues: { method: "authenticator_code" },
+      });
+
+      return { success: true };
     }
   );
 
