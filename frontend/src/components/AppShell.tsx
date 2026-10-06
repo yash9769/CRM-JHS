@@ -269,7 +269,7 @@ export default function AppShell() {
         {user?.orgRole === "SUPER_ADMIN" ? (
           <TenantSwitcher currentTenantName={tenant?.name} />
         ) : (
-          <div className="px-3 text-[10px] text-[var(--ink-600)]">{tenant?.name}</div>
+          <div className="px-3 text-[10px] text-[var(--ink-600)]">{user?.company ?? tenant?.name}</div>
         )}
       </div>
     </div>

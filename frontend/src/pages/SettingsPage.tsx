@@ -38,7 +38,7 @@ export default function SettingsPage() {
         <Card className="p-4 md:p-5">
           <h3 className="text-sm font-semibold mb-3 text-[var(--ink-800)]">Workspace</h3>
           <dl className="grid grid-cols-2 gap-3 text-sm">
-            <div><dt className="text-xs text-[var(--ink-400)]">Company</dt><dd className="font-medium mt-0.5">{tenant?.name}</dd></div>
+            <div><dt className="text-xs text-[var(--ink-400)]">Company</dt><dd className="font-medium mt-0.5">{me?.company ?? tenant?.name}</dd></div>
             <div><dt className="text-xs text-[var(--ink-400)]">Your role</dt><dd className="mt-0.5"><Badge tone={roleTone[me?.orgRole || "MANAGER"]}>{roleLabel(me?.orgRole)}</Badge></dd></div>
           </dl>
         </Card>

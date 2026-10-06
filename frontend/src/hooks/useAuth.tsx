@@ -9,6 +9,8 @@ export interface AuthUser {
   orgRole: "SUPER_ADMIN" | "SENIOR_PARTNER" | "PARTNER" | "MANAGER";
   partnerId?: string | null;
   partner?: { id: string; firstName: string; lastName: string } | null;
+  /** Company name worked out from the email domain (null for personal mailboxes). */
+  company?: string | null;
 }
 export interface Tenant {
   id: string;

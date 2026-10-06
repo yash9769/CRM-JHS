@@ -13,6 +13,7 @@ import {
 } from "../lib/totp.js";
 import { signFlowToken, verifyFlowToken } from "../lib/authFlowToken.js";
 import { logAudit } from "../lib/audit.js";
+import { companyFromEmail } from "../lib/company.js";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -260,6 +261,7 @@ export default async function authRoutes(app: FastifyInstance) {
         orgRole: user.orgRole,
         partnerId: user.partnerId,
         partner: user.partner,
+        company: companyFromEmail(user.email)?.name ?? null,
       },
       tenant: { id: tenant.id, name: tenant.name },
     };
