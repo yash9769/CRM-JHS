@@ -1,18 +1,26 @@
-import { useState, type InputHTMLAttributes } from "react";
+import { useState, type InputHTMLAttributes, type ReactNode } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { inputClass, inputStyle } from "./ui";
 
-type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "type">;
+type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
+  /** Optional icon shown inside the left edge of the field. */
+  icon?: ReactNode;
+};
 
 /** Password input with a show/hide toggle. Accepts the same props as a normal <input>. */
-export function PasswordInput({ className = inputClass, style = inputStyle, ...rest }: Props) {
+export function PasswordInput({ className = inputClass, style = inputStyle, icon, ...rest }: Props) {
   const [visible, setVisible] = useState(false);
   return (
     <div className="relative">
+      {icon && (
+        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[var(--ink-400)]">
+          {icon}
+        </span>
+      )}
       <input
         {...rest}
         type={visible ? "text" : "password"}
-        className={`${className} pr-10`}
+        className={`${className} pr-10 ${icon ? "pl-10" : ""}`}
         style={style}
       />
       <button
