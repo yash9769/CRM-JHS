@@ -23,7 +23,7 @@ const HIGHLIGHTS = [
 function BrandPanel() {
   return (
     <aside
-      className="relative hidden lg:flex flex-col justify-between overflow-hidden p-12 xl:p-16 text-white"
+      className="relative hidden lg:flex flex-col justify-between overflow-hidden p-10 xl:p-14 text-white"
       style={{
         background:
           "radial-gradient(70% 55% at 0% 0%, rgba(23,151,111,0.28) 0%, transparent 60%), radial-gradient(60% 50% at 100% 100%, rgba(15,107,78,0.35) 0%, transparent 65%), var(--ink-950)",
@@ -51,16 +51,16 @@ function BrandPanel() {
         <h2 className="text-4xl xl:text-[2.75rem] font-semibold tracking-tight leading-[1.12]">
           Every deal, from first conversation to signed PO.
         </h2>
-        <p className="mt-4 text-[15px] leading-relaxed text-white/60">
+        <p className="mt-3 text-[15px] leading-relaxed text-white/60 [@media(max-height:560px)]:hidden">
           One workspace for your opportunities, the approvals your firm needs, and a clear view of what's closing.
         </p>
 
-        <ol className="relative mt-10 w-fit min-w-[18rem] rounded-2xl border border-white/10 bg-white/[0.04] p-5 pb-4 pr-10 backdrop-blur-sm">
+        <ol className="relative mt-6 w-fit [@media(max-height:700px)]:hidden min-w-[18rem] rounded-2xl border border-white/10 bg-white/[0.04] p-5 pb-4 pr-10 backdrop-blur-sm">
           <div aria-hidden className="absolute left-[30px] top-[38px] bottom-[38px] w-px bg-white/15" />
           {PIPELINE_STAGES.map((stage, i) => {
             const last = i === PIPELINE_STAGES.length - 1;
             return (
-              <li key={stage.name} className="relative flex items-start gap-3.5 py-2.5">
+              <li key={stage.name} className="relative flex items-start gap-3.5 py-2">
                 <span
                   className={`relative z-10 mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full ${
                     last ? "" : "border-2 bg-[var(--ink-950)]"
@@ -79,7 +79,7 @@ function BrandPanel() {
         </ol>
       </div>
 
-      <ul className="relative space-y-2.5">
+      <ul className="relative space-y-2 [@media(max-height:780px)]:hidden">
         {HIGHLIGHTS.map(({ icon: Icon, text }) => (
           <li key={text} className="flex items-center gap-2.5 text-sm text-white/60">
             <Icon size={15} className="shrink-0 text-[var(--ledger-500)]" />
@@ -95,7 +95,7 @@ function ErrorAlert({ children }: { children: ReactNode }) {
   return (
     <div
       role="alert"
-      className="mb-5 flex items-start gap-2.5 rounded-lg border px-3.5 py-3 text-sm"
+      className="mb-3 flex items-start gap-2.5 rounded-lg border px-3.5 py-3 text-sm"
       style={{ background: "var(--rose-100)", color: "var(--rose-600)", borderColor: "rgba(181,66,58,0.2)" }}
     >
       <AlertCircle size={16} className="mt-0.5 shrink-0" />
@@ -108,7 +108,7 @@ function NoticeAlert({ children }: { children: ReactNode }) {
   return (
     <div
       role="status"
-      className="mb-5 flex items-start gap-2.5 rounded-lg border px-3.5 py-3 text-sm"
+      className="mb-3 flex items-start gap-2.5 rounded-lg border px-3.5 py-3 text-sm"
       style={{ background: "var(--ledger-50)", color: "var(--ledger-700)", borderColor: "rgba(15,107,78,0.2)" }}
     >
       <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
@@ -140,12 +140,12 @@ function SubmitButton({ loading, disabled, idle, busy }: { loading: boolean; dis
 
 function CodeInput({ code, setCode }: { code: string; setCode: (v: string) => void }) {
   return (
-    <label className="mb-5 block">
+    <label className="mb-3 block">
       <div className="mb-1.5 text-xs font-medium" style={{ color: "var(--ink-600)" }}>6-digit code</div>
       <input
         type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6} autoFocus required autoComplete="one-time-code"
         value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-        className={`${inputClass} py-3 text-center text-xl tracking-[0.5em] font-mono-num`} style={inputStyle} placeholder="000000"
+        className={`${inputClass} py-2 text-center text-lg tracking-[0.5em] font-mono-num`} style={inputStyle} placeholder="000000"
       />
     </label>
   );
@@ -251,7 +251,7 @@ export default function LoginPage() {
     <button
       type="button"
       onClick={backToSignIn}
-      className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium hover:underline"
+      className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium hover:underline"
       style={{ color: "var(--ink-500)" }}
     >
       <ArrowLeft size={14} /> Back to sign in
@@ -259,34 +259,34 @@ export default function LoginPage() {
   );
 
   return (
-    <div className="grid min-h-dvh lg:grid-cols-[1.05fr_1fr]" style={{ background: "var(--paper)" }}>
+    <div className="grid h-dvh overflow-hidden lg:grid-cols-[1.05fr_1fr]" style={{ background: "var(--paper)" }}>
       <BrandPanel />
 
-      <main className="flex flex-col justify-center px-6 py-10 sm:px-12 lg:px-16 xl:px-24">
+      <main className="flex min-h-0 flex-col justify-center px-6 py-4 sm:px-12 lg:px-16 xl:px-24">
         <div className="mx-auto w-full max-w-sm">
-          <div className="mb-9 flex justify-center lg:hidden">
+          <div className="mb-4 flex shrink-0 justify-center lg:hidden">
             <div className="inline-flex items-center rounded-xl bg-white px-4 py-2.5 shadow-md ring-1 ring-black/5">
-              <img src="/jhs_logo.png" alt="JHS CRM" className="h-11 max-w-[200px] object-contain" />
+              <img src="/jhs_logo.png" alt="JHS CRM" className="h-9 max-w-[180px] object-contain" />
             </div>
           </div>
 
           {view === "forgot" && !showTotp ? (
             <>
               <div
-                className="mb-4 grid h-10 w-10 place-items-center rounded-xl"
+                className="mb-3 grid h-9 w-9 place-items-center rounded-xl"
                 style={{ background: "var(--ledger-50)", color: "var(--ledger-600)" }}
               >
                 <KeyRound size={20} />
               </div>
               <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "var(--ink-900)" }}>Reset your password</h1>
-              <p className="mb-6 mt-1.5 text-sm" style={{ color: "var(--ink-500)" }}>
+              <p className="mb-4 mt-1 text-sm" style={{ color: "var(--ink-500)" }}>
                 Enter your email and the current 6-digit code from your authenticator app, then choose a new password.
               </p>
 
               {error && <ErrorAlert>{error}</ErrorAlert>}
 
               <form onSubmit={handleForgotSubmit}>
-                <label className="mb-4 block">
+                <label className="mb-3 block">
                   <div className="mb-1.5 text-xs font-medium" style={{ color: "var(--ink-600)" }}>Email</div>
                   <div className="relative">
                     <Mail size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-400)]" />
@@ -298,7 +298,7 @@ export default function LoginPage() {
                   </div>
                 </label>
                 <CodeInput code={code} setCode={setCode} />
-                <label className="mb-4 block">
+                <label className="mb-3 block">
                   <div className="mb-1.5 text-xs font-medium" style={{ color: "var(--ink-600)" }}>New password</div>
                   <PasswordInput
                     required minLength={8} maxLength={128} autoComplete="new-password" value={newPassword}
@@ -306,7 +306,7 @@ export default function LoginPage() {
                     icon={<Lock size={16} />}
                   />
                 </label>
-                <label className="mb-6 block">
+                <label className="mb-4 block">
                   <div className="mb-1.5 text-xs font-medium" style={{ color: "var(--ink-600)" }}>Confirm new password</div>
                   <PasswordInput
                     required autoComplete="new-password" value={confirmPassword}
@@ -321,13 +321,13 @@ export default function LoginPage() {
           ) : !showTotp ? (
             <>
               <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "var(--ink-900)" }}>Welcome back</h1>
-              <p className="mb-7 mt-1.5 text-sm" style={{ color: "var(--ink-500)" }}>Sign in to your JHS CRM workspace.</p>
+              <p className="mb-5 mt-1 text-sm" style={{ color: "var(--ink-500)" }}>Sign in to your JHS CRM workspace.</p>
 
               {notice && <NoticeAlert>{notice}</NoticeAlert>}
               {error && <ErrorAlert>{error}</ErrorAlert>}
 
               <form onSubmit={handleCredentialsSubmit}>
-                <label className="mb-4 block">
+                <label className="mb-3 block">
                   <div className="mb-1.5 text-xs font-medium" style={{ color: "var(--ink-600)" }}>Email</div>
                   <div className="relative">
                     <Mail size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-400)]" />
@@ -338,7 +338,7 @@ export default function LoginPage() {
                     />
                   </div>
                 </label>
-                <div className="mb-6">
+                <div className="mb-5">
                   <div className="mb-1.5 flex items-center justify-between">
                     <label htmlFor="login-password" className="text-xs font-medium" style={{ color: "var(--ink-600)" }}>Password</label>
                     <button
@@ -361,21 +361,21 @@ export default function LoginPage() {
           ) : step.status === "totp_setup" ? (
             <>
               <div
-                className="mb-4 grid h-10 w-10 place-items-center rounded-xl"
+                className="mb-3 grid h-9 w-9 place-items-center rounded-xl"
                 style={{ background: "var(--ledger-50)", color: "var(--ledger-600)" }}
               >
                 <ShieldCheck size={20} />
               </div>
               <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "var(--ink-900)" }}>Set up your authenticator</h1>
-              <p className="mb-5 mt-1.5 text-sm" style={{ color: "var(--ink-500)" }}>
+              <p className="mb-3 mt-1 text-sm" style={{ color: "var(--ink-500)" }}>
                 Scan this QR code with Google Authenticator, Authy, 1Password, or any TOTP app, then enter the 6-digit code it shows.
               </p>
 
-              <div className="mb-4 flex justify-center">
-                <img src={step.qrCodeDataUrl} alt="Authenticator QR code" className="h-44 w-44 rounded-xl border bg-white p-2" style={{ borderColor: "var(--ink-100)" }} />
+              <div className="mb-3 flex justify-center">
+                <img src={step.qrCodeDataUrl} alt="Authenticator QR code" className="h-32 w-32 rounded-xl border bg-white p-2" style={{ borderColor: "var(--ink-100)" }} />
               </div>
 
-              <div className="mb-5 rounded-lg px-3 py-2.5 text-center" style={{ background: "var(--ink-50)" }}>
+              <div className="mb-3 rounded-lg px-3 py-2 text-center" style={{ background: "var(--ink-50)" }}>
                 <div className="mb-1 text-[10px] font-medium uppercase tracking-wide" style={{ color: "var(--ink-400)" }}>Can't scan? Enter this key manually</div>
                 <code className="break-all text-xs font-mono-num" style={{ color: "var(--ink-700)" }}>{step.secret}</code>
               </div>
@@ -391,13 +391,13 @@ export default function LoginPage() {
           ) : (
             <>
               <div
-                className="mb-4 grid h-10 w-10 place-items-center rounded-xl"
+                className="mb-3 grid h-9 w-9 place-items-center rounded-xl"
                 style={{ background: "var(--ledger-50)", color: "var(--ledger-600)" }}
               >
                 <ShieldCheck size={20} />
               </div>
               <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "var(--ink-900)" }}>Enter your authenticator code</h1>
-              <p className="mb-6 mt-1.5 text-sm" style={{ color: "var(--ink-500)" }}>
+              <p className="mb-4 mt-1 text-sm" style={{ color: "var(--ink-500)" }}>
                 For your security, sign-in requires a fresh code from your authenticator app every 7 days.
               </p>
 
@@ -411,7 +411,7 @@ export default function LoginPage() {
             </>
           )}
 
-          <p className="mt-10 text-center text-[11px]" style={{ color: "var(--ink-400)" }}>
+          <p className="mt-5 text-center text-[11px]" style={{ color: "var(--ink-400)" }}>
             © {new Date().getFullYear()} JHS &amp; Associates LLP
           </p>
         </div>
